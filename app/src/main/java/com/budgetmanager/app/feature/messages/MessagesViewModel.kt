@@ -3,7 +3,9 @@ package com.budgetmanager.app.feature.messages
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.budgetmanager.app.core.model.MessageStatus
+import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.SmsMessage
+import com.budgetmanager.app.data.repository.CategoryRepository
 import com.budgetmanager.app.data.repository.MessageRepository
 import com.budgetmanager.app.sms.InboxScanner
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -21,7 +24,8 @@ import javax.inject.Inject
 @HiltViewModel
 class MessagesViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
-    private val inboxScanner: InboxScanner
+    private val inboxScanner: InboxScanner,
+    private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
     private val filter = MutableStateFlow(MessageFilter.ALL)
@@ -133,26 +137,39 @@ class MessagesViewModel @Inject constructor(
         }
     }
 
-    /** Debug-only: inserts one fabricated Not assigned message so a "new" row shows up instantly. */
+    /** Debug-only: inserts one fabricated Not assigned message so a "new" row shows up instantly.
+     *  Includes a parsed amount and a suggested category (picks the first active one) - real
+     *  received SMS won't have these until M2b's per-bank parser exists, so this is the only way
+     *  to exercise Add Transaction's pre-fill before then. */
     fun onAddTestMessage() {
         viewModelScope.launch {
             val now = Instant.now()
-            val amount = (50..999).random()
+            val amountRupees = (50..999).random()
+            val firstCategoryId = categoryRepository.observeActive().first().firstOrNull()?.id
             val message = SmsMessage(
                 id = 0,
                 sender = "TESTBANK",
-                body = "Rs $amount.00 debited from a/c XX1234 at TEST MERCHANT. Avl bal Rs 5000.",
+                body = "Rs $amountRupees.00 debited from a/c XX1234 at TEST MERCHANT. Avl bal Rs 5000.",
                 receivedAt = now,
                 smsProviderId = null,
                 dedupeKey = "debug-${now.toEpochMilli()}-${(0..999_999).random()}",
-                parsedAmount = null,
-                merchant = null,
-                suggestedCategoryId = null,
+                parsedAmount = Money.ofRupees(amountRupees.toLong()),
+                merchant = "TEST MERCHANT",
+                suggestedCategoryId = firstCategoryId,
                 status = MessageStatus.NOT_ASSIGNED,
                 isNew = true
             )
             messageRepository.ingest(message)
         }
+    }
+
+    /** Debug-only: resets a message back to Not assigned regardless of its current status, for
+     *  quickly re-testing the accept/reject flow without waiting for a fresh SMS. Does NOT touch
+     *  any transaction that might already be linked - unlike the real revert path (deleting the
+     *  transaction, M7), this is purely for exercising the Messages screen's states. */
+    fun onDebugResetToNotAssigned(id: Long) {
+        viewModelScope.launch { messageRepository.setStatus(id, MessageStatus.NOT_ASSIGNED) }
+        selectedMessageId.value = null
     }
 
     private fun matchesFilter(message: SmsMessage, f: MessageFilter): Boolean = when (f) {

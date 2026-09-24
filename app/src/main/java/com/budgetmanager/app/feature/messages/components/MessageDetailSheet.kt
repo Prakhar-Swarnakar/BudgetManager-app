@@ -11,10 +11,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.budgetmanager.app.BuildConfig
 import com.budgetmanager.app.core.model.SmsMessage
 
 /** The full SMS text with Accept and Reject buttons, per 04-messages-and-notifications.md. */
@@ -24,7 +26,8 @@ fun MessageDetailSheet(
     message: SmsMessage,
     onDismiss: () -> Unit,
     onAccept: () -> Unit,
-    onReject: () -> Unit
+    onReject: () -> Unit,
+    onDebugReset: () -> Unit = {}
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -34,6 +37,11 @@ fun MessageDetailSheet(
                 OutlinedButton(onClick = onReject, modifier = Modifier.weight(1f)) { Text("Reject") }
                 Spacer(Modifier.width(8.dp))
                 Button(onClick = onAccept, modifier = Modifier.weight(1f)) { Text("Accept") }
+            }
+            if (BuildConfig.DEBUG) {
+                TextButton(onClick = onDebugReset, modifier = Modifier.fillMaxWidth()) {
+                    Text("Debug: reset to Not assigned")
+                }
             }
         }
     }

@@ -18,5 +18,6 @@ data class AddTransactionUiState(
     val smsBannerText: String? = null,
     val messageIdForAccept: Long? = null,
     val transactionIdForEdit: Long? = null,
+    val isSaving: Boolean = false,
     val saved: Boolean = false
 )

@@ -1,6 +1,8 @@
 package com.budgetmanager.app.feature.transaction
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -10,10 +12,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.budgetmanager.app.core.designsystem.components.AmountField
 import com.budgetmanager.app.core.designsystem.components.CategoryChipGrid
@@ -29,6 +31,7 @@ fun AddTransactionContent(
     onDateChanged: (java.time.LocalDate) -> Unit,
     onCategorySelected: (Long) -> Unit,
     onSave: () -> Unit,
+    onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -80,8 +83,17 @@ fun AddTransactionContent(
         )
 
         Spacer(Modifier.height(28.dp))
-        Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
-            Text(if (state.isEditMode) "Save changes" else "Save")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
+                Text("Cancel")
+            }
+            Button(
+                onClick = onSave,
+                enabled = !state.isSaving,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(if (state.isEditMode) "Save changes" else "Save")
+            }
         }
     }
 }

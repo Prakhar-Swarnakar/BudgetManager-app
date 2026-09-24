@@ -96,6 +96,11 @@ class AddTransactionViewModel @Inject constructor(
 
     fun onSave() {
         val current = internalState.value
+        // Guards against a double-tap firing saveFromMessage twice before the screen has a
+        // chance to navigate away - the second insert would violate the one-transaction-per-
+        // message unique constraint and crash (a real bug hit during testing, not hypothetical).
+        if (current.isSaving) return
+
         val amount = Money.parseRupeeInput(current.amountInput)
         val categoryId = current.selectedCategoryId
 
@@ -108,6 +113,7 @@ class AddTransactionViewModel @Inject constructor(
             return
         }
 
+        internalState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
             val zone = ZoneId.systemDefault()
             val occurredAt = current.date.atStartOfDay(zone).toInstant()
@@ -148,7 +154,7 @@ class AddTransactionViewModel @Inject constructor(
                     )
                 }
             }
-            internalState.update { it.copy(saved = true) }
+            internalState.update { it.copy(saved = true, isSaving = false) }
         }
     }
 
