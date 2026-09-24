@@ -1,0 +1,128 @@
+package com.budgetmanager.app.navigation
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Mail
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.ui.NavDisplay
+import com.budgetmanager.app.core.designsystem.components.AppScaffold
+import com.budgetmanager.app.feature.budget.MonthlyBudgetScreen
+import com.budgetmanager.app.feature.categories.CategoriesScreen
+import com.budgetmanager.app.feature.home.HomeScreen
+import com.budgetmanager.app.feature.messages.MessagesScreen
+import com.budgetmanager.app.feature.settings.SettingsScreen
+import com.budgetmanager.app.feature.trends.TrendsScreen
+import kotlinx.coroutines.launch
+
+private data class NavItem(val destination: Destination, val label: String, val icon: ImageVector)
+
+private val bottomBarItems = listOf(
+    NavItem(Destination.Home, "Home", Icons.Default.Home),
+    NavItem(Destination.Messages, "Messages", Icons.Default.Mail),
+    NavItem(Destination.Trends, "Trends", Icons.Default.ShowChart)
+)
+
+private val sidePanelItems = listOf(
+    NavItem(Destination.MonthlyBudget, "Monthly budget", Icons.Default.AccountBalanceWallet),
+    NavItem(Destination.Categories, "Categories", Icons.Default.Category),
+    NavItem(Destination.Settings, "Settings", Icons.Default.Settings)
+)
+
+private fun titleFor(destination: Destination): String = when (destination) {
+    Destination.Home -> "Home"
+    Destination.Messages -> "Messages"
+    Destination.Trends -> "Trends"
+    Destination.MonthlyBudget -> "Monthly budget"
+    Destination.Categories -> "Categories"
+    Destination.Settings -> "Settings"
+}
+
+/**
+ * Bottom bar for Home/Messages/Trends (daily use), side panel for Monthly budget/Categories/
+ * Settings (used a few times a month). See 08-pages-and-navigation.md.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppNavigation() {
+    val backStack = remember { mutableStateListOf<Destination>(Destination.Home) }
+    val current = backStack.last()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    fun navigateToTopLevel(destination: Destination) {
+        backStack.clear()
+        backStack.add(destination)
+    }
+
+    fun navigateTo(destination: Destination) {
+        backStack.add(destination)
+        scope.launch { drawerState.close() }
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                sidePanelItems.forEach { item ->
+                    NavigationDrawerItem(
+                        label = { Text(item.label) },
+                        icon = { Icon(item.icon, contentDescription = null) },
+                        selected = current == item.destination,
+                        onClick = { navigateTo(item.destination) }
+                    )
+                }
+            }
+        }
+    ) {
+        AppScaffold(
+            title = titleFor(current),
+            onMenuClick = { scope.launch { drawerState.open() } },
+            bottomBar = {
+                NavigationBar {
+                    bottomBarItems.forEach { item ->
+                        NavigationBarItem(
+                            selected = current == item.destination,
+                            onClick = { navigateToTopLevel(item.destination) },
+                            icon = { Icon(item.icon, contentDescription = null) },
+                            label = { Text(item.label) }
+                        )
+                    }
+                }
+            }
+        ) { contentModifier ->
+            NavDisplay(
+                backStack = backStack,
+                onBack = { backStack.removeLastOrNull() },
+                entryProvider = { destination ->
+                    when (destination) {
+                        Destination.Home -> NavEntry(destination) { HomeScreen(contentModifier) }
+                        Destination.Messages -> NavEntry(destination) { MessagesScreen(contentModifier) }
+                        Destination.Trends -> NavEntry(destination) { TrendsScreen(contentModifier) }
+                        Destination.MonthlyBudget -> NavEntry(destination) { MonthlyBudgetScreen(contentModifier) }
+                        Destination.Categories -> NavEntry(destination) { CategoriesScreen(contentModifier) }
+                        Destination.Settings -> NavEntry(destination) { SettingsScreen(contentModifier) }
+                    }
+                }
+            )
+        }
+    }
+}
