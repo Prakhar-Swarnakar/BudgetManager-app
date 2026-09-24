@@ -1,0 +1,87 @@
+package com.budgetmanager.app.feature.transaction
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import com.budgetmanager.app.core.designsystem.components.AmountField
+import com.budgetmanager.app.core.designsystem.components.CategoryChipGrid
+import com.budgetmanager.app.feature.transaction.components.DateField
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.OutlinedTextField
+
+@Composable
+fun AddTransactionContent(
+    state: AddTransactionUiState,
+    onAmountChanged: (String) -> Unit,
+    onNoteChanged: (String) -> Unit,
+    onDateChanged: (java.time.LocalDate) -> Unit,
+    onCategorySelected: (Long) -> Unit,
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        state.smsBannerText?.let { text ->
+            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                Text(
+                    text,
+                    modifier = Modifier.padding(12.dp),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        AmountField(
+            value = state.amountInput,
+            onValueChange = onAmountChanged,
+            isError = state.amountError != null,
+            supportingText = state.amountError,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(20.dp))
+        Text("Category", style = MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.height(8.dp))
+        CategoryChipGrid(
+            categories = state.categories,
+            selectedCategoryId = state.selectedCategoryId,
+            suggestedCategoryId = state.suggestedCategoryId,
+            onSelect = onCategorySelected
+        )
+        state.categoryError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+        }
+
+        Spacer(Modifier.height(20.dp))
+        DateField(date = state.date, onDateChanged = onDateChanged)
+
+        Spacer(Modifier.height(20.dp))
+        OutlinedTextField(
+            value = state.note,
+            onValueChange = onNoteChanged,
+            label = { Text("Note (optional)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(28.dp))
+        Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
+            Text(if (state.isEditMode) "Save changes" else "Save")
+        }
+    }
+}

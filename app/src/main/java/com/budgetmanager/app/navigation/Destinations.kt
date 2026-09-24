@@ -9,6 +9,7 @@ sealed interface Destination {
     data object Categories : Destination
     data object Settings : Destination
 
-    /** Placeholder until M4 builds the real Add Transaction screen. */
-    data class AddTransactionStub(val messageId: Long) : Destination
+    /** Manual add when both are null, accepting a message when [messageId] is set, editing an
+     *  existing transaction when [transactionId] is set. Never both at once. */
+    data class AddTransaction(val messageId: Long? = null, val transactionId: Long? = null) : Destination
 }

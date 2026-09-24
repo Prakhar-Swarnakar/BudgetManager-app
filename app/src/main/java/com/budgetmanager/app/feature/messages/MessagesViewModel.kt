@@ -52,26 +52,23 @@ class MessagesViewModel @Inject constructor(
     }
 
     /**
-     * Swipe right (StartToEnd). Only Not assigned moves forward, and only to Accepted; from
-     * Accepted or Rejected this can only bring the message back to Not assigned - "only
-     * unassigned should be able to move to accepted or rejected."
-     *
-     * TEST-ONLY for M3: marks Accepted directly. The real behaviour (M4) instead navigates to
-     * Add Transaction and only turns green once a transaction is actually saved - swap this
-     * back out when M4 lands.
+     * Swipe right (StartToEnd): requests navigation to Add Transaction, for Not assigned and
+     * for Rejected alike - "a rejected message can still be accepted later, by swiping right"
+     * (04-messages-and-notifications.md). Accepted is a no-op; only saving a transaction there
+     * (M4) actually turns a message green.
      */
     fun onSwipeStart(id: Long) {
         viewModelScope.launch {
             when (messageRepository.getById(id)?.status) {
-                MessageStatus.NOT_ASSIGNED -> messageRepository.setStatus(id, MessageStatus.ACCEPTED)
-                MessageStatus.REJECTED -> messageRepository.setStatus(id, MessageStatus.NOT_ASSIGNED)
+                MessageStatus.NOT_ASSIGNED, MessageStatus.REJECTED -> navigateToAddTransactionForMessageId.value = id
                 else -> Unit
             }
         }
     }
 
-    /** Swipe left (EndToStart): Not assigned -> Rejected (with undo), Accepted -> Not assigned
-     *  (revert), Rejected -> no-op. */
+    /** Swipe left (EndToStart): Not assigned -> Rejected, with undo. Accepted and Rejected are
+     *  no-ops here - un-accepting means deleting the transaction (Category detail, M7), not a
+     *  simple status flip. */
     fun onSwipeEnd(id: Long) {
         viewModelScope.launch {
             when (messageRepository.getById(id)?.status) {
@@ -79,7 +76,6 @@ class MessagesViewModel @Inject constructor(
                     messageRepository.reject(id)
                     undoRejectedMessageId.value = id
                 }
-                MessageStatus.ACCEPTED -> messageRepository.setStatus(id, MessageStatus.NOT_ASSIGNED)
                 else -> Unit
             }
         }

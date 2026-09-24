@@ -30,12 +30,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import com.budgetmanager.app.core.designsystem.components.AppScaffold
-import com.budgetmanager.app.core.designsystem.components.ScreenPlaceholder
 import com.budgetmanager.app.feature.budget.MonthlyBudgetScreen
 import com.budgetmanager.app.feature.categories.CategoriesScreen
 import com.budgetmanager.app.feature.home.HomeScreen
 import com.budgetmanager.app.feature.messages.MessagesScreen
 import com.budgetmanager.app.feature.settings.SettingsScreen
+import com.budgetmanager.app.feature.transaction.AddTransactionScreen
 import com.budgetmanager.app.feature.trends.TrendsScreen
 import kotlinx.coroutines.launch
 
@@ -60,7 +60,7 @@ private fun titleFor(destination: Destination): String = when (destination) {
     Destination.MonthlyBudget -> "Monthly budget"
     Destination.Categories -> "Categories"
     Destination.Settings -> "Settings"
-    is Destination.AddTransactionStub -> "Add transaction"
+    is Destination.AddTransaction -> if (destination.transactionId != null) "Edit transaction" else "Add transaction"
 }
 
 /**
@@ -144,7 +144,7 @@ fun AppNavigation() {
                         Destination.Messages -> NavEntry(destination) {
                             MessagesScreen(
                                 onNavigateToAddTransaction = { messageId ->
-                                    backStack.add(Destination.AddTransactionStub(messageId))
+                                    backStack.add(Destination.AddTransaction(messageId = messageId))
                                 },
                                 modifier = contentModifier
                             )
@@ -153,10 +153,12 @@ fun AppNavigation() {
                         Destination.MonthlyBudget -> NavEntry(destination) { MonthlyBudgetScreen(contentModifier) }
                         Destination.Categories -> NavEntry(destination) { CategoriesScreen(contentModifier) }
                         Destination.Settings -> NavEntry(destination) { SettingsScreen(contentModifier) }
-                        is Destination.AddTransactionStub -> NavEntry(destination) {
-                            ScreenPlaceholder(
-                                "Add transaction (message #${destination.messageId}) - built in M4",
-                                contentModifier
+                        is Destination.AddTransaction -> NavEntry(destination) {
+                            AddTransactionScreen(
+                                messageId = destination.messageId,
+                                transactionId = destination.transactionId,
+                                onDone = { backStack.removeLastOrNull() },
+                                modifier = contentModifier
                             )
                         }
                     }
