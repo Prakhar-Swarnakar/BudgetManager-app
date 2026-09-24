@@ -1,4 +1,3 @@
-
 package com.budgetmanager.app
 
 import android.os.Bundle
@@ -9,11 +8,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import com.budgetmanager.app.ui.theme.BudgetManagerTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+/**
+ * M0 checkpoint: confirms Hilt + the theme compile and run. Replaced with the real
+ * navigation shell (AppNavigation) in the next batch.
+ */
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,28 +24,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             BudgetManagerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
+                    Text(
+                        "Budget Manager – M0 foundation",
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    BudgetManagerTheme {
-        Greeting("Android")
     }
 }
