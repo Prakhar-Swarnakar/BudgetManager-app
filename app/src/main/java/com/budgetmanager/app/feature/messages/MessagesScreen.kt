@@ -39,7 +39,6 @@ fun MessagesScreen(
         onUndoDismissed = viewModel::onUndoDismissed,
         onImportTodaySms = viewModel::onImportTodaySms,
         onAddTestMessage = viewModel::onAddTestMessage,
-        onDebugReset = viewModel::onDebugResetToNotAssigned,
         modifier = modifier
     )
 }

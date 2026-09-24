@@ -238,26 +238,4 @@ class MessagesViewModelTest {
         assertTrue(scanner.lastScanFromMillis != null)
         collector.cancel()
     }
-
-    @Test
-    fun `onDebugResetToNotAssigned resets an Accepted message and closes the detail sheet`() = runTest {
-        val repo = FakeMessageRepository()
-        val viewModel = viewModel(repo)
-        val collector = viewModel.uiState.onEach { }.launchIn(this)
-
-        val id = repo.ingest(testMessage("k1"))!!
-        repo.updateStatus(id, MessageStatus.ACCEPTED)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        viewModel.onRowClick(id)
-        dispatcher.scheduler.advanceUntilIdle()
-        assertNotNull(viewModel.uiState.value.selectedMessage)
-
-        viewModel.onDebugResetToNotAssigned(id)
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(MessageStatus.NOT_ASSIGNED, repo.getById(id)!!.status)
-        assertNull(viewModel.uiState.value.selectedMessage)
-        collector.cancel()
-    }
 }

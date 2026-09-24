@@ -42,7 +42,6 @@ fun MessagesContent(
     onUndoDismissed: () -> Unit,
     onImportTodaySms: () -> Unit,
     onAddTestMessage: () -> Unit,
-    onDebugReset: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -105,8 +104,7 @@ fun MessagesContent(
             message = message,
             onDismiss = onDetailDismissed,
             onAccept = { onAcceptFromDetail(message.id) },
-            onReject = { onRejectFromDetail(message.id) },
-            onDebugReset = { onDebugReset(message.id) }
+            onReject = { onRejectFromDetail(message.id) }
         )
     }
 }

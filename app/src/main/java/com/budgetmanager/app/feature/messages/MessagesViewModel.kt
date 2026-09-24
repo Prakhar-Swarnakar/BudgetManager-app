@@ -163,15 +163,6 @@ class MessagesViewModel @Inject constructor(
         }
     }
 
-    /** Debug-only: resets a message back to Not assigned regardless of its current status, for
-     *  quickly re-testing the accept/reject flow without waiting for a fresh SMS. Does NOT touch
-     *  any transaction that might already be linked - unlike the real revert path (deleting the
-     *  transaction, M7), this is purely for exercising the Messages screen's states. */
-    fun onDebugResetToNotAssigned(id: Long) {
-        viewModelScope.launch { messageRepository.setStatus(id, MessageStatus.NOT_ASSIGNED) }
-        selectedMessageId.value = null
-    }
-
     private fun matchesFilter(message: SmsMessage, f: MessageFilter): Boolean = when (f) {
         MessageFilter.ALL -> true
         MessageFilter.NOT_ASSIGNED -> message.status == MessageStatus.NOT_ASSIGNED

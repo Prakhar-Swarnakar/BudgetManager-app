@@ -55,8 +55,16 @@ class FakeTransactionRepository(
         categoryId: Long,
         note: String?
     ): Long {
-        val id = nextId++
-        state.value = state.value + Transaction(id, amount, occurredAt, monthKey, categoryId, note, message.id)
+        // Mirrors RoomTransactionRepository: update in place if a transaction is already linked
+        // to this message, rather than adding a second one for the same sourceMessageId.
+        val existing = state.value.firstOrNull { it.sourceMessageId == message.id }
+        val id = existing?.id ?: nextId++
+        val transaction = Transaction(id, amount, occurredAt, monthKey, categoryId, note, message.id)
+        state.value = if (existing != null) {
+            state.value.map { if (it.id == id) transaction else it }
+        } else {
+            state.value + transaction
+        }
         messages?.updateStatus(message.id, com.budgetmanager.app.core.model.MessageStatus.ACCEPTED)
         return id
     }

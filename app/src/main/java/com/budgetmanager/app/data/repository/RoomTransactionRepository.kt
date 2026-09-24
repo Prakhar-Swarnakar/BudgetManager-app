@@ -59,16 +59,33 @@ class RoomTransactionRepository @Inject constructor(
         categoryId: Long,
         note: String?
     ): Long = database.withTransaction {
-        val transactionId = transactionDao.insert(
-            TransactionEntity(
-                amountPaise = amount.paise,
-                occurredAt = occurredAt.toEpochMilli(),
-                monthKey = monthKey.value,
-                categoryId = categoryId,
-                note = note,
-                sourceMessageId = message.id
+        // source_message_id is unique - if a transaction is already linked to this message
+        // (e.g. accepted once, then its status got out of sync some other way), update that one
+        // instead of inserting a second row, which would violate the constraint and crash.
+        val existing = transactionDao.getBySourceMessageId(message.id)
+        val transactionId = if (existing != null) {
+            transactionDao.update(
+                existing.copy(
+                    amountPaise = amount.paise,
+                    occurredAt = occurredAt.toEpochMilli(),
+                    monthKey = monthKey.value,
+                    categoryId = categoryId,
+                    note = note
+                )
             )
-        )
+            existing.id
+        } else {
+            transactionDao.insert(
+                TransactionEntity(
+                    amountPaise = amount.paise,
+                    occurredAt = occurredAt.toEpochMilli(),
+                    monthKey = monthKey.value,
+                    categoryId = categoryId,
+                    note = note,
+                    sourceMessageId = message.id
+                )
+            )
+        }
         smsMessageDao.updateStatus(message.id, MessageStatus.ACCEPTED)
         transactionId
     }

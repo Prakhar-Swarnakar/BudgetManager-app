@@ -89,6 +89,30 @@ class RoomTransactionRepositoryAtomicTest {
     }
 
     @Test
+    fun savingFromMessageTwice_updatesTheExistingTransactionInsteadOfCrashing() = runTest {
+        // Reproduces a real crash found during testing: if a message's status ever gets out of
+        // sync with whether it already has a linked transaction (e.g. status manually reset
+        // without deleting the transaction), accepting it again must not violate the
+        // one-transaction-per-message unique constraint.
+        val message = ingestTestMessage("key-3")
+        val firstId = transactionRepository.saveFromMessage(
+            message = message, amount = Money.ofRupees(200), occurredAt = Instant.now(),
+            monthKey = monthKey, categoryId = categoryId, note = "First save"
+        )
+
+        val secondId = transactionRepository.saveFromMessage(
+            message = message, amount = Money.ofRupees(300), occurredAt = Instant.now(),
+            monthKey = monthKey, categoryId = categoryId, note = "Second save"
+        )
+
+        assertEquals(firstId, secondId)
+        val transaction = transactionRepository.getById(firstId)!!
+        assertEquals(Money.ofRupees(300), transaction.amount)
+        assertEquals("Second save", transaction.note)
+        assertEquals(MessageStatus.ACCEPTED, messageRepository.getById(message.id)!!.status)
+    }
+
+    @Test
     fun deletingAManualTransaction_doesNotTouchAnyMessage() = runTest {
         val transactionId = transactionRepository.insert(
             amount = Money.ofRupees(100), occurredAt = Instant.now(), monthKey = monthKey,
