@@ -33,7 +33,11 @@ class RoomMessageRepository @Inject constructor(
     }
 
     override suspend fun reject(id: Long) {
-        smsMessageDao.updateStatus(id, MessageStatus.REJECTED)
+        setStatus(id, MessageStatus.REJECTED)
+    }
+
+    override suspend fun setStatus(id: Long, status: MessageStatus) {
+        smsMessageDao.updateStatus(id, status)
     }
 
     override suspend fun markAllSeen() {

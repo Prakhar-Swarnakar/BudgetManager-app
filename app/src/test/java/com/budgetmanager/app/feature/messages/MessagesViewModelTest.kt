@@ -1,0 +1,146 @@
+package com.budgetmanager.app.feature.messages
+
+import com.budgetmanager.app.core.model.MessageStatus
+import com.budgetmanager.app.core.model.Money
+import com.budgetmanager.app.core.model.SmsMessage
+import com.budgetmanager.app.data.repository.FakeMessageRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import java.time.Instant
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class MessagesViewModelTest {
+
+    private val dispatcher = StandardTestDispatcher()
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(dispatcher)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    private fun testMessage(dedupeKey: String) = SmsMessage(
+        id = 0, sender = "TESTBANK", body = "Rs 100 debited", receivedAt = Instant.now(),
+        smsProviderId = null, dedupeKey = dedupeKey, parsedAmount = Money.ofRupees(100),
+        merchant = "Test Store", suggestedCategoryId = null, status = MessageStatus.NOT_ASSIGNED,
+        isNew = true
+    )
+
+    @Test
+    fun `filter counts reflect message statuses`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = MessagesViewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        repo.ingest(testMessage("k1"))
+        val id2 = repo.ingest(testMessage("k2"))!!
+        repo.updateStatus(id2, MessageStatus.ACCEPTED)
+        val id3 = repo.ingest(testMessage("k3"))!!
+        repo.updateStatus(id3, MessageStatus.REJECTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val counts = viewModel.uiState.value.counts
+        assertEquals(3, counts[MessageFilter.ALL])
+        assertEquals(1, counts[MessageFilter.NOT_ASSIGNED])
+        assertEquals(1, counts[MessageFilter.ACCEPTED])
+        assertEquals(1, counts[MessageFilter.REJECTED])
+        collector.cancel()
+    }
+
+    @Test
+    fun `selecting a filter shows only matching rows`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = MessagesViewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        repo.ingest(testMessage("k1"))
+        val id2 = repo.ingest(testMessage("k2"))!!
+        repo.updateStatus(id2, MessageStatus.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onFilterSelected(MessageFilter.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.rows.size)
+        assertEquals(id2, viewModel.uiState.value.rows.first().id)
+        collector.cancel()
+    }
+
+    @Test
+    fun `swipe reject rejects the message and can be undone`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = MessagesViewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val id = repo.ingest(testMessage("k1"))!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSwipeReject(id)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(MessageStatus.REJECTED, repo.getById(id)!!.status)
+        assertEquals(id, viewModel.uiState.value.undoRejectedMessageId)
+
+        viewModel.onUndoReject()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(MessageStatus.NOT_ASSIGNED, repo.getById(id)!!.status)
+        assertNull(viewModel.uiState.value.undoRejectedMessageId)
+        collector.cancel()
+    }
+
+    @Test
+    fun `new-flag clears only after leaving the screen`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = MessagesViewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val id = repo.ingest(testMessage("k1"))!!
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(repo.getById(id)!!.isNew)
+
+        // Still "on" the screen in this test's terms: isNew must not clear on its own.
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(repo.getById(id)!!.isNew)
+
+        viewModel.onLeftScreen()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(false, repo.getById(id)!!.isNew)
+        collector.cancel()
+    }
+
+    @Test
+    fun `swipe accept requests navigation without changing status`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = MessagesViewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val id = repo.ingest(testMessage("k1"))!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSwipeAccept(id)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(id, viewModel.uiState.value.navigateToAddTransactionForMessageId)
+        assertEquals(MessageStatus.NOT_ASSIGNED, repo.getById(id)!!.status)
+
+        viewModel.onNavigationHandled()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertNull(viewModel.uiState.value.navigateToAddTransactionForMessageId)
+        collector.cancel()
+    }
+}

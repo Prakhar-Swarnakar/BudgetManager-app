@@ -7,6 +7,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -18,13 +20,17 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import com.budgetmanager.app.core.designsystem.components.AppScaffold
+import com.budgetmanager.app.core.designsystem.components.ScreenPlaceholder
 import com.budgetmanager.app.feature.budget.MonthlyBudgetScreen
 import com.budgetmanager.app.feature.categories.CategoriesScreen
 import com.budgetmanager.app.feature.home.HomeScreen
@@ -54,6 +60,7 @@ private fun titleFor(destination: Destination): String = when (destination) {
     Destination.MonthlyBudget -> "Monthly budget"
     Destination.Categories -> "Categories"
     Destination.Settings -> "Settings"
+    is Destination.AddTransactionStub -> "Add transaction"
 }
 
 /**
@@ -67,6 +74,13 @@ fun AppNavigation() {
     val current = backStack.last()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    val navViewModel: AppNavigationViewModel = hiltViewModel()
+    val newMessageCount by navViewModel.newMessageCount.collectAsStateWithLifecycle()
+    // The badge clears the moment the Messages page is open, even though the underlying
+    // new-flag doesn't clear until the user leaves it (that's what keeps the rows bold while
+    // you're looking at them). See 04-messages-and-notifications.md.
+    val showMessagesBadge = newMessageCount > 0 && current != Destination.Messages
 
     fun navigateToTopLevel(destination: Destination) {
         backStack.clear()
@@ -102,7 +116,15 @@ fun AppNavigation() {
                         NavigationBarItem(
                             selected = current == item.destination,
                             onClick = { navigateToTopLevel(item.destination) },
-                            icon = { Icon(item.icon, contentDescription = null) },
+                            icon = {
+                                if (item.destination == Destination.Messages && showMessagesBadge) {
+                                    BadgedBox(badge = { Badge() }) {
+                                        Icon(item.icon, contentDescription = null)
+                                    }
+                                } else {
+                                    Icon(item.icon, contentDescription = null)
+                                }
+                            },
                             label = { Text(item.label) }
                         )
                     }
@@ -115,11 +137,24 @@ fun AppNavigation() {
                 entryProvider = { destination ->
                     when (destination) {
                         Destination.Home -> NavEntry(destination) { HomeScreen(contentModifier) }
-                        Destination.Messages -> NavEntry(destination) { MessagesScreen(contentModifier) }
+                        Destination.Messages -> NavEntry(destination) {
+                            MessagesScreen(
+                                onNavigateToAddTransaction = { messageId ->
+                                    backStack.add(Destination.AddTransactionStub(messageId))
+                                },
+                                modifier = contentModifier
+                            )
+                        }
                         Destination.Trends -> NavEntry(destination) { TrendsScreen(contentModifier) }
                         Destination.MonthlyBudget -> NavEntry(destination) { MonthlyBudgetScreen(contentModifier) }
                         Destination.Categories -> NavEntry(destination) { CategoriesScreen(contentModifier) }
                         Destination.Settings -> NavEntry(destination) { SettingsScreen(contentModifier) }
+                        is Destination.AddTransactionStub -> NavEntry(destination) {
+                            ScreenPlaceholder(
+                                "Add transaction (message #${destination.messageId}) - built in M4",
+                                contentModifier
+                            )
+                        }
                     }
                 }
             )

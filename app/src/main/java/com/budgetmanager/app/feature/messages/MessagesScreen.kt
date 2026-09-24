@@ -1,10 +1,42 @@
 package com.budgetmanager.app.feature.messages
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import com.budgetmanager.app.core.designsystem.components.ScreenPlaceholder
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-fun MessagesScreen(modifier: Modifier = Modifier) {
-    ScreenPlaceholder("Messages", modifier)
+fun MessagesScreen(
+    onNavigateToAddTransaction: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: MessagesViewModel = hiltViewModel()
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    DisposableEffect(Unit) {
+        onDispose { viewModel.onLeftScreen() }
+    }
+
+    LaunchedEffect(state.navigateToAddTransactionForMessageId) {
+        val id = state.navigateToAddTransactionForMessageId ?: return@LaunchedEffect
+        onNavigateToAddTransaction(id)
+        viewModel.onNavigationHandled()
+    }
+
+    MessagesContent(
+        state = state,
+        onFilterSelected = viewModel::onFilterSelected,
+        onSwipeAccept = viewModel::onSwipeAccept,
+        onSwipeReject = viewModel::onSwipeReject,
+        onRowClick = viewModel::onRowClick,
+        onDetailDismissed = viewModel::onDetailDismissed,
+        onAcceptFromDetail = viewModel::onAcceptFromDetail,
+        onRejectFromDetail = viewModel::onRejectFromDetail,
+        onUndoReject = viewModel::onUndoReject,
+        onUndoDismissed = viewModel::onUndoDismissed,
+        modifier = modifier
+    )
 }

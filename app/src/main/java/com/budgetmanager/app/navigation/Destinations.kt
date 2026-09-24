@@ -8,4 +8,7 @@ sealed interface Destination {
     data object MonthlyBudget : Destination
     data object Categories : Destination
     data object Settings : Destination
+
+    /** Placeholder until M4 builds the real Add Transaction screen. */
+    data class AddTransactionStub(val messageId: Long) : Destination
 }

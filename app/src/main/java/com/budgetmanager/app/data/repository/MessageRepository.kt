@@ -16,5 +16,10 @@ interface MessageRepository {
     suspend fun ingest(message: SmsMessage): Long?
 
     suspend fun reject(id: Long)
+
+    /** Used to undo a reject, and generally wherever a status change doesn't need its own
+     *  named method. */
+    suspend fun setStatus(id: Long, status: MessageStatus)
+
     suspend fun markAllSeen()
 }

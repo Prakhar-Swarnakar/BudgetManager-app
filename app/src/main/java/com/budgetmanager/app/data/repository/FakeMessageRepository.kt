@@ -23,14 +23,18 @@ class FakeMessageRepository : MessageRepository {
     }
 
     override suspend fun reject(id: Long) {
-        updateStatus(id, MessageStatus.REJECTED)
+        setStatus(id, MessageStatus.REJECTED)
+    }
+
+    override suspend fun setStatus(id: Long, status: MessageStatus) {
+        updateStatus(id, status)
     }
 
     override suspend fun markAllSeen() {
         state.value = state.value.map { it.copy(isNew = false) }
     }
 
-    /** Test helper, also used by FakeTransactionRepository to keep the two fakes in sync. */
+    /** Also used by FakeTransactionRepository to keep the two fakes in sync. */
     fun updateStatus(id: Long, status: MessageStatus) {
         state.value = state.value.map { if (it.id == id) it.copy(status = status) else it }
     }
