@@ -1,0 +1,22 @@
+<!--
+  Add these pieces to app/src/main/AndroidManifest.xml. Do not replace the whole file.
+  The Empty Activity template already has an <application> block and a MainActivity entry.
+
+  1) Put the three <uses-permission> lines inside <manifest>, ABOVE <application>.
+  2) Put the <receiver> block inside <application>, next to the existing <activity>.
+-->
+
+<!-- 1. Permissions -->
+<uses-permission android:name="android.permission.RECEIVE_SMS" />
+<uses-permission android:name="android.permission.READ_SMS" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+<!-- 2. The SMS receiver -->
+<receiver
+    android:name=".SmsReceiver"
+    android:exported="true"
+    android:permission="android.permission.BROADCAST_SMS">
+    <intent-filter android:priority="999">
+        <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+    </intent-filter>
+</receiver>

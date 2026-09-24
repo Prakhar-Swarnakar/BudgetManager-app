@@ -1,0 +1,33 @@
+# SAMPLE SMS FOR THE PARSER
+#
+# Fill this file with real messages from your banks. It is used only to test the app's SMS parser.
+# Keep it private. Never put it in a public repository.
+#
+# BEFORE YOU SAVE, REMOVE PERSONAL DETAILS
+#   - Replace card and account digits with XXXX (a/c XX1234 is fine, or a/c XXXX).
+#   - Remove names and phone numbers.
+#   - Remove balances if you prefer, but keep the amount that was spent.
+#   - Keep the amounts, merchants, dates, and the wording exactly as sent.
+#
+# HOW TO ADD ONE MESSAGE
+#   Start a block with a line beginning with ###, then paste the SMS on the next lines.
+#   Header format:
+#     ### bank: <bank name> | expect: SPEND or NOT_SPEND | amount: <rupees, or blank> | merchant: <name, or blank>
+#
+# WHAT TO COLLECT (about 30 to 50 messages in total)
+#   Per bank, about 5 SPENDS:  UPI payment, card purchase, ATM withdrawal, NEFT/IMPS debit, autopay/mandate.
+#   Per bank, about 3 NOT_SPEND:  credit, OTP, balance alert, promotion, declined/failed transaction, refund.
+#
+# The three blocks below are made-up EXAMPLES so you can see the format. Delete them.
+
+### bank: EXAMPLE BANK | expect: SPEND | amount: 250.00 | merchant: TEST STORE
+Rs 250.00 debited from a/c XX1234 on 24-09-26 and credited to TEST STORE via UPI. Ref 000000000000. Not you? Call the bank.
+
+### bank: EXAMPLE BANK | expect: NOT_SPEND | amount: | merchant:
+123456 is your OTP for login. Do not share it with anyone.
+
+### bank: EXAMPLE BANK | expect: NOT_SPEND | amount: | merchant:
+Rs 5,000.00 credited to a/c XX1234 on 24-09-26. Avl bal Rs 12,345.00.
+
+# ---------------- YOUR MESSAGES START HERE ----------------
+
