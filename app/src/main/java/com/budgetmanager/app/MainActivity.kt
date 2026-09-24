@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.budgetmanager.app.core.designsystem.components.PermissionGate
 import com.budgetmanager.app.navigation.AppNavigation
 import com.budgetmanager.app.ui.theme.BudgetManagerTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -15,7 +16,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BudgetManagerTheme {
-                AppNavigation()
+                PermissionGate {
+                    AppNavigation()
+                }
             }
         }
     }
