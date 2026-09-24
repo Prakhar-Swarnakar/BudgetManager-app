@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -23,10 +25,15 @@ import com.budgetmanager.app.BuildConfig
 import com.budgetmanager.app.core.designsystem.components.EmptyState
 import com.budgetmanager.app.core.designsystem.components.FilterChipItem
 import com.budgetmanager.app.core.designsystem.components.FilterChipRow
+import com.budgetmanager.app.core.designsystem.components.NoSwipeAction
+import com.budgetmanager.app.core.designsystem.components.SwipeAction
 import com.budgetmanager.app.core.designsystem.components.SwipeRow
 import com.budgetmanager.app.core.designsystem.components.UndoSnackbarEffect
+import com.budgetmanager.app.core.designsystem.components.revertSwipeAction
+import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.feature.messages.components.MessageDetailSheet
 import com.budgetmanager.app.feature.messages.components.MessageRow
+import com.budgetmanager.app.ui.theme.StatusColors
 
 @Composable
 fun MessagesContent(
@@ -83,11 +90,26 @@ fun MessagesContent(
                     }
                 )
             } else {
+                val defaultAccept = SwipeAction(Icons.Default.Check, StatusColors.accepted)
+                val defaultReject = SwipeAction(Icons.Default.Close, StatusColors.overBudget)
+                val revert = revertSwipeAction()
+
                 LazyColumn {
                     items(state.rows, key = { it.id }) { row ->
+                        // The reveal strip always matches what the swipe will really do - only
+                        // Not assigned ever shows the green/red accept-reject look; Accepted and
+                        // Rejected show a neutral "undo" on their one live direction, and nothing
+                        // on the other (a no-op there per the swipe rules).
+                        val (startAction, endAction) = when (row.status) {
+                            MessageStatus.NOT_ASSIGNED -> defaultAccept to defaultReject
+                            MessageStatus.ACCEPTED -> NoSwipeAction to revert
+                            MessageStatus.REJECTED -> revert to NoSwipeAction
+                        }
                         SwipeRow(
                             onSwipeStart = { onSwipeStart(row.id) },
-                            onSwipeEnd = { onSwipeEnd(row.id) }
+                            onSwipeEnd = { onSwipeEnd(row.id) },
+                            startAction = startAction,
+                            endAction = endAction
                         ) {
                             MessageRow(row = row, onClick = { onRowClick(row.id) })
                         }
