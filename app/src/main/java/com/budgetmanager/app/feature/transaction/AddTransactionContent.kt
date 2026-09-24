@@ -16,6 +16,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import com.budgetmanager.app.core.designsystem.components.AmountField
 import com.budgetmanager.app.core.designsystem.components.CategoryChipGrid
@@ -34,6 +36,19 @@ fun AddTransactionContent(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Explicitly dismiss the keyboard/clear focus as part of the click itself, rather than
+    // relying on the system's own tap-to-dismiss handling - on some devices the first tap
+    // outside a focused field is consumed just to close the keyboard, so a button underneath
+    // needs an extra tap (or two) before its own click actually registers.
+    fun dismissKeyboardThen(action: () -> Unit): () -> Unit = {
+        keyboardController?.hide()
+        focusManager.clearFocus()
+        action()
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -84,11 +99,11 @@ fun AddTransactionContent(
 
         Spacer(Modifier.height(28.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
+            OutlinedButton(onClick = dismissKeyboardThen(onCancel), modifier = Modifier.weight(1f)) {
                 Text("Cancel")
             }
             Button(
-                onClick = onSave,
+                onClick = dismissKeyboardThen(onSave),
                 enabled = !state.isSaving,
                 modifier = Modifier.weight(1f)
             ) {
