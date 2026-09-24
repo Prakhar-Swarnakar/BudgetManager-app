@@ -74,7 +74,7 @@ class SmsReceiver : BroadcastReceiver() {
             body = body,
             receivedAt = Instant.ofEpochMilli(smsTimestamp),
             smsProviderId = null,
-            dedupeKey = buildDedupeKey(sender, smsTimestamp, body),
+            dedupeKey = DedupeKey.build(sender, smsTimestamp, body),
             // Amount and merchant are left blank here on purpose - extracting them reliably
             // needs per-bank rules (M2b), which need real sample messages to test against.
             parsedAmount = null,
@@ -88,7 +88,4 @@ class SmsReceiver : BroadcastReceiver() {
         val newCount = messageRepository.observeNewCount().first()
         notifier.showNewSpends(newCount)
     }
-
-    private fun buildDedupeKey(sender: String, timestampMillis: Long, body: String): String =
-        "$sender|$timestampMillis|${body.hashCode()}"
 }
