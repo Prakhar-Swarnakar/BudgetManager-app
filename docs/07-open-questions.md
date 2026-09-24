@@ -50,7 +50,7 @@ Earlier this file listed assumptions and open questions. On 24 September 2026 yo
 | 25 | Dependency injection | Hilt |
 | 26 | Navigation | Navigation 3. Confirmed stable (went stable 2026-09-23, days before M0) and in use since M0 - bottom bar, side panel, and the Messages-to-Add-Transaction-stub push all work on it |
 | 27 | Application ID | `com.budgetmanager.app`. Chosen generic, without a personal name. Change it before the project is created, because it cannot be changed afterwards without making a new app |
-| 28 | Code repository | A private Git repository, in a folder outside OneDrive. Sample SMS never goes in a public repository |
+| 28 | Code repository | A private Git repository, in a folder outside OneDrive. Sample SMS never goes in a public repository. These docs were merged into that same repository as `docs/` on 2026-09-25, keeping their own history |
 | 29 | Android's automatic cloud backup | Off (`allowBackup="false"`). It would copy SMS-derived data to a Google account. Your own export file (M9) is the backup |
 
 ## Still open (none block starting)

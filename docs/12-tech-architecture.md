@@ -78,7 +78,7 @@ Room ──Flow──▶ Repository ──Flow──▶ ViewModel ──StateFlo
 
 ## 3. Folder structure
 
-The code lives in its own project folder, **outside OneDrive** (for example `C:\Dev\BudgetManagerApp`), with its own Git repository. This documentation folder stays where it is.
+The code lives in its own project folder, **outside OneDrive** (`C:\Users\prakh\AndroidStudioProjects\BudgetManager`), with its own Git repository. This documentation folder (`docs/`, this file's own folder) was merged into that same repository on 2026-09-25, via `git subtree`, so its original commit history came along with it - docs and code now share one repository and one history.
 
 ### Project root
 
