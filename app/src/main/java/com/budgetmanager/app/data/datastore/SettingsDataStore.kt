@@ -19,8 +19,10 @@ class SettingsDataStore @Inject constructor(
 ) {
     private val lastProcessedSmsAtKey = longPreferencesKey("last_processed_sms_at")
 
-    suspend fun getLastProcessedSmsAt(): Long =
-        context.dataStore.data.first()[lastProcessedSmsAtKey] ?: 0L
+    /** Null means the catch-up scan has never run - the caller must not treat that as epoch 0,
+     *  or the very first scan would bulk-import the phone's entire SMS history. */
+    suspend fun getLastProcessedSmsAt(): Long? =
+        context.dataStore.data.first()[lastProcessedSmsAtKey]
 
     suspend fun setLastProcessedSmsAt(timestampMillis: Long) {
         context.dataStore.edit { it[lastProcessedSmsAtKey] = timestampMillis }

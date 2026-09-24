@@ -31,8 +31,17 @@ class InboxScanner @Inject constructor(
     suspend fun scan() {
         if (!hasSmsPermission()) return
 
-        val since = settings.getLastProcessedSmsAt()
-        var latestSeen = since
+        val lastProcessed = settings.getLastProcessedSmsAt()
+        if (lastProcessed == null) {
+            // First ever run: nothing has been "missed" yet, since nothing was ever caught.
+            // Start the marker at now rather than scanning the phone's whole SMS history -
+            // bulk historical import is explicitly out of scope for v1 (see 06-backlog.md).
+            settings.setLastProcessedSmsAt(System.currentTimeMillis())
+            return
+        }
+
+        val since: Long = lastProcessed
+        var latestSeen: Long = since
         var insertedCount = 0
 
         try {
