@@ -94,6 +94,10 @@ fun AppNavigation() {
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        // The drawer's own edge-swipe-to-open gesture competes with swipe gestures on screen
+        // content (e.g. accepting/rejecting a message row) - disabled since the hamburger
+        // button already opens it explicitly.
+        gesturesEnabled = false,
         drawerContent = {
             ModalDrawerSheet {
                 sidePanelItems.forEach { item ->

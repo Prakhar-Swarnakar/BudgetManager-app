@@ -13,7 +13,6 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,6 +31,11 @@ fun SwipeRow(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
+    // Always veto the dismiss (return false): the row must never actually settle in the
+    // "dismissed" position, since accepting/rejecting changes the row's status rather than
+    // removing it from the list. Returning false makes the box auto-snap back to Settled on
+    // its own; a manual reset() call here was racy and could leave the full-strength swipe
+    // background stuck on screen instead of the (correctly tinted) row content.
     val state = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
@@ -39,17 +43,9 @@ fun SwipeRow(
                 SwipeToDismissBoxValue.EndToStart -> onSwipeEnd()
                 SwipeToDismissBoxValue.Settled -> Unit
             }
-            true
+            false
         }
     )
-
-    // The underlying data change (accept/reject) is what should actually update the row -
-    // reset the swipe visual immediately rather than leaving it dismissed.
-    LaunchedEffect(state.currentValue) {
-        if (state.currentValue != SwipeToDismissBoxValue.Settled) {
-            state.reset()
-        }
-    }
 
     SwipeToDismissBox(
         state = state,

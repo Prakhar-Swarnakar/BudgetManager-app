@@ -29,14 +29,16 @@ fun MessagesScreen(
     MessagesContent(
         state = state,
         onFilterSelected = viewModel::onFilterSelected,
-        onSwipeAccept = viewModel::onSwipeAccept,
-        onSwipeReject = viewModel::onSwipeReject,
+        onSwipeStart = viewModel::onSwipeStart,
+        onSwipeEnd = viewModel::onSwipeEnd,
         onRowClick = viewModel::onRowClick,
         onDetailDismissed = viewModel::onDetailDismissed,
         onAcceptFromDetail = viewModel::onAcceptFromDetail,
         onRejectFromDetail = viewModel::onRejectFromDetail,
         onUndoReject = viewModel::onUndoReject,
         onUndoDismissed = viewModel::onUndoDismissed,
+        onImportTodaySms = viewModel::onImportTodaySms,
+        onAddTestMessage = viewModel::onAddTestMessage,
         modifier = modifier
     )
 }
