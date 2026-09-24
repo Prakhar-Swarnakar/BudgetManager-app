@@ -99,6 +99,14 @@ class RoomTransactionRepository @Inject constructor(
             }
         }
     }
+
+    override suspend fun deleteBySourceMessage(messageId: Long) {
+        database.withTransaction {
+            val entity = transactionDao.getBySourceMessageId(messageId) ?: return@withTransaction
+            transactionDao.delete(entity)
+            smsMessageDao.updateStatus(messageId, MessageStatus.NOT_ASSIGNED)
+        }
+    }
 }
 
 private fun TransactionEntity.toDomain() = Transaction(

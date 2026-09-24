@@ -7,6 +7,7 @@ import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.data.repository.CategoryRepository
 import com.budgetmanager.app.data.repository.MessageRepository
+import com.budgetmanager.app.data.repository.TransactionRepository
 import com.budgetmanager.app.sms.InboxScanner
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,7 @@ import javax.inject.Inject
 @HiltViewModel
 class MessagesViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
+    private val transactionRepository: TransactionRepository,
     private val inboxScanner: InboxScanner,
     private val categoryRepository: CategoryRepository
 ) : ViewModel() {
@@ -56,23 +58,26 @@ class MessagesViewModel @Inject constructor(
     }
 
     /**
-     * Swipe right (StartToEnd): requests navigation to Add Transaction, for Not assigned and
-     * for Rejected alike - "a rejected message can still be accepted later, by swiping right"
-     * (04-messages-and-notifications.md). Accepted is a no-op; only saving a transaction there
-     * (M4) actually turns a message green.
+     * Swipe right (StartToEnd). Only Not assigned can move into Accepted (via Add Transaction -
+     * that's the only thing that actually makes a message Accepted). Rejected reverts to Not
+     * assigned. Accepted is a no-op - only Not assigned can become Accepted or Rejected.
      */
     fun onSwipeStart(id: Long) {
         viewModelScope.launch {
             when (messageRepository.getById(id)?.status) {
-                MessageStatus.NOT_ASSIGNED, MessageStatus.REJECTED -> navigateToAddTransactionForMessageId.value = id
+                MessageStatus.NOT_ASSIGNED -> navigateToAddTransactionForMessageId.value = id
+                MessageStatus.REJECTED -> messageRepository.setStatus(id, MessageStatus.NOT_ASSIGNED)
                 else -> Unit
             }
         }
     }
 
-    /** Swipe left (EndToStart): Not assigned -> Rejected, with undo. Accepted and Rejected are
-     *  no-ops here - un-accepting means deleting the transaction (Category detail, M7), not a
-     *  simple status flip. */
+    /**
+     * Swipe left (EndToStart). Only Not assigned can move into Rejected, with undo. Accepted
+     * reverts to Not assigned by deleting its linked transaction (not just flipping the status -
+     * that would leave the transaction orphaned and re-crash the accept path). Rejected is a
+     * no-op - only Not assigned can become Accepted or Rejected.
+     */
     fun onSwipeEnd(id: Long) {
         viewModelScope.launch {
             when (messageRepository.getById(id)?.status) {
@@ -80,6 +85,7 @@ class MessagesViewModel @Inject constructor(
                     messageRepository.reject(id)
                     undoRejectedMessageId.value = id
                 }
+                MessageStatus.ACCEPTED -> transactionRepository.deleteBySourceMessage(id)
                 else -> Unit
             }
         }
@@ -110,12 +116,20 @@ class MessagesViewModel @Inject constructor(
     }
 
     fun onAcceptFromDetail(id: Long) {
-        navigateToAddTransactionForMessageId.value = id
+        viewModelScope.launch {
+            if (messageRepository.getById(id)?.status == MessageStatus.NOT_ASSIGNED) {
+                navigateToAddTransactionForMessageId.value = id
+            }
+        }
         selectedMessageId.value = null
     }
 
     fun onRejectFromDetail(id: Long) {
-        viewModelScope.launch { messageRepository.reject(id) }
+        viewModelScope.launch {
+            if (messageRepository.getById(id)?.status == MessageStatus.NOT_ASSIGNED) {
+                messageRepository.reject(id)
+            }
+        }
         selectedMessageId.value = null
     }
 

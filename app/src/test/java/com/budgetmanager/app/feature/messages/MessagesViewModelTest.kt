@@ -4,8 +4,10 @@ import com.budgetmanager.app.core.model.Category
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.SmsMessage
+import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.data.repository.FakeCategoryRepository
 import com.budgetmanager.app.data.repository.FakeMessageRepository
+import com.budgetmanager.app.data.repository.FakeTransactionRepository
 import com.budgetmanager.app.sms.FakeInboxScanner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,8 +45,11 @@ class MessagesViewModelTest {
         seed(listOf(Category(1, "Food & Dining", "🍔", 0, false)))
     }
 
-    private fun viewModel(repo: FakeMessageRepository, scanner: FakeInboxScanner = FakeInboxScanner()) =
-        MessagesViewModel(repo, scanner, categoryRepository())
+    private fun viewModel(
+        repo: FakeMessageRepository,
+        transactions: FakeTransactionRepository = FakeTransactionRepository(repo),
+        scanner: FakeInboxScanner = FakeInboxScanner()
+    ) = MessagesViewModel(repo, transactions, scanner, categoryRepository())
 
     private fun testMessage(dedupeKey: String) = SmsMessage(
         id = 0, sender = "TESTBANK", body = "Rs 100 debited", receivedAt = Instant.now(),
@@ -152,7 +157,7 @@ class MessagesViewModelTest {
     }
 
     @Test
-    fun `swipe start on Rejected also requests navigation - can still be accepted later`() = runTest {
+    fun `swipe start on Rejected reverts to Not assigned - only Not assigned can become Accepted`() = runTest {
         val repo = FakeMessageRepository()
         val viewModel = viewModel(repo)
         val collector = viewModel.uiState.onEach { }.launchIn(this)
@@ -164,7 +169,8 @@ class MessagesViewModelTest {
         viewModel.onSwipeStart(id)
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(id, viewModel.uiState.value.navigateToAddTransactionForMessageId)
+        assertEquals(MessageStatus.NOT_ASSIGNED, repo.getById(id)!!.status)
+        assertNull(viewModel.uiState.value.navigateToAddTransactionForMessageId)
         collector.cancel()
     }
 
@@ -186,23 +192,44 @@ class MessagesViewModelTest {
     }
 
     @Test
-    fun `swipe end on Accepted or Rejected is a no-op - un-accepting needs deleting the transaction`() = runTest {
+    fun `swipe end on Accepted deletes its transaction and reverts to Not assigned`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+
+        val id = repo.ingest(testMessage("k1"))!!
+        val message = repo.getById(id)!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val transactionId = transactions.saveFromMessage(
+            message = message, amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test"
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(MessageStatus.ACCEPTED, repo.getById(id)!!.status)
+
+        viewModel.onSwipeEnd(id)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(MessageStatus.NOT_ASSIGNED, repo.getById(id)!!.status)
+        assertNull(transactions.getById(transactionId))
+        collector.cancel()
+    }
+
+    @Test
+    fun `swipe end on Rejected is a no-op - only Not assigned can become Rejected`() = runTest {
         val repo = FakeMessageRepository()
         val viewModel = viewModel(repo)
         val collector = viewModel.uiState.onEach { }.launchIn(this)
 
-        val acceptedId = repo.ingest(testMessage("k1"))!!
-        repo.updateStatus(acceptedId, MessageStatus.ACCEPTED)
-        val rejectedId = repo.ingest(testMessage("k2"))!!
-        repo.updateStatus(rejectedId, MessageStatus.REJECTED)
+        val id = repo.ingest(testMessage("k1"))!!
+        repo.updateStatus(id, MessageStatus.REJECTED)
         dispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.onSwipeEnd(acceptedId)
-        viewModel.onSwipeEnd(rejectedId)
+        viewModel.onSwipeEnd(id)
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(MessageStatus.ACCEPTED, repo.getById(acceptedId)!!.status)
-        assertEquals(MessageStatus.REJECTED, repo.getById(rejectedId)!!.status)
+        assertEquals(MessageStatus.REJECTED, repo.getById(id)!!.status)
         collector.cancel()
     }
 
@@ -229,7 +256,7 @@ class MessagesViewModelTest {
     fun `onImportTodaySms delegates to the inbox scanner from start of today`() = runTest {
         val repo = FakeMessageRepository()
         val scanner = FakeInboxScanner()
-        val viewModel = viewModel(repo, scanner)
+        val viewModel = viewModel(repo, scanner = scanner)
         val collector = viewModel.uiState.onEach { }.launchIn(this)
 
         viewModel.onImportTodaySms()

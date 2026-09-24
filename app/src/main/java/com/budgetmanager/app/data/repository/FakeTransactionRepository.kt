@@ -76,4 +76,10 @@ class FakeTransactionRepository(
             messages?.updateStatus(messageId, com.budgetmanager.app.core.model.MessageStatus.NOT_ASSIGNED)
         }
     }
+
+    override suspend fun deleteBySourceMessage(messageId: Long) {
+        val transaction = state.value.firstOrNull { it.sourceMessageId == messageId } ?: return
+        state.value = state.value.filterNot { it.id == transaction.id }
+        messages?.updateStatus(messageId, com.budgetmanager.app.core.model.MessageStatus.NOT_ASSIGNED)
+    }
 }

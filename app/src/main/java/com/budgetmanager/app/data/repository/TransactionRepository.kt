@@ -36,4 +36,9 @@ interface TransactionRepository {
      * in one database transaction. Editing or deleting never sends budget alerts.
      */
     suspend fun delete(id: Long)
+
+    /** Deletes whichever transaction is linked to [messageId] (if any) and reverts the message
+     *  to Not Assigned - the un-accept path from the Messages screen. No-ops if the message has
+     *  no linked transaction. */
+    suspend fun deleteBySourceMessage(messageId: Long)
 }
