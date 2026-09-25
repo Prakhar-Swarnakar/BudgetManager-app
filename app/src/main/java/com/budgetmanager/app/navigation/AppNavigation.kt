@@ -33,6 +33,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import com.budgetmanager.app.core.designsystem.components.AppScaffold
 import com.budgetmanager.app.feature.budget.MonthlyBudgetScreen
+import com.budgetmanager.app.feature.budget.MonthlyBudgetViewModel
 import com.budgetmanager.app.feature.categories.CategoriesScreen
 import com.budgetmanager.app.feature.categories.CategoriesViewModel
 import com.budgetmanager.app.feature.home.HomeScreen
@@ -118,16 +119,25 @@ fun AppNavigation() {
             title = titleFor(current),
             onMenuClick = { scope.launch { drawerState.open() } },
             actions = {
-                // Categories has no per-instance arguments, so this bare hiltViewModel() call
-                // resolves to the same ViewModel instance CategoriesScreen itself gets - there's
-                // no per-NavEntry ViewModelStore scoping wired up for Navigation 3 here (see the
-                // same note on AddTransactionScreen), so both calls share the single Activity-
-                // scoped instance.
-                if (current == Destination.Categories) {
-                    val categoriesViewModel: CategoriesViewModel = hiltViewModel()
-                    IconButton(onClick = categoriesViewModel::onAddClicked) {
-                        Icon(Icons.Default.Add, contentDescription = "New category")
+                // Neither destination has per-instance arguments, so these bare hiltViewModel()
+                // calls resolve to the same ViewModel instances the screens themselves get -
+                // there's no per-NavEntry ViewModelStore scoping wired up for Navigation 3 here
+                // (see the same note on AddTransactionScreen), so both calls share the single
+                // Activity-scoped instance.
+                when (current) {
+                    Destination.Categories -> {
+                        val categoriesViewModel: CategoriesViewModel = hiltViewModel()
+                        IconButton(onClick = categoriesViewModel::onAddClicked) {
+                            Icon(Icons.Default.Add, contentDescription = "New category")
+                        }
                     }
+                    Destination.MonthlyBudget -> {
+                        val monthlyBudgetViewModel: MonthlyBudgetViewModel = hiltViewModel()
+                        IconButton(onClick = monthlyBudgetViewModel::onAddClicked) {
+                            Icon(Icons.Default.Add, contentDescription = "New category")
+                        }
+                    }
+                    else -> Unit
                 }
             },
             bottomBar = {
