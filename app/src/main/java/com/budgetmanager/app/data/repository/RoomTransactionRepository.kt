@@ -28,6 +28,10 @@ class RoomTransactionRepository @Inject constructor(
     override fun observeSpentForCategoryAndMonth(monthKey: MonthKey, categoryId: Long): Flow<Money> =
         transactionDao.observeSpentForCategoryAndMonth(monthKey.value, categoryId).map { Money(it) }
 
+    override fun observeSpentByCategoryForMonth(monthKey: MonthKey): Flow<Map<Long, Money>> =
+        transactionDao.observeSpentByCategoryForMonth(monthKey.value)
+            .map { rows -> rows.associate { it.categoryId to Money(it.total) } }
+
     override suspend fun getById(id: Long): Transaction? = transactionDao.getById(id)?.toDomain()
 
     override suspend fun insert(

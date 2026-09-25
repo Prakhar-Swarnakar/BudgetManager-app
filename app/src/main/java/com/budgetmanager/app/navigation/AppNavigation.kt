@@ -33,6 +33,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.budgetmanager.app.core.designsystem.components.AppScaffold
 import com.budgetmanager.app.feature.budget.MonthlyBudgetScreen
 import com.budgetmanager.app.feature.budget.MonthlyBudgetViewModel
+import com.budgetmanager.app.feature.categorydetail.CategoryDetailScreen
 import com.budgetmanager.app.feature.home.HomeScreen
 import com.budgetmanager.app.feature.messages.MessagesScreen
 import com.budgetmanager.app.feature.settings.SettingsScreen
@@ -53,6 +54,11 @@ private val sidePanelItems = listOf(
     NavItem(Destination.Settings, "Settings", Icons.Default.Settings)
 )
 
+/** True for a screen pushed onto the back stack rather than reached from the bottom bar or side
+ *  panel - it gets a back arrow in the top bar instead of the hamburger menu. */
+private fun isPushedDetail(destination: Destination): Boolean =
+    destination is Destination.AddTransaction || destination is Destination.CategoryDetail
+
 private fun titleFor(destination: Destination): String = when (destination) {
     Destination.Home -> "Home"
     Destination.Messages -> "Messages"
@@ -60,6 +66,7 @@ private fun titleFor(destination: Destination): String = when (destination) {
     Destination.MonthlyBudget -> "Monthly budget"
     Destination.Settings -> "Settings"
     is Destination.AddTransaction -> if (destination.transactionId != null) "Edit transaction" else "Add transaction"
+    is Destination.CategoryDetail -> destination.categoryName
 }
 
 /**
@@ -111,9 +118,14 @@ fun AppNavigation() {
             }
         }
     ) {
+        val pushedDetail = isPushedDetail(current)
+
         AppScaffold(
             title = titleFor(current),
-            onMenuClick = { scope.launch { drawerState.open() } },
+            onMenuClick = {
+                if (pushedDetail) backStack.removeLastOrNull() else scope.launch { drawerState.open() }
+            },
+            useBackArrow = pushedDetail,
             actions = {
                 // Monthly budget has no per-instance arguments, so this bare hiltViewModel()
                 // call resolves to the same ViewModel instance the screen itself gets - there's
@@ -153,7 +165,15 @@ fun AppNavigation() {
                 onBack = { backStack.removeLastOrNull() },
                 entryProvider = { destination ->
                     when (destination) {
-                        Destination.Home -> NavEntry(destination) { HomeScreen(contentModifier) }
+                        Destination.Home -> NavEntry(destination) {
+                            HomeScreen(
+                                onNavigateToAddTransaction = { backStack.add(Destination.AddTransaction()) },
+                                onNavigateToCategoryDetail = { categoryId, categoryName, monthKey ->
+                                    backStack.add(Destination.CategoryDetail(categoryId, categoryName, monthKey))
+                                },
+                                modifier = contentModifier
+                            )
+                        }
                         Destination.Messages -> NavEntry(destination) {
                             MessagesScreen(
                                 onNavigateToAddTransaction = { messageId ->
@@ -170,6 +190,16 @@ fun AppNavigation() {
                                 messageId = destination.messageId,
                                 transactionId = destination.transactionId,
                                 onDone = { backStack.removeLastOrNull() },
+                                modifier = contentModifier
+                            )
+                        }
+                        is Destination.CategoryDetail -> NavEntry(destination) {
+                            CategoryDetailScreen(
+                                categoryId = destination.categoryId,
+                                monthKey = destination.monthKey,
+                                onNavigateToEditTransaction = { transactionId ->
+                                    backStack.add(Destination.AddTransaction(transactionId = transactionId))
+                                },
                                 modifier = contentModifier
                             )
                         }

@@ -10,6 +10,12 @@ import java.time.Instant
 interface TransactionRepository {
     fun observeForCategoryAndMonth(monthKey: MonthKey, categoryId: Long): Flow<List<Transaction>>
     fun observeSpentForCategoryAndMonth(monthKey: MonthKey, categoryId: Long): Flow<Money>
+
+    /** Every category's total for the month, keyed by category id. A category with no
+     *  transactions that month has no entry - callers treat a missing key as ₹0, same as
+     *  MonthlyBudgetRepository.observeForMonth. */
+    fun observeSpentByCategoryForMonth(monthKey: MonthKey): Flow<Map<Long, Money>>
+
     suspend fun getById(id: Long): Transaction?
 
     /** A manual transaction - no linked message. */

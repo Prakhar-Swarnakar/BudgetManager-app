@@ -3,6 +3,7 @@ package com.budgetmanager.app.core.designsystem.components
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -17,7 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 
 /**
- * Standard page frame: top bar (with an optional menu button), an optional bottom bar,
+ * Standard page frame: top bar (with an optional menu or back button), an optional bottom bar,
  * a snackbar host, and the padding every screen needs to apply to its content.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,6 +27,9 @@ fun AppScaffold(
     title: String,
     modifier: Modifier = Modifier,
     onMenuClick: (() -> Unit)? = null,
+    /** True for screens pushed onto the back stack (Add transaction, Category detail): shows a
+     *  back arrow that pops the stack instead of the hamburger that opens the side panel. */
+    useBackArrow: Boolean = false,
     actions: @Composable RowScope.() -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
@@ -39,7 +43,11 @@ fun AppScaffold(
                 navigationIcon = {
                     onMenuClick?.let { onClick ->
                         IconButton(onClick = onClick) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                            if (useBackArrow) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            } else {
+                                Icon(Icons.Default.Menu, contentDescription = "Menu")
+                            }
                         }
                     }
                 },

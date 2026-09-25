@@ -29,6 +29,13 @@ class FakeTransactionRepository(
             Money(total)
         }
 
+    override fun observeSpentByCategoryForMonth(monthKey: MonthKey) =
+        state.map { list ->
+            list.filter { it.monthKey == monthKey }
+                .groupBy { it.categoryId }
+                .mapValues { (_, transactions) -> Money(transactions.sumOf { it.amount.paise }) }
+        }
+
     override suspend fun getById(id: Long) = state.value.firstOrNull { it.id == id }
 
     override suspend fun insert(
