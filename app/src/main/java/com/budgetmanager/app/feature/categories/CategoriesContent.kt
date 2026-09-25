@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.ExpandLess
@@ -43,49 +45,60 @@ fun CategoriesContent(
                 message = "No categories yet. Tap + to add one."
             )
         } else {
-            CategoryList(
-                categories = state.activeCategories,
-                onRowClick = onRowClick,
-                onArchive = onArchive,
-                onReorder = onReorder
-            )
+            // Scrollable: with 9+ starter categories the list can run past one screen, and
+            // without this the rows below the fold were unreachable - not just invisible, but
+            // un-swipeable too, which looked like "some categories can't be archived". Nested
+            // inside the non-scrolling outer Column so EmptyState's fillMaxSize() above still
+            // gets a bounded height (an unbounded scrollable parent would crash it).
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                CategoryList(
+                    categories = state.activeCategories,
+                    onRowClick = onRowClick,
+                    onArchive = onArchive,
+                    onReorder = onReorder
+                )
 
-            if (state.archivedCategories.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onArchivedSectionToggled)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Archived (${state.archivedCategories.size})",
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(
-                        if (state.archivedExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = null
-                    )
-                }
+                if (state.archivedCategories.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onArchivedSectionToggled)
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Archived (${state.archivedCategories.size})",
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            if (state.archivedExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null
+                        )
+                    }
 
-                if (state.archivedExpanded) {
-                    state.archivedCategories.forEach { category ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onUnarchive(category.id) }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(category.emoji, style = MaterialTheme.typography.headlineSmall)
-                            Text(
-                                category.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = 12.dp).weight(1f)
-                            )
-                            Icon(Icons.Default.Unarchive, contentDescription = "Restore")
+                    if (state.archivedExpanded) {
+                        state.archivedCategories.forEach { category ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onUnarchive(category.id) }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(category.emoji, style = MaterialTheme.typography.headlineSmall)
+                                Text(
+                                    category.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 12.dp).weight(1f)
+                                )
+                                Icon(Icons.Default.Unarchive, contentDescription = "Restore")
+                            }
                         }
                     }
                 }

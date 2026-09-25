@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -60,81 +61,89 @@ fun CategoryList(
 
     Column(modifier = modifier) {
         localOrder.forEach { category ->
-            val isDragged = category.id == draggedId
-            Box(
-                modifier = Modifier
-                    .zIndex(if (isDragged) 1f else 0f)
-                    .graphicsLayer { translationY = if (isDragged) dragOffset else 0f }
-                    .onGloballyPositioned { coordinates ->
-                        if (rowHeightPx == 0f) rowHeightPx = coordinates.size.height.toFloat()
-                    }
-            ) {
-                SwipeRow(
-                    onSwipeStart = {},
-                    onSwipeEnd = { onArchive(category.id) },
-                    startAction = NoSwipeAction,
-                    endAction = archiveAction
+            // key() makes Compose match each row by category.id instead of by its position in
+            // the forEach. Without it, a mid-drag reorder recomposes whichever SLOT the dragged
+            // row started in with a DIFFERENT category (since other rows shifted under it), which
+            // has the same effect as the id passed to pointerInput() changing: the gesture's
+            // coroutine gets cancelled outright. That's what "drag gets stuck midway" actually
+            // was - key() keeps the whole remembered subtree, coroutine included, attached to the
+            // row it belongs to as it moves.
+            key(category.id) {
+                val isDragged = category.id == draggedId
+                Box(
+                    modifier = Modifier
+                        .zIndex(if (isDragged) 1f else 0f)
+                        .graphicsLayer { translationY = if (isDragged) dragOffset else 0f }
+                        .onGloballyPositioned { coordinates ->
+                            if (rowHeightPx == 0f) rowHeightPx = coordinates.size.height.toFloat()
+                        }
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onRowClick(category.id) }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    SwipeRow(
+                        onSwipeStart = {},
+                        onSwipeEnd = { onArchive(category.id) },
+                        startAction = NoSwipeAction,
+                        endAction = archiveAction
                     ) {
-                        Icon(
-                            Icons.Default.DragHandle,
-                            contentDescription = "Drag to reorder",
-                            modifier = Modifier.pointerInput(category.id) {
-                                detectDragGestures(
-                                    onDragStart = {
-                                        draggedId = category.id
-                                        dragOffset = 0f
-                                    },
-                                    onDragEnd = {
-                                        draggedId = null
-                                        dragOffset = 0f
-                                        onReorder(localOrder.map { it.id })
-                                    },
-                                    onDragCancel = {
-                                        draggedId = null
-                                        dragOffset = 0f
-                                    },
-                                    onDrag = { change, dragAmount ->
-                                        change.consume()
-                                        dragOffset += dragAmount.y
-                                        val rowHeight = rowHeightPx
-                                        val id = draggedId
-                                        if (rowHeight > 0f && id != null) {
-                                            // Resolved by id, not by the index captured when this
-                                            // gesture started - pointerInput's key is the id, so
-                                            // this block only re-launches when the ROW's id
-                                            // changes, not when its position in the list does.
-                                            val current = localOrder.indexOfFirst { it.id == id }
-                                            val steps = (dragOffset / rowHeight).roundToInt()
-                                            if (steps != 0 && current >= 0) {
-                                                val target = (current + steps)
-                                                    .coerceIn(0, localOrder.lastIndex)
-                                                if (target != current) {
-                                                    localOrder = localOrder.toMutableList().apply {
-                                                        add(target, removeAt(current))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onRowClick(category.id) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.DragHandle,
+                                contentDescription = "Drag to reorder",
+                                modifier = Modifier.pointerInput(category.id) {
+                                    detectDragGestures(
+                                        onDragStart = {
+                                            draggedId = category.id
+                                            dragOffset = 0f
+                                        },
+                                        onDragEnd = {
+                                            draggedId = null
+                                            dragOffset = 0f
+                                            onReorder(localOrder.map { it.id })
+                                        },
+                                        onDragCancel = {
+                                            draggedId = null
+                                            dragOffset = 0f
+                                        },
+                                        onDrag = { change, dragAmount ->
+                                            change.consume()
+                                            dragOffset += dragAmount.y
+                                            val rowHeight = rowHeightPx
+                                            val id = draggedId
+                                            if (rowHeight > 0f && id != null) {
+                                                // Resolved by id, not by the index captured when
+                                                // this gesture started - the row's position can
+                                                // change under it as other rows move.
+                                                val current = localOrder.indexOfFirst { it.id == id }
+                                                val steps = (dragOffset / rowHeight).roundToInt()
+                                                if (steps != 0 && current >= 0) {
+                                                    val target = (current + steps)
+                                                        .coerceIn(0, localOrder.lastIndex)
+                                                    if (target != current) {
+                                                        localOrder = localOrder.toMutableList().apply {
+                                                            add(target, removeAt(current))
+                                                        }
+                                                        dragOffset -= steps * rowHeight
                                                     }
-                                                    dragOffset -= steps * rowHeight
                                                 }
                                             }
                                         }
-                                    }
-                                )
-                            }
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Text(category.emoji, style = MaterialTheme.typography.headlineSmall)
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            category.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f)
-                        )
+                                    )
+                                }
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(category.emoji, style = MaterialTheme.typography.headlineSmall)
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                category.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
