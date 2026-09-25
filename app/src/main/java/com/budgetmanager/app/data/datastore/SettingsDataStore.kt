@@ -3,6 +3,7 @@ package com.budgetmanager.app.data.datastore
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -26,6 +27,7 @@ class SettingsDataStore @Inject constructor(
     private val eightyPercentAlertsEnabledKey = booleanPreferencesKey("eighty_percent_alerts_enabled")
     private val overBudgetAlertsEnabledKey = booleanPreferencesKey("over_budget_alerts_enabled")
     private val lastExportAtKey = longPreferencesKey("last_export_at")
+    private val trendsMonthsShownKey = intPreferencesKey("trends_months_shown")
 
     /** Null means the catch-up scan has never run - the caller must not treat that as epoch 0,
      *  or the very first scan would bulk-import the phone's entire SMS history. */
@@ -63,5 +65,13 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setLastExportAt(timestampMillis: Long) {
         context.dataStore.edit { it[lastExportAtKey] = timestampMillis }
+    }
+
+    /** How many months Trends' Previous month and Historic charts show - 3, 6, or 12; 6 by default. */
+    fun observeTrendsMonthsShown(): Flow<Int> =
+        context.dataStore.data.map { it[trendsMonthsShownKey] ?: 6 }
+
+    suspend fun setTrendsMonthsShown(months: Int) {
+        context.dataStore.edit { it[trendsMonthsShownKey] = months }
     }
 }

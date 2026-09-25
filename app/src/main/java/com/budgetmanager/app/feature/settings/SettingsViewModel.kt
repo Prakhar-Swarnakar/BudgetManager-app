@@ -24,6 +24,16 @@ private data class TransientState(
     val exportError: String? = null
 )
 
+/** The settings-repository-backed flags, combined in one intermediate step since there are more
+ *  of them than kotlinx.coroutines' direct combine() overload (5) handles. */
+private data class SettingsFlags(
+    val newSpendsAlertsEnabled: Boolean,
+    val eightyPercentAlertsEnabled: Boolean,
+    val overBudgetAlertsEnabled: Boolean,
+    val trendsMonthsShown: Int,
+    val lastExportAtMillis: Long?
+)
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
@@ -32,19 +42,24 @@ class SettingsViewModel @Inject constructor(
 
     private val transientState = MutableStateFlow(TransientState())
 
-    val uiState: StateFlow<SettingsUiState> = combine(
+    private val flags = combine(
         settingsRepository.observeNewSpendsAlertsEnabled(),
         settingsRepository.observeEightyPercentAlertsEnabled(),
         settingsRepository.observeOverBudgetAlertsEnabled(),
-        settingsRepository.observeLastExportAt(),
-        transientState
-    ) { newSpends, eightyPercent, overBudget, lastExportAt, transient ->
+        settingsRepository.observeTrendsMonthsShown(),
+        settingsRepository.observeLastExportAt()
+    ) { newSpends, eightyPercent, overBudget, trendsMonthsShown, lastExportAt ->
+        SettingsFlags(newSpends, eightyPercent, overBudget, trendsMonthsShown, lastExportAt)
+    }
+
+    val uiState: StateFlow<SettingsUiState> = combine(flags, transientState) { flags, transient ->
         SettingsUiState(
             isLoading = false,
-            newSpendsAlertsEnabled = newSpends,
-            eightyPercentAlertsEnabled = eightyPercent,
-            overBudgetAlertsEnabled = overBudget,
-            lastExportAtMillis = lastExportAt,
+            newSpendsAlertsEnabled = flags.newSpendsAlertsEnabled,
+            eightyPercentAlertsEnabled = flags.eightyPercentAlertsEnabled,
+            overBudgetAlertsEnabled = flags.overBudgetAlertsEnabled,
+            trendsMonthsShown = flags.trendsMonthsShown,
+            lastExportAtMillis = flags.lastExportAtMillis,
             pendingImport = transient.pendingImport,
             importError = transient.importError,
             importSuccessMessage = transient.importSuccessMessage,
@@ -62,6 +77,10 @@ class SettingsViewModel @Inject constructor(
 
     fun onOverBudgetAlertsToggled(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setOverBudgetAlertsEnabled(enabled) }
+    }
+
+    fun onTrendsMonthsShownChanged(months: Int) {
+        viewModelScope.launch { settingsRepository.setTrendsMonthsShown(months) }
     }
 
     /** Called by the screen once it has a destination Uri from the system file picker - the

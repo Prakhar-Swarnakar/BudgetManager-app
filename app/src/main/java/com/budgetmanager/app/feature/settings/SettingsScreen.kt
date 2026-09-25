@@ -122,6 +122,7 @@ fun SettingsScreen(
         onNewSpendsAlertsToggled = viewModel::onNewSpendsAlertsToggled,
         onEightyPercentAlertsToggled = viewModel::onEightyPercentAlertsToggled,
         onOverBudgetAlertsToggled = viewModel::onOverBudgetAlertsToggled,
+        onTrendsMonthsShownChanged = viewModel::onTrendsMonthsShownChanged,
         onExportClick = { exportLauncher.launch(defaultBackupFileName()) },
         onImportClick = { importLauncher.launch(arrayOf("application/json")) },
         onConfirmImport = viewModel::onConfirmImport,

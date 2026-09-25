@@ -11,4 +11,7 @@ object StatusColors {
     val warning: Color = WarningAmber
     val overBudget: Color = OverBudgetRed
     val accepted: Color = AcceptedGreen
+    /** A month still accumulating spend, shown in Trends' Previous month and Historic bar charts
+     *  instead of a status colour - it hasn't finished, so "within" or "over" wouldn't be final. */
+    val inProgress: Color = InProgressBlue
 }

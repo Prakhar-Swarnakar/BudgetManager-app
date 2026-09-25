@@ -6,6 +6,7 @@ import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.data.repository.FakeCategoryRepository
 import com.budgetmanager.app.data.repository.FakeMonthlyBudgetRepository
+import com.budgetmanager.app.data.repository.FakeSettingsRepository
 import com.budgetmanager.app.data.repository.FakeTransactionRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,6 +22,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TrendsViewModelTest {
@@ -37,16 +39,23 @@ class TrendsViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private fun viewModel(
+        categories: FakeCategoryRepository = FakeCategoryRepository(),
+        budgets: FakeMonthlyBudgetRepository = FakeMonthlyBudgetRepository(),
+        transactions: FakeTransactionRepository = FakeTransactionRepository(),
+        settings: FakeSettingsRepository = FakeSettingsRepository()
+    ) = TrendsViewModel(categories, budgets, transactions, settings)
+
     @Test
     fun `no budgets yet means hasBudget is false`() = runTest {
         val categories = FakeCategoryRepository().apply {
             seed(listOf(Category(1, "Food", "🍔", 0, archived = false)))
         }
-        val viewModel = TrendsViewModel(categories, FakeMonthlyBudgetRepository(), FakeTransactionRepository())
-        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val vm = viewModel(categories)
+        val collector = vm.uiState.onEach { }.launchIn(this)
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.hasBudget)
+        assertFalse(vm.uiState.value.hasBudget)
         collector.cancel()
     }
 
@@ -64,13 +73,13 @@ class TrendsViewModelTest {
         budgets.setAmount(MonthKey.current(), 1, Money.ofRupees(100))
         budgets.setAmount(MonthKey.current(), 2, Money.ofRupees(100))
         val transactions = FakeTransactionRepository()
-        transactions.insert(Money.ofRupees(81), java.time.Instant.now(), MonthKey.current(), 1, null)
+        transactions.insert(Money.ofRupees(81), Instant.now(), MonthKey.current(), 1, null)
 
-        val viewModel = TrendsViewModel(categories, budgets, transactions)
-        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val vm = viewModel(categories, budgets, transactions)
+        val collector = vm.uiState.onEach { }.launchIn(this)
         dispatcher.scheduler.advanceUntilIdle()
 
-        val state = viewModel.uiState.value
+        val state = vm.uiState.value
         assertTrue(state.hasBudget)
         assertEquals("₹200", state.totalBudgetText)
         assertEquals("41%", state.overallPercentText) // 81 of 200
@@ -92,15 +101,76 @@ class TrendsViewModelTest {
         val budgets = FakeMonthlyBudgetRepository()
         budgets.setAmount(MonthKey.current(), 1, Money.ofRupees(100))
         val transactions = FakeTransactionRepository()
-        transactions.insert(Money.ofRupees(150), java.time.Instant.now(), MonthKey.current(), 1, null)
+        transactions.insert(Money.ofRupees(150), Instant.now(), MonthKey.current(), 1, null)
 
-        val viewModel = TrendsViewModel(categories, budgets, transactions)
-        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val vm = viewModel(categories, budgets, transactions)
+        val collector = vm.uiState.onEach { }.launchIn(this)
         dispatcher.scheduler.advanceUntilIdle()
 
-        val row = viewModel.uiState.value.rows.single()
+        val row = vm.uiState.value.rows.single()
         assertEquals(BudgetStatus.OVER_BUDGET, row.status)
         assertEquals("Over by ₹50", row.statusText)
+        collector.cancel()
+    }
+
+    @Test
+    fun `defaults to 6 months and changing the setting changes the bar counts`() = runTest {
+        val settings = FakeSettingsRepository()
+        val vm = viewModel(settings = settings)
+        val collector = vm.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(6, vm.uiState.value.percentBars.size)
+        assertEquals(6, vm.uiState.value.groupedBars.size)
+        assertEquals("Showing the last 6 months. Change this in Settings.", vm.uiState.value.rangeFooterText)
+
+        settings.setTrendsMonthsShown(3)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(3, vm.uiState.value.percentBars.size)
+        assertEquals(3, vm.uiState.value.groupedBars.size)
+        collector.cancel()
+    }
+
+    @Test
+    fun `the current month is in-progress and excluded from the historic summary`() = runTest {
+        val budgets = FakeMonthlyBudgetRepository()
+        val transactions = FakeTransactionRepository()
+        val currentMonth = MonthKey.current()
+        val previousMonth = currentMonth.previous()
+        budgets.setAmount(previousMonth, 1, Money.ofRupees(100))
+        transactions.insert(Money.ofRupees(150), Instant.now(), previousMonth, 1, null) // over budget, completed
+        transactions.insert(Money.ofRupees(9999), Instant.now(), currentMonth, 1, null) // huge, but in progress
+
+        val vm = viewModel(budgets = budgets, transactions = transactions)
+        val collector = vm.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val bars = vm.uiState.value.percentBars
+        assertTrue(bars.last().isInProgress) // current month sorts last, ascending
+        assertEquals("1 of 5", vm.uiState.value.monthsOverBudgetText) // 6-month range minus the in-progress month
+        collector.cancel()
+    }
+
+    @Test
+    fun `comparison rows compare current month so far with the previous month`() = runTest {
+        val categories = FakeCategoryRepository().apply {
+            seed(listOf(Category(1, "Food", "🍔", 0, archived = false)))
+        }
+        val transactions = FakeTransactionRepository()
+        val currentMonth = MonthKey.current()
+        val previousMonth = currentMonth.previous()
+        transactions.insert(Money.ofRupees(100), Instant.now(), previousMonth, 1, null)
+        transactions.insert(Money.ofRupees(120), Instant.now(), currentMonth, 1, null)
+
+        val vm = viewModel(categories = categories, transactions = transactions)
+        val collector = vm.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = vm.uiState.value.comparisonRows.single()
+        assertEquals("₹120", row.currentText)
+        assertTrue(row.isIncrease)
+        assertEquals("₹20", row.differenceText)
         collector.cancel()
     }
 }

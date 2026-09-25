@@ -16,4 +16,8 @@ interface SettingsRepository {
     /** Null means no export has ever been made. */
     fun observeLastExportAt(): Flow<Long?>
     suspend fun setLastExportAt(timestampMillis: Long)
+
+    /** How many months Trends' Previous month and Historic charts show - 3, 6, or 12; 6 by default. */
+    fun observeTrendsMonthsShown(): Flow<Int>
+    suspend fun setTrendsMonthsShown(months: Int)
 }

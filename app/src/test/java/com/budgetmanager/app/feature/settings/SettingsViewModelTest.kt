@@ -83,6 +83,22 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `trends months shown defaults to 6 and changing it persists`() = runTest {
+        val repo = FakeSettingsRepository()
+        val viewModel = buildViewModel(settingsRepository = repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(6, viewModel.uiState.value.trendsMonthsShown)
+
+        viewModel.onTrendsMonthsShownChanged(12)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(12, viewModel.uiState.value.trendsMonthsShown)
+        collector.cancel()
+    }
+
+    @Test
     fun `no export recorded means lastExportAtMillis is null`() = runTest {
         val viewModel = buildViewModel()
         val collector = viewModel.uiState.onEach { }.launchIn(this)

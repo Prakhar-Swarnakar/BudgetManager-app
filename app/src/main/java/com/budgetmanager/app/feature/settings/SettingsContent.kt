@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -39,6 +41,7 @@ fun SettingsContent(
     onNewSpendsAlertsToggled: (Boolean) -> Unit,
     onEightyPercentAlertsToggled: (Boolean) -> Unit,
     onOverBudgetAlertsToggled: (Boolean) -> Unit,
+    onTrendsMonthsShownChanged: (Int) -> Unit,
     onExportClick: () -> Unit,
     onImportClick: () -> Unit,
     onConfirmImport: () -> Unit,
@@ -85,6 +88,16 @@ fun SettingsContent(
             checked = state.overBudgetAlertsEnabled,
             onCheckedChange = onOverBudgetAlertsToggled
         )
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+        Text("Trends", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Months shown in charts",
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        MonthsShownRow(selected = state.trendsMonthsShown, onSelect = onTrendsMonthsShownChanged)
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
@@ -167,6 +180,21 @@ private fun PermissionRow(label: String, granted: Boolean, onFix: () -> Unit, hi
         }
         hint?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MonthsShownRow(selected: Int, onSelect: (Int) -> Unit) {
+    Row(modifier = Modifier.padding(top = 8.dp)) {
+        listOf(3, 6, 12).forEach { months ->
+            FilterChip(
+                selected = months == selected,
+                onClick = { onSelect(months) },
+                label = { Text("$months") },
+                modifier = Modifier.padding(end = 8.dp)
+            )
         }
     }
 }

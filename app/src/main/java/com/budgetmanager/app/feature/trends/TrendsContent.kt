@@ -23,8 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.Icon
 import com.budgetmanager.app.core.designsystem.components.DonutChart
 import com.budgetmanager.app.core.designsystem.components.EmptyState
+import com.budgetmanager.app.core.designsystem.components.GroupedBarChart
+import com.budgetmanager.app.core.designsystem.components.PercentBarChart
 import com.budgetmanager.app.core.designsystem.components.color
 import com.budgetmanager.app.core.model.BudgetStatus
 import com.budgetmanager.app.ui.theme.StatusColors
@@ -110,6 +115,171 @@ private fun TrendsCategoryRow(row: TrendsCategoryRowUi) {
                 row.status.color()
             }
             Text(row.statusText, style = MaterialTheme.typography.labelMedium, color = statusColor)
+        }
+    }
+}
+
+@Composable
+fun TrendsPreviousMonthContent(state: TrendsUiState, modifier: Modifier = Modifier) {
+    if (state.isLoading) return
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "Budget used, last ${state.percentBars.size} months",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    "Spent as a share of each month's own budget",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                PercentBarChart(bars = state.percentBars, modifier = Modifier.padding(top = 16.dp))
+                Row {
+                    LegendSwatch("Within", StatusColors.underBudget)
+                    LegendSwatch("Over budget", StatusColors.overBudget)
+                    LegendSwatch("In progress", StatusColors.inProgress, isLast = true)
+                }
+            }
+        }
+
+        Text(
+            state.comparisonTitle,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
+        )
+        Card(modifier = Modifier.fillMaxWidth()) {
+            if (state.comparisonRows.isEmpty()) {
+                Text(
+                    "No spending yet this month or last.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp)
+                )
+            } else {
+                Column {
+                    state.comparisonRows.forEachIndexed { index, row ->
+                        ComparisonRow(row)
+                        if (index != state.comparisonRows.lastIndex) HorizontalDivider()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComparisonRow(row: CategoryComparisonRowUi) {
+    Row(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Text(row.emoji, style = MaterialTheme.typography.headlineSmall)
+        Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
+            Text(row.name, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                row.previousText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(row.currentText, style = MaterialTheme.typography.titleMedium)
+            val (arrow, color) = if (row.isIncrease) {
+                "↑" to StatusColors.overBudget
+            } else {
+                "↓" to StatusColors.accepted
+            }
+            Text("$arrow ${row.differenceText}", style = MaterialTheme.typography.labelMedium, color = color)
+        }
+    }
+}
+
+@Composable
+fun TrendsHistoricContent(state: TrendsUiState, modifier: Modifier = Modifier) {
+    if (state.isLoading) return
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "Budget vs spent, last ${state.groupedBars.size} months",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    "Total budget and total spent for each month",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                GroupedBarChart(bars = state.groupedBars, modifier = Modifier.padding(top = 16.dp))
+                Row {
+                    LegendSwatch("Budget", MaterialTheme.colorScheme.surfaceVariant)
+                    LegendSwatch("Spent", StatusColors.underBudget)
+                    LegendSwatch("Over budget", StatusColors.overBudget)
+                    LegendSwatch("In progress", StatusColors.inProgress, isLast = true)
+                }
+            }
+        }
+
+        Row(modifier = Modifier.padding(top = 16.dp)) {
+            SummaryTile(
+                value = state.averageSpentText,
+                label = "Avg spent per month",
+                sublabel = state.historicRangeLabel,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.padding(start = 8.dp))
+            SummaryTile(
+                value = state.monthsOverBudgetText,
+                label = "Months over budget",
+                sublabel = state.historicRangeLabel,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Row(modifier = Modifier.padding(top = 16.dp)) {
+            Icon(
+                Icons.Default.Tune,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                state.rangeFooterText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryTile(value: String, label: String, sublabel: String, modifier: Modifier = Modifier) {
+    Card(modifier = modifier) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(value, style = MaterialTheme.typography.headlineSmall)
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Text(
+                sublabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

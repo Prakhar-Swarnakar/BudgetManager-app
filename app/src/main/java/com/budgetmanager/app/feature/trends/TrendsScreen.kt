@@ -13,7 +13,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.budgetmanager.app.core.designsystem.components.ScreenPlaceholder
 
 private val tabTitles = listOf("This month", "Previous month", "Historic")
 
@@ -36,11 +35,9 @@ fun TrendsScreen(
             }
         }
         when (selectedTab) {
-            // Previous month and Historic are built in M11 (14-implementation-plan.md) - this
-            // month's donut and by-category list is M10's scope.
             0 -> TrendsThisMonthContent(state, modifier = Modifier.weight(1f))
-            1 -> ScreenPlaceholder("Previous month", modifier = Modifier.weight(1f))
-            else -> ScreenPlaceholder("Historic", modifier = Modifier.weight(1f))
+            1 -> TrendsPreviousMonthContent(state, modifier = Modifier.weight(1f))
+            else -> TrendsHistoricContent(state, modifier = Modifier.weight(1f))
         }
     }
 }

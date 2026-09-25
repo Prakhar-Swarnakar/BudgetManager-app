@@ -7,6 +7,7 @@ data class SettingsUiState(
     val newSpendsAlertsEnabled: Boolean = true,
     val eightyPercentAlertsEnabled: Boolean = true,
     val overBudgetAlertsEnabled: Boolean = true,
+    val trendsMonthsShown: Int = 6,
     val lastExportAtMillis: Long? = null,
     val pendingImport: PendingImportUi? = null,
     val importError: String? = null,

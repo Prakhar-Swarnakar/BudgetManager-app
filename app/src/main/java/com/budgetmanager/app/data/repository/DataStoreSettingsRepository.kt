@@ -22,4 +22,8 @@ class DataStoreSettingsRepository @Inject constructor(
     override fun observeLastExportAt() = settingsDataStore.observeLastExportAt()
     override suspend fun setLastExportAt(timestampMillis: Long) =
         settingsDataStore.setLastExportAt(timestampMillis)
+
+    override fun observeTrendsMonthsShown() = settingsDataStore.observeTrendsMonthsShown()
+    override suspend fun setTrendsMonthsShown(months: Int) =
+        settingsDataStore.setTrendsMonthsShown(months)
 }

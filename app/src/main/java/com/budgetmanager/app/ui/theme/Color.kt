@@ -7,6 +7,7 @@ val AccentBlue = Color(0xFF2A78D6)    // primary accent; "under 80% used" status
 val WarningAmber = Color(0xFFEDA100)  // "80% to 100% used" status
 val OverBudgetRed = Color(0xFFE34948) // "over budget" status; rejected messages
 val AcceptedGreen = Color(0xFF2E9E5B) // accepted messages
+val InProgressBlue = Color(0xFFA9CBEE) // a month still accumulating, in Trends' bar charts
 
 val LightBackground = Color(0xFFFFFBFE)
 val LightSurface = Color(0xFFFFFBFE)
