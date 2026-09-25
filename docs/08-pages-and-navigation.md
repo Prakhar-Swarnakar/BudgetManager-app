@@ -52,7 +52,7 @@ A round **Add** button on Home starts a manual transaction.
 - A back arrow, the category name, and the month selector.
 - A summary card with the emoji, spent against budget, the amount left (negative if over), and a progress bar.
 - A list of that month's transactions, newest first. Each row shows the merchant or note, date and time, amount, and a small "SMS" or "Manual" tag.
-- Tap a row to edit it on the Add transaction page. Swipe left to delete, with an Undo bar. Deleting a transaction that came from an SMS returns the message to Not assigned.
+- Tap a row to edit it on the Add transaction page. Swipe left to delete - a confirmation dialog asks first, no Undo here (revised 2026-09-25). Deleting a transaction that came from an SMS returns the message to Not assigned.
 
 ### Messages
 

@@ -90,7 +90,7 @@ These protect the app's core promise of honest numbers, so they are **Must**.
 - Show plain-language messages ("Could not read that file. Pick a backup made by this app."), never stack traces.
 - Backup import validates the file before touching data: format version, required fields, and sanity checks. It replaces data only after confirmation, and only if the whole file is valid.
 - Deleting something that has history keeps the history where it can. A category is never deleted while it still has transactions attached to it.
-- Undo beats confirm for common actions. Swipe-to-reject shows an undo bar for a few seconds.
+- Undo beats confirm for a cheap, low-stakes action - swipe-to-reject shows an undo bar for a few seconds. Confirm beats Undo for one that feels final - deleting a transaction asks first instead (revised 2026-09-25), since silently removing spend history is a worse mistake to make recoverable-but-easy-to-miss than to just ask about upfront.
 
 ## 9. Accessibility
 

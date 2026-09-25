@@ -94,7 +94,7 @@ Category management (create, rename, change icon, reorder) lives on this same pa
 
 1. On Home, the user taps a category card. The Category detail page opens with that category's transactions for the month.
 2. **Tap** a transaction to edit it on the Add Transaction page. Saving updates the totals.
-3. **Swipe left** to delete it. An Undo bar appears for a few seconds.
+3. **Swipe left** to delete it. A confirmation dialog asks "Delete transaction? This can't be undone." before it actually happens - revised 2026-09-25, no Undo here (unlike rejecting a message in flow 7, which stays Undo since it's cheap and low-stakes to reverse).
 4. If the transaction came from an SMS, deleting it returns that message to **Not assigned** so it can be reviewed again.
 5. Editing or deleting does not send budget alerts.
 

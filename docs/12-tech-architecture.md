@@ -232,7 +232,7 @@ These come from the mockups. Where a component appears on several screens it is 
 | `ConfirmDialog` | Backup restore, delete | Title, message, confirm, and cancel |
 | `EmptyState` | Any list | Icon, message, and an optional action |
 | `TransactionRow` | Category detail | Merchant or note, date, amount, and an "SMS" or "Manual" tag. Wrapped in `SwipeRow` for delete |
-| `UndoSnackbar` | Messages (reject), Category detail (delete) | A short bar with an Undo action, driven by state rather than one-off events |
+| `UndoSnackbar` | Messages (reject) | A short bar with an Undo action, driven by state rather than one-off events. Category detail's transaction delete uses `ConfirmDialog` instead (revised 2026-09-25) - a mistaken delete there felt worse to make silently-reversible than to just ask about upfront |
 | `DonutChart` | Trends: This month | Drawn on Canvas. Each slice shows an emoji and a used part |
 | `BarChart` | Trends: Previous month, Historic | Drawn on Canvas. Supports grouped bars and a 100% line |
 | `AppScaffold` | Every screen | Top bar, optional bottom bar, snackbar host, and the standard padding |
