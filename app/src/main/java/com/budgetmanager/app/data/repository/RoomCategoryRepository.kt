@@ -4,6 +4,7 @@ import com.budgetmanager.app.core.model.Category
 import com.budgetmanager.app.data.database.dao.CategoryDao
 import com.budgetmanager.app.data.database.entity.CategoryEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
@@ -22,6 +23,31 @@ class RoomCategoryRepository @Inject constructor(
     override suspend fun create(name: String, emoji: String): Long {
         val nextSortOrder = categoryDao.count()
         return categoryDao.insert(CategoryEntity(name = name, emoji = emoji, sortOrder = nextSortOrder))
+    }
+
+    override suspend fun update(id: Long, name: String, emoji: String) {
+        val existing = categoryDao.getById(id) ?: return
+        categoryDao.update(existing.copy(name = name, emoji = emoji))
+    }
+
+    override suspend fun setArchived(id: Long, archived: Boolean) {
+        val existing = categoryDao.getById(id) ?: return
+        categoryDao.update(existing.copy(archived = archived))
+    }
+
+    override suspend fun reorder(orderedActiveIds: List<Long>) {
+        val current = categoryDao.observeAll().first()
+        val byId = current.associateBy { it.id }
+        val archivedInOrder = current.filter { it.archived }.sortedBy { it.sortOrder }
+        val updated = buildList {
+            orderedActiveIds.forEachIndexed { index, id ->
+                byId[id]?.let { add(it.copy(sortOrder = index)) }
+            }
+            archivedInOrder.forEachIndexed { index, entity ->
+                add(entity.copy(sortOrder = orderedActiveIds.size + index))
+            }
+        }
+        categoryDao.updateAll(updated)
     }
 }
 

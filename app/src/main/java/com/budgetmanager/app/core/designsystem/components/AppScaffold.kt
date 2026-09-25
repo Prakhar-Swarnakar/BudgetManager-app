@@ -1,5 +1,6 @@
 package com.budgetmanager.app.core.designsystem.components
 
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
@@ -25,6 +26,7 @@ fun AppScaffold(
     title: String,
     modifier: Modifier = Modifier,
     onMenuClick: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     content: @Composable (Modifier) -> Unit
@@ -40,7 +42,8 @@ fun AppScaffold(
                             Icon(Icons.Default.Menu, contentDescription = "Menu")
                         }
                     }
-                }
+                },
+                actions = actions
             )
         },
         bottomBar = bottomBar,

@@ -19,6 +19,28 @@ class FakeCategoryRepository : CategoryRepository {
         return id
     }
 
+    override suspend fun update(id: Long, name: String, emoji: String) {
+        state.value = state.value.map { if (it.id == id) it.copy(name = name, emoji = emoji) else it }
+    }
+
+    override suspend fun setArchived(id: Long, archived: Boolean) {
+        state.value = state.value.map { if (it.id == id) it.copy(archived = archived) else it }
+    }
+
+    override suspend fun reorder(orderedActiveIds: List<Long>) {
+        val byId = state.value.associateBy { it.id }
+        val archivedInOrder = state.value.filter { it.archived }.sortedBy { it.sortOrder }
+        val updated = buildList {
+            orderedActiveIds.forEachIndexed { index, id ->
+                byId[id]?.let { add(it.copy(sortOrder = index)) }
+            }
+            archivedInOrder.forEachIndexed { index, entity ->
+                add(entity.copy(sortOrder = orderedActiveIds.size + index))
+            }
+        }
+        state.value = updated
+    }
+
     /** Test helper: seed the fake directly, bypassing create(). */
     fun seed(categories: List<Category>) {
         state.value = categories

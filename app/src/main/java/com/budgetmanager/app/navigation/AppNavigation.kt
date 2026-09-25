@@ -2,6 +2,7 @@ package com.budgetmanager.app.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Mail
@@ -12,6 +13,7 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
@@ -32,6 +34,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.budgetmanager.app.core.designsystem.components.AppScaffold
 import com.budgetmanager.app.feature.budget.MonthlyBudgetScreen
 import com.budgetmanager.app.feature.categories.CategoriesScreen
+import com.budgetmanager.app.feature.categories.CategoriesViewModel
 import com.budgetmanager.app.feature.home.HomeScreen
 import com.budgetmanager.app.feature.messages.MessagesScreen
 import com.budgetmanager.app.feature.settings.SettingsScreen
@@ -114,6 +117,19 @@ fun AppNavigation() {
         AppScaffold(
             title = titleFor(current),
             onMenuClick = { scope.launch { drawerState.open() } },
+            actions = {
+                // Categories has no per-instance arguments, so this bare hiltViewModel() call
+                // resolves to the same ViewModel instance CategoriesScreen itself gets - there's
+                // no per-NavEntry ViewModelStore scoping wired up for Navigation 3 here (see the
+                // same note on AddTransactionScreen), so both calls share the single Activity-
+                // scoped instance.
+                if (current == Destination.Categories) {
+                    val categoriesViewModel: CategoriesViewModel = hiltViewModel()
+                    IconButton(onClick = categoriesViewModel::onAddClicked) {
+                        Icon(Icons.Default.Add, contentDescription = "New category")
+                    }
+                }
+            },
             bottomBar = {
                 NavigationBar {
                     bottomBarItems.forEach { item ->
