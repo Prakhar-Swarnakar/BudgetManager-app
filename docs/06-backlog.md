@@ -26,6 +26,7 @@ Items agreed to postpone, or proposed and not yet scheduled. None of these are i
 | Archive old messages | Move accepted and rejected messages out of the main list after some time. In v1 they stay, and the filter chips manage the list |
 | Archive categories | Built once (M5, 2026-09-25: swipe left, a collapsed Archived section) and then removed from v1 the same day, at the user's request, along with the separate Categories page it lived on. Every category now stays visible and reorderable on Monthly budget forever. Could come back later, scoped to a real need rather than by default |
 | All transactions list | A single page of every transaction across categories, with search. In v1, transactions are reached through their category's detail page |
+| Review the SMS parser | M2b (2026-09-25) covers ICICI and SBI precisely from one week of real SMS; every other bank falls back to a generic pattern (amount is usually right, merchant/payment method less so). Revisit once more real SMS has come in: add precise `BankRules` for any bank that's landing wrong, and re-check the generic fallback against whatever it's missing. Also revisit whether `MigrationTestHelper` works again on a later Room release (see R23 in [09-risks-and-phases.md](09-risks-and-phases.md)) |
 
 ## Later ideas
 
