@@ -47,9 +47,8 @@ class CategoryDetailViewModelTest {
     private fun viewModel(
         categories: FakeCategoryRepository = categories(),
         budgets: FakeMonthlyBudgetRepository = FakeMonthlyBudgetRepository(),
-        messages: FakeMessageRepository = FakeMessageRepository(),
-        transactions: FakeTransactionRepository = FakeTransactionRepository(messages)
-    ) = CategoryDetailViewModel(categories, budgets, transactions, messages)
+        transactions: FakeTransactionRepository = FakeTransactionRepository()
+    ) = CategoryDetailViewModel(categories, budgets, transactions)
 
     @Test
     fun `loading shows the category and its transactions for the month`() = runTest {
@@ -98,7 +97,7 @@ class CategoryDetailViewModelTest {
     }
 
     @Test
-    fun `deleting a manual transaction removes it, and undo restores it`() = runTest {
+    fun `swiping asks for confirmation but does not delete yet`() = runTest {
         val transactions = FakeTransactionRepository()
         val viewModel = viewModel(transactions = transactions)
         val collector = viewModel.uiState.onEach { }.launchIn(this)
@@ -111,21 +110,59 @@ class CategoryDetailViewModelTest {
 
         viewModel.onDeleteSwiped(id)
         dispatcher.scheduler.advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.transactions.isEmpty())
-        assertEquals(id, viewModel.uiState.value.undoDeletedTransactionId)
 
-        viewModel.onUndoDelete()
-        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(id, viewModel.uiState.value.pendingDeleteTransactionId)
         assertEquals(1, viewModel.uiState.value.transactions.size)
-        assertEquals("Snacks", viewModel.uiState.value.transactions.first().noteOrPlaceholder)
         collector.cancel()
     }
 
     @Test
-    fun `deleting an SMS-linked transaction reverts the message, and undo re-accepts it`() = runTest {
+    fun `cancelling the confirmation leaves the transaction in place`() = runTest {
+        val transactions = FakeTransactionRepository()
+        val viewModel = viewModel(transactions = transactions)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val month = MonthKey.current()
+        val id = transactions.insert(Money.ofRupees(250), Instant.now(), month, categoryId = 1, note = "Snacks")
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.load(1, month)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onDeleteSwiped(id)
+        viewModel.onCancelDelete()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.pendingDeleteTransactionId)
+        assertEquals(1, viewModel.uiState.value.transactions.size)
+        collector.cancel()
+    }
+
+    @Test
+    fun `confirming deletes a manual transaction`() = runTest {
+        val transactions = FakeTransactionRepository()
+        val viewModel = viewModel(transactions = transactions)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val month = MonthKey.current()
+        val id = transactions.insert(Money.ofRupees(250), Instant.now(), month, categoryId = 1, note = "Snacks")
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.load(1, month)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onDeleteSwiped(id)
+        viewModel.onConfirmDelete()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.pendingDeleteTransactionId)
+        assertTrue(viewModel.uiState.value.transactions.isEmpty())
+        collector.cancel()
+    }
+
+    @Test
+    fun `confirming deletes an SMS-linked transaction and reverts the message`() = runTest {
         val messages = FakeMessageRepository()
         val transactions = FakeTransactionRepository(messages)
-        val viewModel = viewModel(messages = messages, transactions = transactions)
+        val viewModel = viewModel(transactions = transactions)
         val collector = viewModel.uiState.onEach { }.launchIn(this)
 
         val messageId = messages.ingest(
@@ -145,13 +182,11 @@ class CategoryDetailViewModelTest {
 
         val transactionId = viewModel.uiState.value.transactions.first().id
         viewModel.onDeleteSwiped(transactionId)
+        viewModel.onConfirmDelete()
         dispatcher.scheduler.advanceUntilIdle()
-        assertEquals(MessageStatus.NOT_ASSIGNED, messages.getById(messageId)!!.status)
 
-        viewModel.onUndoDelete()
-        dispatcher.scheduler.advanceUntilIdle()
-        assertEquals(1, viewModel.uiState.value.transactions.size)
-        assertEquals(MessageStatus.ACCEPTED, messages.getById(messageId)!!.status)
+        assertTrue(viewModel.uiState.value.transactions.isEmpty())
+        assertEquals(MessageStatus.NOT_ASSIGNED, messages.getById(messageId)!!.status)
         collector.cancel()
     }
 

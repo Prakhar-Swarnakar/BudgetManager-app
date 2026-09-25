@@ -5,9 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.budgetmanager.app.core.model.BudgetMaths
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.MonthKey
-import com.budgetmanager.app.core.model.Transaction
 import com.budgetmanager.app.data.repository.CategoryRepository
-import com.budgetmanager.app.data.repository.MessageRepository
 import com.budgetmanager.app.data.repository.MonthlyBudgetRepository
 import com.budgetmanager.app.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,13 +23,12 @@ import javax.inject.Inject
 class CategoryDetailViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val monthlyBudgetRepository: MonthlyBudgetRepository,
-    private val transactionRepository: TransactionRepository,
-    private val messageRepository: MessageRepository
+    private val transactionRepository: TransactionRepository
 ) : ViewModel() {
 
     private val categoryId = MutableStateFlow(0L)
     private val monthKey = MutableStateFlow(MonthKey.current())
-    private val undoDeletedTransaction = MutableStateFlow<Transaction?>(null)
+    private val pendingDeleteTransactionId = MutableStateFlow<Long?>(null)
     private val editTransactionRequest = MutableStateFlow<Long?>(null)
     private var loadedFor: Long? = null
 
@@ -51,9 +48,9 @@ class CategoryDetailViewModel @Inject constructor(
                     categoryRepository.observeAll(),
                     monthlyBudgetRepository.observeForMonth(month),
                     transactionRepository.observeForCategoryAndMonth(month, id),
-                    undoDeletedTransaction,
+                    pendingDeleteTransactionId,
                     editTransactionRequest
-                ) { categories, budgets, transactions, undo, editRequest ->
+                ) { categories, budgets, transactions, pendingDelete, editRequest ->
                     val category = categories.firstOrNull { it.id == id }
                     val spent = transactions.fold(Money.Zero) { acc, t -> acc + t.amount }
                     val progress = BudgetMaths.evaluate(budgets[id] ?: Money.Zero, spent)
@@ -78,7 +75,7 @@ class CategoryDetailViewModel @Inject constructor(
                                 fromSms = transaction.sourceMessageId != null
                             )
                         },
-                        undoDeletedTransactionId = undo?.id,
+                        pendingDeleteTransactionId = pendingDelete,
                         editTransactionId = editRequest
                     )
                 }
@@ -102,46 +99,21 @@ class CategoryDetailViewModel @Inject constructor(
         editTransactionRequest.value = null
     }
 
-    /** Swipe left to delete. The transaction is captured before deleting so Undo can recreate
-     *  it exactly - including re-linking and re-accepting its source message, if it had one. */
+    /** Swipe left asks for confirmation rather than deleting straight away - see
+     *  onConfirmDelete/onCancelDelete. */
     fun onDeleteSwiped(transactionId: Long) {
+        pendingDeleteTransactionId.value = transactionId
+    }
+
+    fun onConfirmDelete() {
+        val id = pendingDeleteTransactionId.value ?: return
         viewModelScope.launch {
-            val transaction = transactionRepository.getById(transactionId) ?: return@launch
-            transactionRepository.delete(transactionId)
-            undoDeletedTransaction.value = transaction
+            transactionRepository.delete(id)
+            pendingDeleteTransactionId.value = null
         }
     }
 
-    fun onUndoDelete() {
-        val transaction = undoDeletedTransaction.value ?: return
-        viewModelScope.launch {
-            val sourceMessageId = transaction.sourceMessageId
-            if (sourceMessageId != null) {
-                val message = messageRepository.getById(sourceMessageId)
-                if (message != null) {
-                    transactionRepository.saveFromMessage(
-                        message = message,
-                        amount = transaction.amount,
-                        occurredAt = transaction.occurredAt,
-                        monthKey = transaction.monthKey,
-                        categoryId = transaction.categoryId,
-                        note = transaction.note
-                    )
-                }
-            } else {
-                transactionRepository.insert(
-                    amount = transaction.amount,
-                    occurredAt = transaction.occurredAt,
-                    monthKey = transaction.monthKey,
-                    categoryId = transaction.categoryId,
-                    note = transaction.note
-                )
-            }
-            undoDeletedTransaction.value = null
-        }
-    }
-
-    fun onUndoDismissed() {
-        undoDeletedTransaction.value = null
+    fun onCancelDelete() {
+        pendingDeleteTransactionId.value = null
     }
 }

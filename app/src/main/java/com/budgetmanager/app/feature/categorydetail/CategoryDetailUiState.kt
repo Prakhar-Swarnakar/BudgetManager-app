@@ -17,7 +17,7 @@ data class CategoryDetailUiState(
     val status: BudgetStatus = BudgetStatus.UNDER_BUDGET,
     val isNotBudgeted: Boolean = false,
     val transactions: List<TransactionRowUi> = emptyList(),
-    val undoDeletedTransactionId: Long? = null,
+    val pendingDeleteTransactionId: Long? = null,
     val editTransactionId: Long? = null
 )
 

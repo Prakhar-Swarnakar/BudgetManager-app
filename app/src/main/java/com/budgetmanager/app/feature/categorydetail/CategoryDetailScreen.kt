@@ -37,8 +37,8 @@ fun CategoryDetailScreen(
         onNextMonth = viewModel::onNextMonth,
         onTransactionClick = viewModel::onTransactionClicked,
         onDeleteSwiped = viewModel::onDeleteSwiped,
-        onUndoDelete = viewModel::onUndoDelete,
-        onUndoDismissed = viewModel::onUndoDismissed,
+        onConfirmDelete = viewModel::onConfirmDelete,
+        onCancelDelete = viewModel::onCancelDelete,
         modifier = modifier
     )
 }

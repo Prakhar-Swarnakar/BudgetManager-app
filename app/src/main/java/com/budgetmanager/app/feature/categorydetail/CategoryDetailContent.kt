@@ -11,18 +11,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.budgetmanager.app.core.designsystem.components.BudgetProgressBar
 import com.budgetmanager.app.core.designsystem.components.BudgetStatusLabel
+import com.budgetmanager.app.core.designsystem.components.ConfirmDialog
 import com.budgetmanager.app.core.designsystem.components.EmptyState
 import com.budgetmanager.app.core.designsystem.components.MonthSelector
-import com.budgetmanager.app.core.designsystem.components.UndoSnackbarEffect
 import com.budgetmanager.app.feature.categorydetail.components.TransactionRow
 
 @Composable
@@ -32,20 +29,10 @@ fun CategoryDetailContent(
     onNextMonth: () -> Unit,
     onTransactionClick: (Long) -> Unit,
     onDeleteSwiped: (Long) -> Unit,
-    onUndoDelete: () -> Unit,
-    onUndoDismissed: () -> Unit,
+    onConfirmDelete: () -> Unit,
+    onCancelDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    UndoSnackbarEffect(
-        trigger = state.undoDeletedTransactionId,
-        snackbarHostState = snackbarHostState,
-        message = "Transaction deleted",
-        onUndo = onUndoDelete,
-        onDismissed = onUndoDismissed
-    )
-
     Column(modifier = modifier.fillMaxSize()) {
         MonthSelector(
             monthKey = state.monthKey,
@@ -94,7 +81,14 @@ fun CategoryDetailContent(
                 }
             }
         }
+    }
 
-        SnackbarHost(snackbarHostState)
+    if (state.pendingDeleteTransactionId != null) {
+        ConfirmDialog(
+            title = "Delete transaction?",
+            message = "This can't be undone.",
+            onConfirm = onConfirmDelete,
+            onDismiss = onCancelDelete
+        )
     }
 }
