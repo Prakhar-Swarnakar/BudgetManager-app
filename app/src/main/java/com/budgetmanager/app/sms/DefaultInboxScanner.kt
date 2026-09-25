@@ -9,6 +9,7 @@ import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.data.datastore.SettingsDataStore
 import com.budgetmanager.app.data.repository.MessageRepository
+import com.budgetmanager.app.data.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import java.time.Instant
@@ -27,7 +28,8 @@ class DefaultInboxScanner @Inject constructor(
     private val messageRepository: MessageRepository,
     private val settings: SettingsDataStore,
     private val notifier: Notifier,
-    private val categorySuggester: CategorySuggester
+    private val categorySuggester: CategorySuggester,
+    private val settingsRepository: SettingsRepository
 ) : InboxScanner {
 
     override suspend fun scan() {
@@ -98,7 +100,7 @@ class DefaultInboxScanner @Inject constructor(
             return null
         }
 
-        if (insertedCount > 0) {
+        if (insertedCount > 0 && settingsRepository.observeNewSpendsAlertsEnabled().first()) {
             notifier.showNewSpends(messageRepository.observeNewCount().first())
         }
         return latestSeen

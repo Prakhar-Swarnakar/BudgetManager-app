@@ -7,6 +7,7 @@ import android.provider.Telephony
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.data.repository.MessageRepository
+import com.budgetmanager.app.data.repository.SettingsRepository
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -37,6 +38,7 @@ class SmsReceiver : BroadcastReceiver() {
         fun messageRepository(): MessageRepository
         fun notifier(): Notifier
         fun categorySuggester(): CategorySuggester
+        fun settingsRepository(): SettingsRepository
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -50,7 +52,13 @@ class SmsReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                handle(intent, dependencies.messageRepository(), dependencies.notifier(), dependencies.categorySuggester())
+                handle(
+                    intent,
+                    dependencies.messageRepository(),
+                    dependencies.notifier(),
+                    dependencies.categorySuggester(),
+                    dependencies.settingsRepository()
+                )
             } catch (e: Exception) {
                 // Never let a failure here crash the receiver or hide the SMS.
             } finally {
@@ -63,7 +71,8 @@ class SmsReceiver : BroadcastReceiver() {
         intent: Intent,
         messageRepository: MessageRepository,
         notifier: Notifier,
-        categorySuggester: CategorySuggester
+        categorySuggester: CategorySuggester,
+        settingsRepository: SettingsRepository
     ) {
         val parts = Telephony.Sms.Intents.getMessagesFromIntent(intent)
         if (parts.isNullOrEmpty()) return
@@ -94,6 +103,7 @@ class SmsReceiver : BroadcastReceiver() {
         )
 
         messageRepository.ingest(message) ?: return // duplicate, skip (R11)
+        if (!settingsRepository.observeNewSpendsAlertsEnabled().first()) return
         val newCount = messageRepository.observeNewCount().first()
         notifier.showNewSpends(newCount)
     }

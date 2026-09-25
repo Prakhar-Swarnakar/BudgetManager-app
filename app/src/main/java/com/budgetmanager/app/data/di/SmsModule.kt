@@ -1,7 +1,9 @@
 package com.budgetmanager.app.data.di
 
+import com.budgetmanager.app.domain.BudgetAlertNotifier
 import com.budgetmanager.app.sms.DefaultInboxScanner
 import com.budgetmanager.app.sms.InboxScanner
+import com.budgetmanager.app.sms.Notifier
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -14,4 +16,8 @@ abstract class SmsModule {
     @Binds
     @Singleton
     abstract fun bindInboxScanner(impl: DefaultInboxScanner): InboxScanner
+
+    @Binds
+    @Singleton
+    abstract fun bindBudgetAlertNotifier(impl: Notifier): BudgetAlertNotifier
 }

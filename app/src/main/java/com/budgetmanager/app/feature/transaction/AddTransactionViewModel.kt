@@ -7,6 +7,7 @@ import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.data.repository.CategoryRepository
 import com.budgetmanager.app.data.repository.MessageRepository
 import com.budgetmanager.app.data.repository.TransactionRepository
+import com.budgetmanager.app.domain.EvaluateBudgetAlerts
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,6 +24,7 @@ import javax.inject.Inject
 class AddTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val messageRepository: MessageRepository,
+    private val evaluateBudgetAlerts: EvaluateBudgetAlerts,
     categoryRepository: CategoryRepository
 ) : ViewModel() {
 
@@ -143,6 +145,7 @@ class AddTransactionViewModel @Inject constructor(
                         categoryId = categoryId,
                         note = note
                     )
+                    evaluateBudgetAlerts(monthKey, categoryId)
                 }
                 else -> {
                     transactionRepository.insert(
@@ -152,6 +155,7 @@ class AddTransactionViewModel @Inject constructor(
                         categoryId = categoryId,
                         note = note
                     )
+                    evaluateBudgetAlerts(monthKey, categoryId)
                 }
             }
             internalState.update { it.copy(saved = true, isSaving = false) }

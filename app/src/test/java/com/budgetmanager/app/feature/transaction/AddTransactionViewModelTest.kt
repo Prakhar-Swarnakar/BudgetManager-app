@@ -3,10 +3,16 @@ package com.budgetmanager.app.feature.transaction
 import com.budgetmanager.app.core.model.Category
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
+import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
+import com.budgetmanager.app.data.repository.FakeAlertLogRepository
 import com.budgetmanager.app.data.repository.FakeCategoryRepository
 import com.budgetmanager.app.data.repository.FakeMessageRepository
+import com.budgetmanager.app.data.repository.FakeMonthlyBudgetRepository
+import com.budgetmanager.app.data.repository.FakeSettingsRepository
 import com.budgetmanager.app.data.repository.FakeTransactionRepository
+import com.budgetmanager.app.domain.EvaluateBudgetAlerts
+import com.budgetmanager.app.domain.FakeBudgetAlertNotifier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -42,14 +48,27 @@ class AddTransactionViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun setUpViewModel(): Triple<AddTransactionViewModel, FakeMessageRepository, FakeTransactionRepository> {
+    private data class TestHarness(
+        val viewModel: AddTransactionViewModel,
+        val messages: FakeMessageRepository,
+        val transactions: FakeTransactionRepository,
+        val budgets: FakeMonthlyBudgetRepository,
+        val notifier: FakeBudgetAlertNotifier
+    )
+
+    private fun setUpViewModel(): TestHarness {
         val categories = FakeCategoryRepository().apply {
             seed(listOf(Category(1, "Food & Dining", "🍔", 0, false), Category(2, "Transport", "🚗", 1, false)))
         }
         val messages = FakeMessageRepository()
         val transactions = FakeTransactionRepository(messages)
-        val viewModel = AddTransactionViewModel(transactions, messages, categories)
-        return Triple(viewModel, messages, transactions)
+        val budgets = FakeMonthlyBudgetRepository()
+        val notifier = FakeBudgetAlertNotifier()
+        val evaluateBudgetAlerts = EvaluateBudgetAlerts(
+            budgets, transactions, FakeAlertLogRepository(), categories, FakeSettingsRepository(), notifier
+        )
+        val viewModel = AddTransactionViewModel(transactions, messages, evaluateBudgetAlerts, categories)
+        return TestHarness(viewModel, messages, transactions, budgets, notifier)
     }
 
     @Test
@@ -159,6 +178,50 @@ class AddTransactionViewModelTest {
 
         val updated = transactions.getById(transactionId)!!
         assertEquals(Money.ofRupees(450), updated.amount)
+        collector.cancel()
+    }
+
+    @Test
+    fun `saving a manual transaction that crosses 80 percent fires a budget alert`() = runTest {
+        val (viewModel, _, _, budgets, notifier) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val date = viewModel.uiState.value.date
+        val monthKey = MonthKey.of(date.year, date.monthValue)
+        budgets.setAmount(monthKey, categoryId = 1, amount = Money.ofRupees(1000))
+
+        viewModel.onAmountChanged("900")
+        viewModel.onCategorySelected(1)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, notifier.calls.size)
+        collector.cancel()
+    }
+
+    @Test
+    fun `editing a transaction never fires a budget alert, even if it crosses over budget`() = runTest {
+        val (viewModel, _, transactions, budgets, notifier) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val monthKey = MonthKey.of(2026, 9)
+        budgets.setAmount(monthKey, categoryId = 1, amount = Money.ofRupees(1000))
+        val transactionId = transactions.insert(
+            amount = Money.ofRupees(300), occurredAt = Instant.now(),
+            monthKey = monthKey, categoryId = 1, note = "Original"
+        )
+
+        viewModel.load(messageId = null, transactionId = transactionId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onAmountChanged("1200") // now over budget
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(notifier.calls.isEmpty())
         collector.cancel()
     }
 }
