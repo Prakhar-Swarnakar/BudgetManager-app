@@ -88,25 +88,32 @@ class MonthlyBudgetViewModel @Inject constructor(
     /** Called from the top bar's + button (see AppNavigation, which shares this ViewModel
      *  instance with the screen since Monthly budget has no per-instance arguments). */
     fun onAddClicked() {
-        sheet.value = BudgetSheetUiState(mode = BudgetSheetMode.NewCategory)
+        sheet.value = BudgetSheetUiState(mode = BudgetSheetMode.New)
     }
 
+    /** Opens the same sheet pre-filled, for renaming, changing the icon, or changing the
+     *  amount - category management lives here, there is no separate Categories page. */
     fun onRowClicked(categoryId: Long) {
         viewModelScope.launch {
+            val category = categoryRepository.getById(categoryId) ?: return@launch
             val amount = monthlyBudgetRepository.observeForMonth(monthKey.value).first()[categoryId]
             sheet.value = BudgetSheetUiState(
-                mode = BudgetSheetMode.EditAmount(categoryId),
+                mode = BudgetSheetMode.Edit(categoryId),
+                name = category.name,
+                emoji = category.emoji,
                 amountInput = amount?.let { formatForInput(it.paise) } ?: ""
             )
         }
     }
 
-    fun onSheetDismissed() {
-        sheet.value = null
+    /** Called once, when a drag ends - not on every step, so a drag never round-trips through
+     *  the repository's Flow mid-gesture. See BudgetCategoryList. */
+    fun onReorder(orderedActiveIds: List<Long>) {
+        viewModelScope.launch { categoryRepository.reorder(orderedActiveIds) }
     }
 
-    fun onSheetAmountChanged(value: String) {
-        sheet.update { it?.copy(amountInput = value, amountError = null) }
+    fun onSheetDismissed() {
+        sheet.value = null
     }
 
     fun onSheetNameChanged(value: String) {
@@ -117,37 +124,41 @@ class MonthlyBudgetViewModel @Inject constructor(
         sheet.update { it?.copy(emoji = value, emojiError = null) }
     }
 
+    fun onSheetAmountChanged(value: String) {
+        sheet.update { it?.copy(amountInput = value, amountError = null) }
+    }
+
     fun onSheetSaved() {
         val current = sheet.value ?: return
+        val name = current.name.trim()
+        val emoji = current.emoji.trim()
         val amount = Money.parseRupeeInput(current.amountInput)
+
+        if (name.isEmpty()) {
+            sheet.update { it?.copy(nameError = "Enter a name") }
+            return
+        }
+        if (!EmojiValidation.isSingleEmoji(emoji)) {
+            sheet.update { it?.copy(emojiError = "Pick one emoji") }
+            return
+        }
         if (amount == null) {
             sheet.update { it?.copy(amountError = "Enter a valid amount") }
             return
         }
 
         when (val mode = current.mode) {
-            is BudgetSheetMode.EditAmount -> viewModelScope.launch {
+            is BudgetSheetMode.Edit -> viewModelScope.launch {
+                categoryRepository.update(mode.categoryId, name, emoji)
                 monthlyBudgetRepository.setAmount(monthKey.value, mode.categoryId, amount)
                 sheet.value = null
             }
-            BudgetSheetMode.NewCategory -> {
-                val name = current.name.trim()
-                val emoji = current.emoji.trim()
-                if (name.isEmpty()) {
-                    sheet.update { it?.copy(nameError = "Enter a name") }
-                    return
-                }
-                if (!EmojiValidation.isSingleEmoji(emoji)) {
-                    sheet.update { it?.copy(emojiError = "Pick one emoji") }
-                    return
-                }
-                viewModelScope.launch {
-                    // Never edits an existing category's amount - + only ever creates a brand
-                    // new one, per 08-pages-and-navigation.md.
-                    val categoryId = categoryRepository.create(name, emoji)
-                    monthlyBudgetRepository.setAmount(monthKey.value, categoryId, amount)
-                    sheet.value = null
-                }
+            BudgetSheetMode.New -> viewModelScope.launch {
+                // Never edits an existing category's amount - + only ever creates a brand new
+                // one, per 08-pages-and-navigation.md.
+                val categoryId = categoryRepository.create(name, emoji)
+                monthlyBudgetRepository.setAmount(monthKey.value, categoryId, amount)
+                sheet.value = null
             }
         }
     }

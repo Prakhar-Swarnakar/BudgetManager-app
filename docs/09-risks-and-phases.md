@@ -78,7 +78,7 @@ These facts drive the top risks. They come from the sources listed at the end.
 |---|---|---|---|---|---|
 | R28 | Swipe-to-accept and swipe-to-reject rows with coloured backgrounds | Gestures are easy to get slightly wrong (accidental swipes, no undo) | Medium | Use Jetpack Compose's built-in swipe-to-dismiss support, add a short undo, and test on the phone | 2 |
 | R29 | The This month donut chart with a "used" part inside each slice | Chart packages usually draw plain pie charts, so this likely needs custom drawing | Medium | Build it with custom drawing in Phase 4 and keep the list below it as a fallback | 4 |
-| R30 | Reorderable and swipe-to-archive category list | Two gestures on one list can conflict | Low | Test early in Phase 3 | 3 |
+| R30 | Reorderable category list, drag handle sharing a row with a tap-to-edit target | Was originally about drag-to-reorder conflicting with swipe-to-archive on one row; archiving was removed from v1 entirely 2026-09-25 (see [06-backlog.md](06-backlog.md)), so only the drag-handle-vs-tap conflict remains | Low | Tested on M5/M6 (now folded into the Monthly budget list) - a mid-drag reorder without a stable row key cancelled the drag gesture outright; fixed by keying each row on its category id | 3 |
 
 ## Top risks at a glance
 
@@ -154,8 +154,7 @@ R1 to R9 are all covered by Phase 1. R12 is the largest risk to the product itse
 
 **What we build**
 
-- Categories with names and emoji icons, created on the Categories page (R27, R30).
-- The Monthly budget page: every category listed, ₹0 where nothing is set, tap a category to edit, and the + button for a new category.
+- The Monthly budget page: every category listed, ₹0 where nothing is set, tap a category to rename it, change its icon, or edit its amount, drag to reorder, and the + button for a new category (R27, R30). Category management lives here - there is no separate Categories page.
 - Manual transactions, and editing and deleting them from the Category detail page.
 - The Home page with remaining budget per category, negative amounts, and status colours.
 - Budget alerts at 80% and when over budget (R21).

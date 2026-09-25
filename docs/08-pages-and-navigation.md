@@ -14,8 +14,7 @@ Navigation is split by how often each area is used.
 
 **Side panel** (opened from the menu icon, used a few times a month):
 
-- Monthly budget
-- Categories
+- Monthly budget (category management - create, rename, reorder - lives here too; there is no separate Categories page)
 - Settings (which includes Backup and restore)
 
 A round **Add** button on Home starts a manual transaction.
@@ -32,12 +31,10 @@ A round **Add** button on Home starts a manual transaction.
 | Trends: This month | Pie chart of the month's budget allocation and how much is used | `05-trends.png` |
 | Trends: Previous month | Budget used over 6 months, and this month so far against last month by category | `05b-trends-previous-month.png` |
 | Trends: Historic | Budget and spent bars for the last 6 months, with two summary tiles | `05c-trends-historic.png` |
-| Side panel | Menu with Monthly budget, Categories, and Settings | `06-side-panel.png` |
-| Monthly budget | Every category with its amount for a month (₹0 if none), with a + button to add a new category | `07-monthly-budget.png` |
+| Side panel | Menu with Monthly budget and Settings | `06-side-panel.png` |
+| Monthly budget | Every category with its amount for a month (₹0 if none), drag to reorder, a + button to add a new category. Category management (rename, change icon) lives here too - there is no separate Categories page | `07-monthly-budget.png` |
 | Budget: new category (+) | Sheet for creating a new category with its icon, name, and this month's amount | `07b-add-budget-line.png` |
-| Budget: edit amount | The same sheet, opened by tapping a category, to change its amount | `07c-edit-budget-amount.png` |
-| Categories | Reorder and archive categories, with a + button to add one | `08-categories.png` |
-| New category | Sheet with an icon box and a name field, using the phone's emoji keyboard | `09-add-category.png` |
+| Budget: edit category | The same sheet, opened by tapping a category, to rename it, change its icon, or change its amount | `07c-edit-budget-amount.png` |
 | Settings | Permissions, alerts, trends range, and Backup and restore | `10-settings.png` |
 
 ## Page details
@@ -47,7 +44,7 @@ A round **Add** button on Home starts a manual transaction.
 - Month selector at the top.
 - A summary card with spent, budget, amount left, and a progress bar.
 - A line showing how many messages are waiting for review (still Not assigned).
-- A card per category, in the order set on the Categories page, with its emoji, name, amount used against budget, amount left, and a progress bar. The bar is blue below 80%, amber from 80%, and red when over budget. An overspent category shows a negative amount such as -₹2,000. A category with a ₹0 budget shows "Not budgeted".
+- A card per category, in the order set on the Monthly budget page, with its emoji, name, amount used against budget, amount left, and a progress bar. The bar is blue below 80%, amber from 80%, and red when over budget. An overspent category shows a negative amount such as -₹2,000. A category with a ₹0 budget shows "Not budgeted".
 - Tapping a card opens the Category detail page.
 
 ### Category detail
@@ -81,22 +78,13 @@ A round **Add** button on Home starts a manual transaction.
 
 ### Monthly budget
 
+Category management (create, rename, change icon, reorder) lives here - there is no separate Categories page (removed 2026-09-25, along with archiving categories).
+
 - Month selector, and a note when the amounts were copied from the previous month.
-- A row for every category with its amount. A category with no amount shows ₹0 in a muted style.
-- Tapping a row opens a small sheet with the category and an amount field. Save updates the amount and the month's total.
-- A + button in the top bar opens the same sheet in "new category" mode, with an icon box, a name field, and the amount for the month. The icon comes from the phone's emoji keyboard. It never adds to an existing category's amount.
+- A row for every category, each with a drag handle, emoji, name, and its amount. A category with no amount shows ₹0 in a muted style. Dragging a row by its handle reorders the list - that order is also what Home uses for its cards.
+- Tapping a row (not the handle) opens a sheet with an icon box, a name field, and an amount field, so renaming, changing the icon, and changing the amount are all one action. Save updates the row and the month's total.
+- A + button in the top bar opens the same sheet in "new category" mode. The icon comes from the phone's emoji keyboard; the app has no emoji picker of its own. It never changes an existing category's amount.
 - A total for the month at the bottom. There is no Save button: each amount is saved when its sheet is saved.
-
-### Categories
-
-- A list with a drag handle, emoji, and name for each category. Swiping left reveals Archive.
-- A collapsed Archived section at the bottom.
-- A + button in the top bar opens the New category sheet. A category created here has no budget, so it shows ₹0 on the Monthly budget page until an amount is set.
-
-### New category
-
-- An icon box and a name field.
-- Tapping the icon box brings up the phone's own keyboard, where the user picks an emoji. The app has no emoji picker of its own.
 
 ### Settings
 
@@ -111,4 +99,4 @@ A round **Add** button on Home starts a manual transaction.
 - Category card with progress bar and status text.
 - Status colours and icons (see [05-budget-rules.md](05-budget-rules.md)).
 - Filter chips and a three-way tab control.
-- Bottom sheets for message detail, New category, and the budget amount sheet (one component used to edit an amount or add a new category).
+- Bottom sheets for message detail and the budget category sheet (one component used to create a new category or edit an existing one's icon, name, and amount).

@@ -18,9 +18,10 @@ fun MonthlyBudgetScreen(
         onPreviousMonth = viewModel::onPreviousMonth,
         onNextMonth = viewModel::onNextMonth,
         onRowClick = viewModel::onRowClicked,
-        onSheetAmountChanged = viewModel::onSheetAmountChanged,
+        onReorder = viewModel::onReorder,
         onSheetNameChanged = viewModel::onSheetNameChanged,
         onSheetEmojiChanged = viewModel::onSheetEmojiChanged,
+        onSheetAmountChanged = viewModel::onSheetAmountChanged,
         onSheetSaved = viewModel::onSheetSaved,
         onSheetDismissed = viewModel::onSheetDismissed,
         modifier = modifier

@@ -30,11 +30,6 @@ class RoomCategoryRepository @Inject constructor(
         categoryDao.update(existing.copy(name = name, emoji = emoji))
     }
 
-    override suspend fun setArchived(id: Long, archived: Boolean) {
-        val existing = categoryDao.getById(id) ?: return
-        categoryDao.update(existing.copy(archived = archived))
-    }
-
     override suspend fun reorder(orderedActiveIds: List<Long>) {
         val current = categoryDao.observeAll().first()
         val byId = current.associateBy { it.id }

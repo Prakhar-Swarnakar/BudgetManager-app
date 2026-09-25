@@ -6,7 +6,6 @@ sealed interface Destination {
     data object Messages : Destination
     data object Trends : Destination
     data object MonthlyBudget : Destination
-    data object Categories : Destination
     data object Settings : Destination
 
     /** Manual add when both are null, accepting a message when [messageId] is set, editing an

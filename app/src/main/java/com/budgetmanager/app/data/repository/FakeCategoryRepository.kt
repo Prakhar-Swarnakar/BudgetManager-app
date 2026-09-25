@@ -24,10 +24,6 @@ class FakeCategoryRepository : CategoryRepository {
         state.value = state.value.map { if (it.id == id) it.copy(name = name, emoji = emoji) else it }
     }
 
-    override suspend fun setArchived(id: Long, archived: Boolean) {
-        state.value = state.value.map { if (it.id == id) it.copy(archived = archived) else it }
-    }
-
     override suspend fun reorder(orderedActiveIds: List<Long>) {
         val byId = state.value.associateBy { it.id }
         val archivedInOrder = state.value.filter { it.archived }.sortedBy { it.sortOrder }

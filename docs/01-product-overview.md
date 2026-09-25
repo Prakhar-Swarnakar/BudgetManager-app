@@ -33,11 +33,11 @@ One user (the owner), on their own Android phone, with accounts at several diffe
 | SMS review | Done on a dedicated Messages page, not through notification buttons | Decided |
 | Notification | A simple "new spends detected" notification. Action buttons are in the backlog | Decided |
 | Budget alerts | Notify at 80% of a category budget and when it is overspent | Decided |
-| Navigation | Bottom bar for Home, Messages, and Trends. Side panel for Monthly budget, Categories, and Settings | Decided |
+| Navigation | Bottom bar for Home, Messages, and Trends. Side panel for Monthly budget and Settings | Decided - the separate Categories page (built in M5) was removed 2026-09-25 and folded into Monthly budget, see below |
 | Backup and restore | Lives inside Settings. It is not a separate page or side panel item | Decided |
-| Monthly budget page | Lists every category with its amount for the month. A category with no amount shows ₹0. Tapping a category edits its amount | Decided |
-| Monthly budget: + button | Adds a new category (icon, name, and its budget for the month). It does not increase the budget of an existing category | Decided |
-| Where categories are created | On the Categories page, or with the + button on the Monthly budget page | Decided |
+| Monthly budget page | Lists every category with its amount for the month. A category with no amount shows ₹0. Tapping a category renames it, changes its icon, and edits its amount, all in one sheet - category management lives here, not on a separate page | Decided, revised 2026-09-25 |
+| Monthly budget: + button | Adds a new category (icon, name, and its budget for the month). It does not change the budget of an existing category | Decided |
+| Categories: create, rename, reorder, archive | Create/rename/reorder all live on the Monthly budget page now. Archiving was removed from v1 entirely 2026-09-25 - every category stays visible and reorderable forever | Decided, revised 2026-09-25 (see [06-backlog.md](06-backlog.md)) |
 | Trends tabs | This month, Previous month, and Historic. No 3, 6, or 12 month switch on the page | Decided |
 | Trends: This month | A pie chart of the month's budget allocation, showing how much of each slice is used | Decided |
 | Trends: Historic | A bar graph of the budget across the last 6 months | Decided |
@@ -53,7 +53,7 @@ One user (the owner), on their own Android phone, with accounts at several diffe
 | Editing transactions | Done on the Category detail page, opened from a Home card. Deleting an SMS-based transaction returns the message to Not assigned | Assumed |
 | Monthly budget saving | No Save button. Each amount is saved when its sheet is saved | Assumed |
 | Open questions | All previously open questions were settled with defaults on 24 Sep 2026 (see 07-open-questions.md) | Assumed |
-| Implementation | Built in vertical milestones M0 to M12, each running on the phone (see 14-implementation-plan.md) | Decided - M0 to M4 done |
+| Implementation | Built in vertical milestones M0 to M12, each running on the phone (see 14-implementation-plan.md) | Decided - M0 to M6 done (M5, Categories, was later removed and folded into M6) |
 | Build approach | Four phases. Phase 1 tests SMS reading, notifications, and installing on the phone before anything else is built | Decided |
 | Currency | Indian rupee (₹) | Assumed |
 | Distribution | Installed directly on the owner's phone, not through the Play Store. Android may block or add steps to this, so it is tested first (see 09-risks-and-phases.md) | Assumed |

@@ -10,14 +10,16 @@ Flows marked *(assumed)* contain a step I filled in that needs your confirmation
 4. The app opens the Monthly budget page so the user can tap each category and set an amount, rename or add categories if they want, then continue.
 5. The user lands on the Home screen.
 
-## 2. Set up a month's budget *(partly assumed)*
+## 2. Set up a month's budget
 
-1. The user opens the side panel and taps **Monthly budget**. On the first open in a new calendar month, the app also offers to set up the month.
-2. For a month with no budget yet, last month's budgets are copied in as a starting point *(assumed)*.
-3. The page lists every category with its amount for the month. A category with no amount shows **₹0**.
-4. To change an amount, the user **taps the category**. A sheet opens with an amount field, and the user saves. The month's total updates.
-5. To add a new category, the user taps the **+ button**. The sheet asks for an icon, a name, and this month's amount. The new category is created and added to the list. The + button never increases the budget of an existing category.
-6. There is no separate Save button. Each amount is saved as soon as its sheet is saved. Spending for the month starts at zero, and nothing carries over from last month.
+Category management (create, rename, change icon, reorder) lives on this same page - there is no separate Categories page (removed 2026-09-25, along with archiving; folded into here).
+
+1. The user opens the side panel and taps **Monthly budget**. Opening a month with nothing set yet copies last month's amounts in as a starting point, with a note saying so.
+2. The page lists every category with its amount for the month. A category with no amount shows **₹0**.
+3. To change an amount, rename a category, or change its icon, the user **taps the category**. One sheet covers all three, and the user saves. The month's total updates.
+4. To reorder categories, the user drags a row by its handle. The new order also becomes Home's card order.
+5. To add a new category, the user taps the **+ button**. The sheet asks for an icon, a name, and this month's amount. The new category is created and added to the list. The + button never changes the budget of an existing category.
+6. There is no separate Save button for the page as a whole. Each amount is saved as soon as its sheet is saved. Spending for the month starts at zero, and nothing carries over from last month.
 
 ## 3. Add a transaction manually
 
@@ -81,22 +83,14 @@ Flows marked *(assumed)* contain a step I filled in that needs your confirmation
 3. **Previous month:** the user sees budget used over the last 6 months, and this month so far compared with last month by category *(contents assumed)*.
 4. **Historic:** the user sees a budget bar and a spent bar for each of the last 6 months, with the average spent per month and the number of months over budget.
 
-## 11. Manage categories
-
-1. The user opens the side panel and taps **Categories**.
-2. They tap the + button to add a category. A sheet asks for a name and an icon. A category created here has no budget, so it shows ₹0 on the Monthly budget page until an amount is set. (A category can also be created from the + button on the Monthly budget page, where its amount is entered at the same time.)
-3. To set the icon, the user taps the icon box and picks an emoji from the phone's own keyboard.
-4. They can also rename a category, change its icon, reorder categories by dragging, or archive one by swiping.
-5. Archived categories keep their past transactions and no longer appear when choosing a category.
-
-## 12. Back up and restore
+## 11. Back up and restore
 
 1. The user opens the side panel, taps **Settings**, and scrolls to **Backup & restore**.
 2. **Export** saves all data to a file. The page shows the date of the last export.
 3. On a new or reset phone, the user taps **Import** and picks that file.
 4. Import replaces the data on the phone after a summary and a confirmation *(assumed; see open questions)*.
 
-## 13. Edit or delete a transaction
+## 12. Edit or delete a transaction
 
 1. On Home, the user taps a category card. The Category detail page opens with that category's transactions for the month.
 2. **Tap** a transaction to edit it on the Add Transaction page. Saving updates the totals.
@@ -104,7 +98,7 @@ Flows marked *(assumed)* contain a step I filled in that needs your confirmation
 4. If the transaction came from an SMS, deleting it returns that message to **Not assigned** so it can be reviewed again.
 5. Editing or deleting does not send budget alerts.
 
-## 14. Change the trends range *(assumed)*
+## 13. Change the trends range *(assumed)*
 
 1. The user opens the side panel and taps **Settings**.
 2. In the Trends section, they tap **Months shown in charts** and choose a number of months. The default is 6.

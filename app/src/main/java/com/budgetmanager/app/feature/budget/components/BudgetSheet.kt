@@ -21,49 +21,45 @@ import com.budgetmanager.app.core.designsystem.components.EmojiIconBox
 import com.budgetmanager.app.feature.budget.BudgetSheetMode
 import com.budgetmanager.app.feature.budget.BudgetSheetUiState
 
-/** One sheet for both jobs, per 08-pages-and-navigation.md: editing an existing category's
- *  amount (tap a row) only shows the amount field; creating a new category (the + button) adds
- *  the emoji and name fields above it. */
+/** One shape for both jobs: creating a new category with its first amount, and editing an
+ *  existing one's icon, name, and amount together - category management lives on the Monthly
+ *  budget page, per 08-pages-and-navigation.md. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BudgetSheet(
     state: BudgetSheetUiState,
-    onAmountChanged: (String) -> Unit,
     onNameChanged: (String) -> Unit,
     onEmojiChanged: (String) -> Unit,
+    onAmountChanged: (String) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val isNewCategory = state.mode is BudgetSheetMode.NewCategory
-
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                if (isNewCategory) "New category" else "Edit amount",
+                if (state.mode is BudgetSheetMode.Edit) "Edit category" else "New category",
                 style = MaterialTheme.typography.titleMedium
             )
 
-            if (isNewCategory) {
-                EmojiIconBox(
-                    emoji = state.emoji,
-                    onEmojiChanged = onEmojiChanged,
-                    isError = state.emojiError != null,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-                state.emojiError?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
-                }
-
-                OutlinedTextField(
-                    value = state.name,
-                    onValueChange = onNameChanged,
-                    label = { Text("Name") },
-                    isError = state.nameError != null,
-                    supportingText = state.nameError?.let { error -> { Text(error) } },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
-                )
+            EmojiIconBox(
+                emoji = state.emoji,
+                onEmojiChanged = onEmojiChanged,
+                isError = state.emojiError != null,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+            state.emojiError?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
             }
+
+            OutlinedTextField(
+                value = state.name,
+                onValueChange = onNameChanged,
+                label = { Text("Name") },
+                isError = state.nameError != null,
+                supportingText = state.nameError?.let { error -> { Text(error) } },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
+            )
 
             AmountField(
                 value = state.amountInput,

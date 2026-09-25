@@ -89,7 +89,7 @@ These protect the app's core promise of honest numbers, so they are **Must**.
 - Anything that can fail (parsing, import, permission, a missing file) has a defined outcome that the user can see and understand. Silent failure is the worst kind.
 - Show plain-language messages ("Could not read that file. Pick a backup made by this app."), never stack traces.
 - Backup import validates the file before touching data: format version, required fields, and sanity checks. It replaces data only after confirmation, and only if the whole file is valid.
-- Deleting or archiving something that has history keeps the history. Archive categories rather than deleting them.
+- Deleting something that has history keeps the history where it can. A category is never deleted while it still has transactions attached to it.
 - Undo beats confirm for common actions. Swipe-to-reject shows an undo bar for a few seconds.
 
 ## 9. Accessibility

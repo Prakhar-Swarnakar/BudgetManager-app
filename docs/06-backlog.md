@@ -24,6 +24,7 @@ Items agreed to postpone, or proposed and not yet scheduled. None of these are i
 | Merge on restore | Let Import merge a backup into existing data instead of replacing it |
 | Backup reminder | A gentle nudge if the last export was more than about 30 days ago |
 | Archive old messages | Move accepted and rejected messages out of the main list after some time. In v1 they stay, and the filter chips manage the list |
+| Archive categories | Built once (M5, 2026-09-25: swipe left, a collapsed Archived section) and then removed from v1 the same day, at the user's request, along with the separate Categories page it lived on. Every category now stays visible and reorderable on Monthly budget forever. Could come back later, scoped to a real need rather than by default |
 | All transactions list | A single page of every transaction across categories, with search. In v1, transactions are reached through their category's detail page |
 
 ## Later ideas

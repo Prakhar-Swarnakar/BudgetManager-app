@@ -22,18 +22,19 @@ data class BudgetRowUi(
 )
 
 sealed interface BudgetSheetMode {
-    data class EditAmount(val categoryId: Long) : BudgetSheetMode
-    data object NewCategory : BudgetSheetMode
+    data class Edit(val categoryId: Long) : BudgetSheetMode
+    data object New : BudgetSheetMode
 }
 
-/** [name]/[emoji] only matter in [BudgetSheetMode.NewCategory] - editing an existing category's
- *  amount only ever touches [amountInput]. */
+/** One sheet shape for both jobs: creating a new category (name, icon, and its first amount)
+ *  and editing an existing one (rename, change icon, and change its amount for this month) -
+ *  category management lives on this page, there is no separate Categories page. */
 data class BudgetSheetUiState(
     val mode: BudgetSheetMode,
-    val amountInput: String = "",
-    val amountError: String? = null,
     val name: String = "",
     val emoji: String = "",
+    val amountInput: String = "",
     val nameError: String? = null,
-    val emojiError: String? = null
+    val emojiError: String? = null,
+    val amountError: String? = null
 )

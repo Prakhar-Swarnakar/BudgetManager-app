@@ -3,7 +3,6 @@ package com.budgetmanager.app.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Settings
@@ -34,8 +33,6 @@ import androidx.navigation3.ui.NavDisplay
 import com.budgetmanager.app.core.designsystem.components.AppScaffold
 import com.budgetmanager.app.feature.budget.MonthlyBudgetScreen
 import com.budgetmanager.app.feature.budget.MonthlyBudgetViewModel
-import com.budgetmanager.app.feature.categories.CategoriesScreen
-import com.budgetmanager.app.feature.categories.CategoriesViewModel
 import com.budgetmanager.app.feature.home.HomeScreen
 import com.budgetmanager.app.feature.messages.MessagesScreen
 import com.budgetmanager.app.feature.settings.SettingsScreen
@@ -53,7 +50,6 @@ private val bottomBarItems = listOf(
 
 private val sidePanelItems = listOf(
     NavItem(Destination.MonthlyBudget, "Monthly budget", Icons.Default.AccountBalanceWallet),
-    NavItem(Destination.Categories, "Categories", Icons.Default.Category),
     NavItem(Destination.Settings, "Settings", Icons.Default.Settings)
 )
 
@@ -62,14 +58,14 @@ private fun titleFor(destination: Destination): String = when (destination) {
     Destination.Messages -> "Messages"
     Destination.Trends -> "Trends"
     Destination.MonthlyBudget -> "Monthly budget"
-    Destination.Categories -> "Categories"
     Destination.Settings -> "Settings"
     is Destination.AddTransaction -> if (destination.transactionId != null) "Edit transaction" else "Add transaction"
 }
 
 /**
- * Bottom bar for Home/Messages/Trends (daily use), side panel for Monthly budget/Categories/
- * Settings (used a few times a month). See 08-pages-and-navigation.md.
+ * Bottom bar for Home/Messages/Trends (daily use), side panel for Monthly budget/Settings (used
+ * a few times a month). See 08-pages-and-navigation.md. Category management (create, rename,
+ * reorder) lives on the Monthly budget page - there is no separate Categories page.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,25 +115,16 @@ fun AppNavigation() {
             title = titleFor(current),
             onMenuClick = { scope.launch { drawerState.open() } },
             actions = {
-                // Neither destination has per-instance arguments, so these bare hiltViewModel()
-                // calls resolve to the same ViewModel instances the screens themselves get -
-                // there's no per-NavEntry ViewModelStore scoping wired up for Navigation 3 here
-                // (see the same note on AddTransactionScreen), so both calls share the single
-                // Activity-scoped instance.
-                when (current) {
-                    Destination.Categories -> {
-                        val categoriesViewModel: CategoriesViewModel = hiltViewModel()
-                        IconButton(onClick = categoriesViewModel::onAddClicked) {
-                            Icon(Icons.Default.Add, contentDescription = "New category")
-                        }
+                // Monthly budget has no per-instance arguments, so this bare hiltViewModel()
+                // call resolves to the same ViewModel instance the screen itself gets - there's
+                // no per-NavEntry ViewModelStore scoping wired up for Navigation 3 here (see the
+                // same note on AddTransactionScreen), so both calls share the single Activity-
+                // scoped instance.
+                if (current == Destination.MonthlyBudget) {
+                    val monthlyBudgetViewModel: MonthlyBudgetViewModel = hiltViewModel()
+                    IconButton(onClick = monthlyBudgetViewModel::onAddClicked) {
+                        Icon(Icons.Default.Add, contentDescription = "New category")
                     }
-                    Destination.MonthlyBudget -> {
-                        val monthlyBudgetViewModel: MonthlyBudgetViewModel = hiltViewModel()
-                        IconButton(onClick = monthlyBudgetViewModel::onAddClicked) {
-                            Icon(Icons.Default.Add, contentDescription = "New category")
-                        }
-                    }
-                    else -> Unit
                 }
             },
             bottomBar = {
@@ -177,7 +164,6 @@ fun AppNavigation() {
                         }
                         Destination.Trends -> NavEntry(destination) { TrendsScreen(contentModifier) }
                         Destination.MonthlyBudget -> NavEntry(destination) { MonthlyBudgetScreen(contentModifier) }
-                        Destination.Categories -> NavEntry(destination) { CategoriesScreen(contentModifier) }
                         Destination.Settings -> NavEntry(destination) { SettingsScreen(contentModifier) }
                         is Destination.AddTransaction -> NavEntry(destination) {
                             AddTransactionScreen(

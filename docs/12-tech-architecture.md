@@ -154,8 +154,9 @@ src/main/
         ├── messages/              list, filters, message detail sheet
         ├── transaction/           add and edit transaction
         ├── trends/                three tabs, chart components
-        ├── budget/                monthly budget list and amount sheet
-        ├── categories/            list, reorder, archive, new category sheet
+        ├── budget/                monthly budget list, drag to reorder, category sheet (new
+        │                          category and rename/change-icon/amount are one sheet) -
+        │                          category management lives here, no separate categories/ folder
         └── settings/              permissions, alerts, backup and restore
 ```
 
@@ -225,7 +226,7 @@ These come from the mockups. Where a component appears on several screens it is 
 | `StatusBadge` | Messages, Message detail | Icon and label, so colour is never the only signal |
 | `FilterChipRow` | Messages | Chips with counts |
 | `SegmentedTabs` | Trends | Three-way tab control |
-| `SwipeRow` | Messages, Categories | Wraps Compose's swipe-to-dismiss with a configurable start and end `SwipeAction` (icon, colour, enabled) per row, so the reveal strip always matches what that swipe will really do. Messages varies it by status (Accept/Reject on Not assigned, a neutral "undo" on Accepted/Rejected's one live direction); Categories uses a fixed Archive |
+| `SwipeRow` | Messages | Wraps Compose's swipe-to-dismiss with a configurable start and end `SwipeAction` (icon, colour, enabled) per row, so the reveal strip always matches what that swipe will really do. Varies by status: Accept/Reject on a Not assigned row, a neutral "undo" on Accepted/Rejected's one live direction. Was also used by Categories' swipe-to-archive until archiving was removed from v1 2026-09-25 |
 | `AmountField` | Add transaction, budget sheet | A rupee field that keeps whole numbers and shows Indian grouping |
 | `FormSheet` | New category, edit budget amount | One bottom sheet used for both "edit an amount" and "new category with amount" |
 | `ConfirmDialog` | Backup restore, delete | Title, message, confirm, and cancel |
@@ -246,7 +247,7 @@ All amounts are `Long` paise. Dates are stored as epoch milliseconds, with a mon
 
 | Table | Key fields | Notes |
 |---|---|---|
-| `category` | id, name, emoji, sortOrder, archived | Archived categories keep their history |
+| `category` | id, name, emoji, sortOrder, archived | The `archived` column stays in the schema but is unused in v1 after archiving was removed 2026-09-25 (dropping it would need a migration, which wasn't worth it for a column that just always reads false) |
 | `monthly_budget` | id, monthKey, categoryId, amountPaise | Unique on (monthKey, categoryId). A category with no row shows ₹0 |
 | `transactions` | id, amountPaise, occurredAt, monthKey, categoryId, note, sourceMessageId (nullable) | `sourceMessageId` links back to the SMS when there is one. The table is named `transactions` because `transaction` is an SQL keyword |
 | `sms_message` | id, sender, body, receivedAt, smsProviderId, dedupeKey, parsedAmountPaise (nullable), merchant (nullable), suggestedCategoryId, status, isNew | `status` is Not assigned, Accepted, or Rejected. `dedupeKey` is unique, which stops the same SMS being saved twice (R11). The amount and merchant are null when the text could not be parsed |
@@ -255,7 +256,7 @@ All amounts are `Long` paise. Dates are stored as epoch milliseconds, with a mon
 
 **Seeded data.** When the database is first created, a Room callback inserts the nine starter categories (Rent, Groceries, Food & Dining, Transport, Bills & Utilities, Entertainment, Shopping, Health, Other) and their default keywords. Starter budgets are ₹0.
 
-**Deleting a transaction** that has a `sourceMessageId` sets that message back to Not assigned in the same database transaction. Suggestions skip archived categories.
+**Deleting a transaction** that has a `sourceMessageId` sets that message back to Not assigned in the same database transaction.
 
 Rules for the schema:
 
@@ -301,7 +302,7 @@ The milestone-by-milestone order, with tests and "done when" checks, is in [14-i
 | Phase | Architecture pieces |
 |---|---|
 | 2 (M0 to M4) | Project setup, Hilt, the whole Room schema with seeded categories and keywords, the domain rules (`Money`, `MonthKey`, budget maths), `sms/*`, DataStore for the catch-up marker, Messages and Add transaction features, and the shared components they need |
-| 3 (M5 to M9) | Categories, Monthly budget, Home, Category detail, alerts, Settings, and `backup/` |
+| 3 (M5 to M9) | Monthly budget (including category management - create, rename, reorder), Home, Category detail, alerts, Settings, and `backup/` |
 | 4 (M10 to M12) | Trends, `DonutChart`, `BarChart`, `BuildTrendSeries`, and release hardening |
 
 ## 10. Technical decisions (defaults adopted)

@@ -9,11 +9,10 @@
 
 - Each category has its own budget amount for each month.
 - Budgets can be edited at any time during the month.
-- A new month starts with last month's amounts copied in as a starting point *(assumed)*.
+- A new month starts with last month's amounts copied in as a starting point.
 - The Monthly budget page lists **every** category. A category with no amount allotted for the month shows **₹0**.
-- Tapping a category edits its amount for that month, using the same sheet that is used to add a category.
-- The **+ button** on the Monthly budget page creates a **new category** with its icon, name, and amount for that month. It never increases the budget of an existing category.
-- A category created on the Categories page has no budget yet, so it shows ₹0 in every month until an amount is set.
+- Tapping a category opens the same sheet used to add one, pre-filled - it renames the category, changes its icon, and edits its amount for that month, all together.
+- The **+ button** on the Monthly budget page creates a **new category** with its icon, name, and amount for that month. It never changes the budget of an existing category.
 - The month's total budget is the sum of its category budgets. There is no separate income or overall cap.
 
 ## Calculations

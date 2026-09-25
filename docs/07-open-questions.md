@@ -27,7 +27,7 @@ Earlier this file listed assumptions and open questions. On 24 September 2026 yo
 | 12 | New month budgets | Copied from the previous month as a starting point |
 | 13 | Alert frequency | Each alert fires once per category per month |
 | 14 | A ₹0-budget category that gets spending | Negative remaining, labelled "Not budgeted", no percentage, one over-budget alert. Rules in [05-budget-rules.md](05-budget-rules.md) |
-| 15 | Home card order | The fixed order set on the Categories page |
+| 15 | Home card order | The fixed order set on the Monthly budget page (revised 2026-09-25: category reordering moved there when the separate Categories page was removed) |
 | 16 | Monthly budget page Save button | Removed. Each amount is saved when its sheet is saved |
 | 17 | Where transactions are edited or deleted | On a new Category detail page, opened by tapping a card on Home |
 | 18 | First-launch setup | Starter categories are created with ₹0 budgets, then the Monthly budget page opens so amounts can be set |

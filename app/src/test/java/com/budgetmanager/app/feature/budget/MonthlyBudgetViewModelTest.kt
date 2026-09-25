@@ -171,6 +171,74 @@ class MonthlyBudgetViewModelTest {
     }
 
     @Test
+    fun `clicking a row opens the sheet pre-filled with name, icon, and amount`() = runTest {
+        val categories = FakeCategoryRepository().apply {
+            seed(listOf(Category(1, "Food", "🍔", 0, archived = false)))
+        }
+        val budgets = FakeMonthlyBudgetRepository()
+        val viewModel = viewModel(categories, budgets)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        budgets.setAmount(viewModel.uiState.value.monthKey, categoryId = 1, amount = Money.ofRupees(500))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onRowClicked(1)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val sheet = viewModel.uiState.value.sheet
+        assertEquals("Food", sheet?.name)
+        assertEquals("🍔", sheet?.emoji)
+        assertEquals("500", sheet?.amountInput)
+        collector.cancel()
+    }
+
+    @Test
+    fun `saving the sheet renames the category and changes its icon, category management now lives here`() = runTest {
+        val categories = FakeCategoryRepository().apply {
+            seed(listOf(Category(1, "Food", "🍔", 0, archived = false)))
+        }
+        val viewModel = viewModel(categories)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onRowClicked(1)
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.onSheetNameChanged("Food & Dining")
+        viewModel.onSheetEmojiChanged("🍽️")
+        viewModel.onSheetAmountChanged("1000")
+        viewModel.onSheetSaved()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first()
+        assertEquals("Food & Dining", row.name)
+        assertEquals("🍽️", row.emoji)
+        collector.cancel()
+    }
+
+    @Test
+    fun `reorder persists the new active order`() = runTest {
+        val categories = FakeCategoryRepository().apply {
+            seed(
+                listOf(
+                    Category(1, "Rent", "🏠", 0, archived = false),
+                    Category(2, "Food", "🍔", 1, archived = false)
+                )
+            )
+        }
+        val viewModel = viewModel(categories)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onReorder(listOf(2L, 1L))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val orderedIds = viewModel.uiState.value.rows.map { it.categoryId }
+        assertEquals(listOf(2L, 1L), orderedIds)
+        collector.cancel()
+    }
+
+    @Test
     fun `a brand-new month with nothing to copy shows no note`() = runTest {
         val categories = FakeCategoryRepository().apply {
             seed(listOf(Category(1, "Food", "🍔", 0, archived = false)))

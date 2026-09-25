@@ -2,39 +2,35 @@
 
 Anything not listed here is in [06-backlog.md](06-backlog.md).
 
-## F1. Categories
+## F1. Categories and Monthly budget
 
-- The app starts with a set of starter categories so setup is quick: Rent, Groceries, Food & Dining, Transport, Bills & Utilities, Entertainment, Shopping, Health, and Other. Each can be renamed, re-iconed, or archived.
-- Create, rename, and archive categories.
+Category management (create, rename, change icon, reorder) and setting each one's amount for the month live on one page - there is no separate Categories page. Removed 2026-09-25: archiving categories. Every category stays visible and reorderable forever; there is no "hide it but keep its history" state for categories (transactions themselves are never deleted just for this).
+
+- The app starts with a set of starter categories so setup is quick: Rent, Groceries, Food & Dining, Transport, Bills & Utilities, Entertainment, Shopping, Health, and Other. Each can be renamed or re-iconed at any time.
 - Each category has a **name** and an **icon**. The icon is an emoji, typed or picked using the phone's own keyboard. The app does not have its own emoji picker.
-- Archived categories disappear from pickers but keep their history.
-- A category can be created on the Categories page, or with the + button on the Monthly budget page. A category created on the Categories page shows ₹0 on the Monthly budget page until an amount is set.
-
-## F2. Monthly budget
-
-- Set an amount per category for each calendar month.
-- The Monthly budget page lists **every** category with its amount for the month. A category with no amount shows **₹0**.
-- **Tap a category** to change its amount. A small sheet opens with an amount field, and the same sheet is used for adding a new category.
-- The **+ button** adds a **new category** (icon, name, and this month's budget). It never increases the budget of an existing category.
+- Categories can be reordered by dragging - that order is what Home uses for its cards.
+- Set an amount per category for each calendar month. The Monthly budget page lists **every** category with its amount for the month. A category with no amount shows **₹0**.
+- **Tap a category** to rename it, change its icon, or change its amount, all in one sheet. Save updates the row and the month's total.
+- The **+ button** adds a **new category** (icon, name, and this month's budget). It never changes the budget of an existing category.
 - The budget can be edited at any time during the month.
-- A new month starts as a copy of the previous month's budgets (assumed; see [07-open-questions.md](07-open-questions.md)).
+- A new month starts as a copy of the previous month's budgets.
 - Nothing rolls over between months.
 
-## F3. Manual transactions
+## F2. Manual transactions
 
 - Add a transaction with amount, category, date, and an optional note.
 - Edit or delete a transaction later, from the **Category detail** page (tap a category card on Home). It lists that category's transactions for the month. Tap one to edit it, or swipe left to delete it.
 - The same Add Transaction page is used when accepting an SMS, with the fields pre-filled, and when editing.
 - Deleting a transaction that came from an SMS returns that message to **Not assigned**.
 
-## F4. SMS reading
+## F3. SMS reading
 
 - The app reads incoming bank SMS on the phone.
 - It keeps only messages that look like a debit (money spent) and extracts the amount, merchant, and date.
 - Each one is stored as a message on the Messages page.
 - Works across many banks, so parsing has to cope with different formats.
 
-## F5. Messages page
+## F4. Messages page
 
 - A page listing every SMS-derived message the app received.
 - The page's icon shows a small red circle when there are new messages.
@@ -42,35 +38,35 @@ Anything not listed here is in [06-backlog.md](06-backlog.md).
 - Swipe to accept or reject, or tap to open the message.
 - Full detail in [04-messages-and-notifications.md](04-messages-and-notifications.md).
 
-## F6. Notification for new messages
+## F5. Notification for new messages
 
 - When new spend messages arrive, the app shows a simple notification such as "3 new spends detected".
 - No action buttons in v1.
 
-## F7. Category suggestion
+## F6. Category suggestion
 
 - When a message is accepted, the Add Transaction page opens with a category suggested from keywords in the merchant or SMS text.
 - The user can change it before saving.
 - If no keyword matches, the category is left empty.
-- The starter categories come with a built-in keyword list (for example Swiggy and Zomato map to Food & Dining). Archived categories are never suggested. Editing the keyword list is in the backlog.
+- The starter categories come with a built-in keyword list (for example Swiggy and Zomato map to Food & Dining). Editing the keyword list is in the backlog.
 
-## F8. Budget tracking
+## F7. Budget tracking
 
 - For each category: **remaining = budget minus spent**.
 - Remaining can be negative, and negative values are clearly marked.
 
-## F9. Budget alerts
+## F8. Budget alerts
 
 - Notify when a category reaches 80% of its budget.
 - Notify when a category goes over its budget.
 
-## F10. Home overview
+## F9. Home overview
 
-- Shows the current month with remaining budget per category, in the order set on the Categories page.
+- Shows the current month with remaining budget per category, in the order set on the Monthly budget page.
 - Tapping a category card opens its Category detail page.
 - A line shows how many messages are waiting for review (the ones still Not assigned).
 
-## F11. Trends
+## F10. Trends
 
 The Trends page has three tabs: **This month**, **Previous month**, and **Historic**. There is no 3, 6, or 12 month switch on the page.
 
@@ -93,7 +89,7 @@ The Trends page has three tabs: **This month**, **Previous month**, and **Histor
 
 **Range:** the charts show 6 months by default. The number of months can be changed in Settings (assumed options: 3, 6, or 12).
 
-## F12. Settings
+## F11. Settings
 
 - Shows the status of the SMS, notification, and battery permissions.
 - Switches for the alerts: new spends detected, 80% of a budget used, and over budget.

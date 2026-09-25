@@ -1,6 +1,5 @@
 package com.budgetmanager.app.feature.budget
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,11 +15,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.budgetmanager.app.core.designsystem.components.EmptyState
 import com.budgetmanager.app.core.designsystem.components.MonthSelector
+import com.budgetmanager.app.feature.budget.components.BudgetCategoryList
 import com.budgetmanager.app.feature.budget.components.BudgetSheet
 
 @Composable
@@ -29,9 +28,10 @@ fun MonthlyBudgetContent(
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onRowClick: (Long) -> Unit,
-    onSheetAmountChanged: (String) -> Unit,
+    onReorder: (List<Long>) -> Unit,
     onSheetNameChanged: (String) -> Unit,
     onSheetEmojiChanged: (String) -> Unit,
+    onSheetAmountChanged: (String) -> Unit,
     onSheetSaved: () -> Unit,
     onSheetDismissed: () -> Unit,
     modifier: Modifier = Modifier
@@ -60,36 +60,20 @@ fun MonthlyBudgetContent(
                 message = "No categories yet. Tap + to add one."
             )
         } else {
+            // Scrollable: with 9+ starter categories the list can run past one screen. Only the
+            // populated branch scrolls, nested inside the non-scrolling outer Column, so
+            // EmptyState's fillMaxSize() above still gets a bounded height (an unbounded
+            // scrollable parent would crash it).
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
-                state.rows.forEach { row ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onRowClick(row.categoryId) }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(row.emoji, style = MaterialTheme.typography.headlineSmall)
-                        Text(
-                            row.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(start = 12.dp).weight(1f)
-                        )
-                        Text(
-                            row.amountText,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (row.hasAmount) {
-                                MaterialTheme.colorScheme.onSurface
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
-                    }
-                }
+                BudgetCategoryList(
+                    rows = state.rows,
+                    onRowClick = onRowClick,
+                    onReorder = onReorder
+                )
 
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
@@ -109,9 +93,9 @@ fun MonthlyBudgetContent(
     state.sheet?.let { sheet ->
         BudgetSheet(
             state = sheet,
-            onAmountChanged = onSheetAmountChanged,
             onNameChanged = onSheetNameChanged,
             onEmojiChanged = onSheetEmojiChanged,
+            onAmountChanged = onSheetAmountChanged,
             onSave = onSheetSaved,
             onDismiss = onSheetDismissed
         )
