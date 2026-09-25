@@ -21,6 +21,11 @@ interface CategoryDao {
     @Query("SELECT COUNT(*) FROM category")
     suspend fun count(): Int
 
+    /** One-shot read of every category, for backup export - observeAll() is for screens that
+     *  need to react to changes. */
+    @Query("SELECT * FROM category ORDER BY sort_order ASC")
+    suspend fun getAllOnce(): List<CategoryEntity>
+
     @Insert
     suspend fun insert(category: CategoryEntity): Long
 
@@ -32,4 +37,7 @@ interface CategoryDao {
 
     @Update
     suspend fun updateAll(categories: List<CategoryEntity>)
+
+    @Query("DELETE FROM category")
+    suspend fun deleteAll()
 }

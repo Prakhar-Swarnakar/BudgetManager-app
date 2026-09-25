@@ -38,6 +38,10 @@ interface TransactionDao {
     )
     fun observeCategoryBySourceMessage(): Flow<List<MessageCategory>>
 
+    /** Every transaction, for backup export. */
+    @Query("SELECT * FROM transactions")
+    suspend fun getAllOnce(): List<TransactionEntity>
+
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getById(id: Long): TransactionEntity?
 
@@ -47,9 +51,15 @@ interface TransactionDao {
     @Insert
     suspend fun insert(transaction: TransactionEntity): Long
 
+    @Insert
+    suspend fun insertAll(transactions: List<TransactionEntity>)
+
     @Update
     suspend fun update(transaction: TransactionEntity)
 
     @Delete
     suspend fun delete(transaction: TransactionEntity)
+
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAll()
 }

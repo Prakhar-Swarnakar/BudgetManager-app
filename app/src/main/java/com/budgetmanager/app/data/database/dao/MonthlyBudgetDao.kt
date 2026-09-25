@@ -15,6 +15,10 @@ interface MonthlyBudgetDao {
     @Query("SELECT * FROM monthly_budget WHERE month_key = :monthKey AND category_id = :categoryId LIMIT 1")
     suspend fun get(monthKey: String, categoryId: Long): MonthlyBudgetEntity?
 
+    /** Every month's budgets, for backup export. */
+    @Query("SELECT * FROM monthly_budget")
+    suspend fun getAllOnce(): List<MonthlyBudgetEntity>
+
     /** Replaces any existing amount for this (month, category) pair - the unique index makes
      *  this behave as an upsert rather than always inserting a new row. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -22,4 +26,7 @@ interface MonthlyBudgetDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(budgets: List<MonthlyBudgetEntity>)
+
+    @Query("DELETE FROM monthly_budget")
+    suspend fun deleteAll()
 }

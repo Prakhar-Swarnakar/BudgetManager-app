@@ -18,4 +18,8 @@ class DataStoreSettingsRepository @Inject constructor(
     override fun observeOverBudgetAlertsEnabled() = settingsDataStore.observeOverBudgetAlertsEnabled()
     override suspend fun setOverBudgetAlertsEnabled(enabled: Boolean) =
         settingsDataStore.setOverBudgetAlertsEnabled(enabled)
+
+    override fun observeLastExportAt() = settingsDataStore.observeLastExportAt()
+    override suspend fun setLastExportAt(timestampMillis: Long) =
+        settingsDataStore.setLastExportAt(timestampMillis)
 }

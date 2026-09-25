@@ -6,6 +6,7 @@ class FakeSettingsRepository : SettingsRepository {
     private val newSpendsAlertsEnabled = MutableStateFlow(true)
     private val eightyPercentAlertsEnabled = MutableStateFlow(true)
     private val overBudgetAlertsEnabled = MutableStateFlow(true)
+    private val lastExportAt = MutableStateFlow<Long?>(null)
 
     override fun observeNewSpendsAlertsEnabled() = newSpendsAlertsEnabled
     override suspend fun setNewSpendsAlertsEnabled(enabled: Boolean) {
@@ -20,5 +21,10 @@ class FakeSettingsRepository : SettingsRepository {
     override fun observeOverBudgetAlertsEnabled() = overBudgetAlertsEnabled
     override suspend fun setOverBudgetAlertsEnabled(enabled: Boolean) {
         overBudgetAlertsEnabled.value = enabled
+    }
+
+    override fun observeLastExportAt() = lastExportAt
+    override suspend fun setLastExportAt(timestampMillis: Long) {
+        lastExportAt.value = timestampMillis
     }
 }

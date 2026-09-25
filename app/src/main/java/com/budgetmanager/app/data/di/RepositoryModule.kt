@@ -1,12 +1,14 @@
 package com.budgetmanager.app.data.di
 
 import com.budgetmanager.app.data.repository.AlertLogRepository
+import com.budgetmanager.app.data.repository.BackupRepository
 import com.budgetmanager.app.data.repository.CategoryRepository
 import com.budgetmanager.app.data.repository.DataStoreSettingsRepository
 import com.budgetmanager.app.data.repository.KeywordRuleRepository
 import com.budgetmanager.app.data.repository.MessageRepository
 import com.budgetmanager.app.data.repository.MonthlyBudgetRepository
 import com.budgetmanager.app.data.repository.RoomAlertLogRepository
+import com.budgetmanager.app.data.repository.RoomBackupRepository
 import com.budgetmanager.app.data.repository.RoomCategoryRepository
 import com.budgetmanager.app.data.repository.RoomKeywordRuleRepository
 import com.budgetmanager.app.data.repository.RoomMessageRepository
@@ -51,4 +53,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(impl: DataStoreSettingsRepository): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBackupRepository(impl: RoomBackupRepository): BackupRepository
 }

@@ -13,4 +13,7 @@ interface KeywordRuleDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(rules: List<KeywordRuleEntity>)
+
+    @Query("DELETE FROM keyword_rule")
+    suspend fun deleteAll()
 }

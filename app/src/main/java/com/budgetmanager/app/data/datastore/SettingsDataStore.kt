@@ -25,6 +25,7 @@ class SettingsDataStore @Inject constructor(
     private val newSpendsAlertsEnabledKey = booleanPreferencesKey("new_spends_alerts_enabled")
     private val eightyPercentAlertsEnabledKey = booleanPreferencesKey("eighty_percent_alerts_enabled")
     private val overBudgetAlertsEnabledKey = booleanPreferencesKey("over_budget_alerts_enabled")
+    private val lastExportAtKey = longPreferencesKey("last_export_at")
 
     /** Null means the catch-up scan has never run - the caller must not treat that as epoch 0,
      *  or the very first scan would bulk-import the phone's entire SMS history. */
@@ -54,5 +55,13 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setOverBudgetAlertsEnabled(enabled: Boolean) {
         context.dataStore.edit { it[overBudgetAlertsEnabledKey] = enabled }
+    }
+
+    /** Null means no export has ever been made. */
+    fun observeLastExportAt(): Flow<Long?> =
+        context.dataStore.data.map { it[lastExportAtKey] }
+
+    suspend fun setLastExportAt(timestampMillis: Long) {
+        context.dataStore.edit { it[lastExportAtKey] = timestampMillis }
     }
 }

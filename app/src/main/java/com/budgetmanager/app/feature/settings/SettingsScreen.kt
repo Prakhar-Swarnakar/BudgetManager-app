@@ -14,6 +14,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -24,6 +25,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -32,6 +37,7 @@ fun SettingsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // Permission/battery status is OS state, not something the ViewModel owns - refreshed
     // whenever this screen resumes, since that's when the user is most likely coming back from
@@ -53,6 +59,37 @@ fun SettingsScreen(
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { refreshKey++ }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            try {
+                val json = viewModel.buildExportJson()
+                context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                    ?: throw IOException("openOutputStream returned null")
+                viewModel.onExportCompleted()
+            } catch (e: IOException) {
+                viewModel.onExportFailed()
+            }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            try {
+                val rawJson = context.contentResolver.openInputStream(uri)
+                    ?.bufferedReader()?.use { it.readText() }
+                    ?: throw IOException("openInputStream returned null")
+                viewModel.onImportFileSelected(rawJson)
+            } catch (e: IOException) {
+                viewModel.onImportReadFailed()
+            }
+        }
+    }
 
     SettingsContent(
         state = state,
@@ -85,8 +122,20 @@ fun SettingsScreen(
         onNewSpendsAlertsToggled = viewModel::onNewSpendsAlertsToggled,
         onEightyPercentAlertsToggled = viewModel::onEightyPercentAlertsToggled,
         onOverBudgetAlertsToggled = viewModel::onOverBudgetAlertsToggled,
+        onExportClick = { exportLauncher.launch(defaultBackupFileName()) },
+        onImportClick = { importLauncher.launch(arrayOf("application/json")) },
+        onConfirmImport = viewModel::onConfirmImport,
+        onCancelImport = viewModel::onCancelImport,
+        onDismissImportError = viewModel::onDismissImportError,
+        onDismissImportSuccess = viewModel::onDismissImportSuccess,
+        onDismissExportError = viewModel::onDismissExportError,
         modifier = modifier
     )
+}
+
+private fun defaultBackupFileName(): String {
+    val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(System.currentTimeMillis())
+    return "budget-manager-backup-$date.json"
 }
 
 private fun readPermissionStatus(context: Context): PermissionStatusUi {

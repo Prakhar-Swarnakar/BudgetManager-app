@@ -22,6 +22,10 @@ interface SmsMessageDao {
     @Query("SELECT COUNT(*) FROM sms_message WHERE is_new = 1")
     fun observeNewCount(): Flow<Int>
 
+    /** Every message, for backup export. */
+    @Query("SELECT * FROM sms_message")
+    suspend fun getAllOnce(): List<SmsMessageEntity>
+
     @Query("SELECT * FROM sms_message WHERE id = :id")
     suspend fun getById(id: Long): SmsMessageEntity?
 
@@ -31,6 +35,9 @@ interface SmsMessageDao {
     @Insert
     suspend fun insert(message: SmsMessageEntity): Long
 
+    @Insert
+    suspend fun insertAll(messages: List<SmsMessageEntity>)
+
     @Update
     suspend fun update(message: SmsMessageEntity)
 
@@ -39,4 +46,7 @@ interface SmsMessageDao {
 
     @Query("UPDATE sms_message SET is_new = 0")
     suspend fun markAllSeen()
+
+    @Query("DELETE FROM sms_message")
+    suspend fun deleteAll()
 }

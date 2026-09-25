@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -17,6 +18,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.budgetmanager.app.core.designsystem.components.ConfirmDialog
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 data class PermissionStatusUi(
     val smsGranted: Boolean,
@@ -35,6 +39,13 @@ fun SettingsContent(
     onNewSpendsAlertsToggled: (Boolean) -> Unit,
     onEightyPercentAlertsToggled: (Boolean) -> Unit,
     onOverBudgetAlertsToggled: (Boolean) -> Unit,
+    onExportClick: () -> Unit,
+    onImportClick: () -> Unit,
+    onConfirmImport: () -> Unit,
+    onCancelImport: () -> Unit,
+    onDismissImportError: () -> Unit,
+    onDismissImportSuccess: () -> Unit,
+    onDismissExportError: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -74,8 +85,62 @@ fun SettingsContent(
             checked = state.overBudgetAlertsEnabled,
             onCheckedChange = onOverBudgetAlertsToggled
         )
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+        Text("Backup", style = MaterialTheme.typography.titleMedium)
+        Text(
+            state.lastExportAtMillis?.let { "Last export: ${formatExportTimestamp(it)}" }
+                ?: "Never exported",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        Row(modifier = Modifier.padding(top = 8.dp)) {
+            OutlinedButton(onClick = onExportClick) { Text("Export backup") }
+            OutlinedButton(onClick = onImportClick, modifier = Modifier.padding(start = 8.dp)) {
+                Text("Import backup")
+            }
+        }
+    }
+
+    state.pendingImport?.let { pending ->
+        ConfirmDialog(
+            title = "Import backup?",
+            message = "This replaces everything currently in the app - ${pending.categoryCount} " +
+                "categories, ${pending.transactionCount} transactions, ${pending.smsMessageCount} " +
+                "messages - with the backup's data. This cannot be undone.",
+            confirmLabel = "Import",
+            onConfirm = onConfirmImport,
+            onDismiss = onCancelImport
+        )
+    }
+
+    state.importError?.let { message ->
+        InfoDialog(title = "Import failed", message = message, onDismiss = onDismissImportError)
+    }
+
+    state.importSuccessMessage?.let { message ->
+        InfoDialog(title = "Import successful", message = message, onDismiss = onDismissImportSuccess)
+    }
+
+    state.exportError?.let { message ->
+        InfoDialog(title = "Export failed", message = message, onDismiss = onDismissExportError)
     }
 }
+
+@Composable
+private fun InfoDialog(title: String, message: String, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } }
+    )
+}
+
+private fun formatExportTimestamp(millis: Long): String =
+    SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault()).format(millis)
 
 @Composable
 private fun PermissionRow(label: String, granted: Boolean, onFix: () -> Unit, hint: String? = null) {

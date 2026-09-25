@@ -12,4 +12,8 @@ interface SettingsRepository {
 
     fun observeOverBudgetAlertsEnabled(): Flow<Boolean>
     suspend fun setOverBudgetAlertsEnabled(enabled: Boolean)
+
+    /** Null means no export has ever been made. */
+    fun observeLastExportAt(): Flow<Long?>
+    suspend fun setLastExportAt(timestampMillis: Long)
 }
