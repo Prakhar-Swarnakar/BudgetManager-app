@@ -16,6 +16,10 @@ interface TransactionRepository {
      *  MonthlyBudgetRepository.observeForMonth. */
     fun observeSpentByCategoryForMonth(monthKey: MonthKey): Flow<Map<Long, Money>>
 
+    /** Which category an Accepted message's transaction is filed under, keyed by message id -
+     *  lets the Messages list show a row's category without a per-row lookup. */
+    fun observeCategoryIdsBySourceMessage(): Flow<Map<Long, Long>>
+
     suspend fun getById(id: Long): Transaction?
 
     /** A manual transaction - no linked message. */

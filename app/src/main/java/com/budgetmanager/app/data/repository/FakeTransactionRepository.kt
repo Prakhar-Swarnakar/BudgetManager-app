@@ -36,6 +36,13 @@ class FakeTransactionRepository(
                 .mapValues { (_, transactions) -> Money(transactions.sumOf { it.amount.paise }) }
         }
 
+    override fun observeCategoryIdsBySourceMessage() =
+        state.map { list ->
+            list.mapNotNull { transaction ->
+                transaction.sourceMessageId?.let { it to transaction.categoryId }
+            }.toMap()
+        }
+
     override suspend fun getById(id: Long) = state.value.firstOrNull { it.id == id }
 
     override suspend fun insert(

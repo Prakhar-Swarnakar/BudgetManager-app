@@ -32,6 +32,7 @@ data class SmsMessageEntity(
     @ColumnInfo(name = "dedupe_key") val dedupeKey: String,
     @ColumnInfo(name = "parsed_amount_paise") val parsedAmountPaise: Long?,
     val merchant: String?,
+    @ColumnInfo(name = "payment_method") val paymentMethod: String? = null,
     @ColumnInfo(name = "suggested_category_id") val suggestedCategoryId: Long?,
     val status: MessageStatus = MessageStatus.NOT_ASSIGNED,
     @ColumnInfo(name = "is_new") val isNew: Boolean = true

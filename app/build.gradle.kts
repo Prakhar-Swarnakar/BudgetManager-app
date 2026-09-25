@@ -36,6 +36,7 @@ android {
         compose = true
         buildConfig = true
     }
+
 }
 
 ksp {

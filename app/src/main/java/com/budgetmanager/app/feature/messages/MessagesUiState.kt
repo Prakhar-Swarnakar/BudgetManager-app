@@ -12,9 +12,14 @@ data class MessageRowUi(
     val sender: String,
     val merchantOrBody: String,
     val amountText: String?,
+    val paymentMethod: String?,
     val receivedAt: Instant,
     val status: MessageStatus,
-    val isNew: Boolean
+    val isNew: Boolean,
+    /** Set only for an Accepted row, from its transaction's category - shown so you don't have
+     *  to open the message to see what a spend was filed under. */
+    val categoryEmoji: String?,
+    val categoryName: String?
 )
 
 data class MessagesUiState(

@@ -13,6 +13,8 @@ data class SmsMessage(
     val dedupeKey: String,
     val parsedAmount: Money?,
     val merchant: String?,
+    /** e.g. "UPI", "NEFT" - null when the SMS text didn't say or the format isn't recognised. */
+    val paymentMethod: String? = null,
     val suggestedCategoryId: Long?,
     val status: MessageStatus,
     val isNew: Boolean

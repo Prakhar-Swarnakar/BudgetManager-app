@@ -217,6 +217,29 @@ class MessagesViewModelTest {
     }
 
     @Test
+    fun `an Accepted row shows the emoji and name of its transaction's category`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+
+        val id = repo.ingest(testMessage("k1"))!!
+        val message = repo.getById(id)!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        transactions.saveFromMessage(
+            message = message, amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test"
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertEquals(MessageStatus.ACCEPTED, row.status)
+        assertEquals("🍔", row.categoryEmoji)
+        assertEquals("Food & Dining", row.categoryName)
+        collector.cancel()
+    }
+
+    @Test
     fun `swipe end on Rejected is a no-op - only Not assigned can become Rejected`() = runTest {
         val repo = FakeMessageRepository()
         val viewModel = viewModel(repo)
@@ -245,8 +268,8 @@ class MessagesViewModelTest {
         assertEquals(1, viewModel.uiState.value.counts[MessageFilter.ALL])
         val row = viewModel.uiState.value.rows.first()
         assertEquals(MessageStatus.NOT_ASSIGNED, row.status)
-        // Pre-fill needs a real amount and category on the message - this is the only way to
-        // exercise Add Transaction's pre-fill before M2b's real parser exists.
+        // Debug-only fixture: gives Add Transaction's pre-fill something to show without
+        // waiting on a real SMS to arrive.
         assertNotNull(row.amountText)
         assertNotNull(repo.getById(row.id)!!.suggestedCategoryId)
         collector.cancel()

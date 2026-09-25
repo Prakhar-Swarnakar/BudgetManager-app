@@ -26,7 +26,8 @@ class DefaultInboxScanner @Inject constructor(
     @ApplicationContext private val context: Context,
     private val messageRepository: MessageRepository,
     private val settings: SettingsDataStore,
-    private val notifier: Notifier
+    private val notifier: Notifier,
+    private val categorySuggester: CategorySuggester
 ) : InboxScanner {
 
     override suspend fun scan() {
@@ -74,6 +75,7 @@ class DefaultInboxScanner @Inject constructor(
 
                     if (!SpendClassifier.isSpendLike(body)) continue
 
+                    val parsed = SmsParser.parse(body)
                     val message = SmsMessage(
                         id = 0,
                         sender = sender,
@@ -81,9 +83,10 @@ class DefaultInboxScanner @Inject constructor(
                         receivedAt = Instant.ofEpochMilli(date),
                         smsProviderId = null,
                         dedupeKey = DedupeKey.build(sender, date, body),
-                        parsedAmount = null,
-                        merchant = null,
-                        suggestedCategoryId = null,
+                        parsedAmount = parsed.amount,
+                        merchant = parsed.merchant,
+                        paymentMethod = parsed.paymentMethod,
+                        suggestedCategoryId = categorySuggester.suggest(parsed.merchant ?: body),
                         status = MessageStatus.NOT_ASSIGNED,
                         isNew = true
                     )

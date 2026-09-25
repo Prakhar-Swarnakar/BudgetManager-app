@@ -32,6 +32,10 @@ class RoomTransactionRepository @Inject constructor(
         transactionDao.observeSpentByCategoryForMonth(monthKey.value)
             .map { rows -> rows.associate { it.categoryId to Money(it.total) } }
 
+    override fun observeCategoryIdsBySourceMessage(): Flow<Map<Long, Long>> =
+        transactionDao.observeCategoryBySourceMessage()
+            .map { rows -> rows.associate { it.messageId to it.categoryId } }
+
     override suspend fun getById(id: Long): Transaction? = transactionDao.getById(id)?.toDomain()
 
     override suspend fun insert(

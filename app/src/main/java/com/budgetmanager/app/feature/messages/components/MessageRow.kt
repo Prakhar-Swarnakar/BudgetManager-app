@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,13 +50,31 @@ fun MessageRow(row: MessageRowUi, onClick: () -> Unit, modifier: Modifier = Modi
         Column(modifier = Modifier.weight(1f)) {
             Text(row.merchantOrBody, fontWeight = if (row.isNew) FontWeight.Bold else FontWeight.Normal)
             Text(
-                row.receivedAt.atZone(ZoneId.systemDefault()).format(timeFormatter),
-                style = MaterialTheme.typography.bodySmall
+                subtitleFor(row),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             StatusBadge(row.status, modifier = Modifier.padding(top = 4.dp))
         }
-        row.amountText?.let { amount ->
-            Text(amount, fontWeight = FontWeight.Bold)
+        Column(horizontalAlignment = Alignment.End) {
+            row.amountText?.let { amount ->
+                Text(amount, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            // Only an Accepted row has a category yet - it comes from its transaction, which is
+            // the only thing that ever sets one (04-messages-and-notifications.md).
+            if (row.status == MessageStatus.ACCEPTED && row.categoryEmoji != null) {
+                Text(
+                    "${row.categoryEmoji} ${row.categoryName}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
         }
     }
+}
+
+private fun subtitleFor(row: MessageRowUi): String {
+    val time = row.receivedAt.atZone(ZoneId.systemDefault()).format(timeFormatter)
+    return if (row.paymentMethod != null) "${row.paymentMethod} · $time" else time
 }

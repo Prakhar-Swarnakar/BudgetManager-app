@@ -2,6 +2,7 @@ package com.budgetmanager.app.feature.messages
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budgetmanager.app.core.model.Category
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.SmsMessage
@@ -21,6 +22,16 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
+
+/** The 5 things the filter/selection/undo/nav state needs from the message list, bundled so the
+ *  category-join step below can stay a plain 2-flow combine instead of needing a 7-arg one. */
+private data class RawMessagesState(
+    val messages: List<SmsMessage>,
+    val filter: MessageFilter,
+    val selectedId: Long?,
+    val undoId: Long?,
+    val navId: Long?
+)
 
 @HiltViewModel
 class MessagesViewModel @Inject constructor(
@@ -42,14 +53,20 @@ class MessagesViewModel @Inject constructor(
         undoRejectedMessageId,
         navigateToAddTransactionForMessageId
     ) { messages, selectedFilter, selectedId, undoId, navId ->
+        RawMessagesState(messages, selectedFilter, selectedId, undoId, navId)
+    }.combine(categoryRepository.observeAll()) { raw, categories ->
+        raw to categories
+    }.combine(transactionRepository.observeCategoryIdsBySourceMessage()) { (raw, categories), categoryIdsByMessage ->
+        val categoryById = categories.associateBy { it.id }
         MessagesUiState(
             isLoading = false,
-            filter = selectedFilter,
-            rows = messages.filter { matchesFilter(it, selectedFilter) }.map { it.toRowUi() },
-            counts = MessageFilter.entries.associateWith { f -> messages.count { matchesFilter(it, f) } },
-            selectedMessage = messages.firstOrNull { it.id == selectedId },
-            undoRejectedMessageId = undoId,
-            navigateToAddTransactionForMessageId = navId
+            filter = raw.filter,
+            rows = raw.messages.filter { matchesFilter(it, raw.filter) }
+                .map { it.toRowUi(categoryIdsByMessage, categoryById) },
+            counts = MessageFilter.entries.associateWith { f -> raw.messages.count { matchesFilter(it, f) } },
+            selectedMessage = raw.messages.firstOrNull { it.id == raw.selectedId },
+            undoRejectedMessageId = raw.undoId,
+            navigateToAddTransactionForMessageId = raw.navId
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MessagesUiState())
 
@@ -151,10 +168,8 @@ class MessagesViewModel @Inject constructor(
         }
     }
 
-    /** Debug-only: inserts one fabricated Not assigned message so a "new" row shows up instantly.
-     *  Includes a parsed amount and a suggested category (picks the first active one) - real
-     *  received SMS won't have these until M2b's per-bank parser exists, so this is the only way
-     *  to exercise Add Transaction's pre-fill before then. */
+    /** Debug-only: inserts one fabricated Not assigned message so a "new" row shows up instantly,
+     *  without waiting on a real SMS or the live receiver. */
     fun onAddTestMessage() {
         viewModelScope.launch {
             val now = Instant.now()
@@ -169,6 +184,7 @@ class MessagesViewModel @Inject constructor(
                 dedupeKey = "debug-${now.toEpochMilli()}-${(0..999_999).random()}",
                 parsedAmount = Money.ofRupees(amountRupees.toLong()),
                 merchant = "TEST MERCHANT",
+                paymentMethod = "UPI",
                 suggestedCategoryId = firstCategoryId,
                 status = MessageStatus.NOT_ASSIGNED,
                 isNew = true
@@ -184,13 +200,22 @@ class MessagesViewModel @Inject constructor(
         MessageFilter.REJECTED -> message.status == MessageStatus.REJECTED
     }
 
-    private fun SmsMessage.toRowUi() = MessageRowUi(
-        id = id,
-        sender = sender,
-        merchantOrBody = merchant ?: body.take(60),
-        amountText = parsedAmount?.formatted(),
-        receivedAt = receivedAt,
-        status = status,
-        isNew = isNew
-    )
+    private fun SmsMessage.toRowUi(
+        categoryIdsByMessage: Map<Long, Long>,
+        categoryById: Map<Long, Category>
+    ): MessageRowUi {
+        val category = categoryIdsByMessage[id]?.let { categoryById[it] }
+        return MessageRowUi(
+            id = id,
+            sender = sender,
+            merchantOrBody = merchant ?: body.take(60),
+            amountText = parsedAmount?.formatted(),
+            paymentMethod = paymentMethod,
+            receivedAt = receivedAt,
+            status = status,
+            isNew = isNew,
+            categoryEmoji = category?.emoji,
+            categoryName = category?.name
+        )
+    }
 }

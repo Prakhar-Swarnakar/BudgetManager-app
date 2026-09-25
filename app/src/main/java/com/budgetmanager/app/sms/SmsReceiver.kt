@@ -36,6 +36,7 @@ class SmsReceiver : BroadcastReceiver() {
     interface Dependencies {
         fun messageRepository(): MessageRepository
         fun notifier(): Notifier
+        fun categorySuggester(): CategorySuggester
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -49,7 +50,7 @@ class SmsReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                handle(intent, dependencies.messageRepository(), dependencies.notifier())
+                handle(intent, dependencies.messageRepository(), dependencies.notifier(), dependencies.categorySuggester())
             } catch (e: Exception) {
                 // Never let a failure here crash the receiver or hide the SMS.
             } finally {
@@ -58,7 +59,12 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 
-    private suspend fun handle(intent: Intent, messageRepository: MessageRepository, notifier: Notifier) {
+    private suspend fun handle(
+        intent: Intent,
+        messageRepository: MessageRepository,
+        notifier: Notifier,
+        categorySuggester: CategorySuggester
+    ) {
         val parts = Telephony.Sms.Intents.getMessagesFromIntent(intent)
         if (parts.isNullOrEmpty()) return
 
@@ -68,6 +74,10 @@ class SmsReceiver : BroadcastReceiver() {
 
         if (!SpendClassifier.isSpendLike(body)) return
 
+        // Falls back to blank/null fields if nothing matched - the raw body is always kept, so
+        // nothing is lost even when a bank's SMS format isn't recognised (see SmsParser).
+        val parsed = SmsParser.parse(body)
+
         val message = SmsMessage(
             id = 0,
             sender = sender,
@@ -75,11 +85,10 @@ class SmsReceiver : BroadcastReceiver() {
             receivedAt = Instant.ofEpochMilli(smsTimestamp),
             smsProviderId = null,
             dedupeKey = DedupeKey.build(sender, smsTimestamp, body),
-            // Amount and merchant are left blank here on purpose - extracting them reliably
-            // needs per-bank rules (M2b), which need real sample messages to test against.
-            parsedAmount = null,
-            merchant = null,
-            suggestedCategoryId = null,
+            parsedAmount = parsed.amount,
+            merchant = parsed.merchant,
+            paymentMethod = parsed.paymentMethod,
+            suggestedCategoryId = categorySuggester.suggest(parsed.merchant ?: body),
             status = MessageStatus.NOT_ASSIGNED,
             isNew = true
         )
