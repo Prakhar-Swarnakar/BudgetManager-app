@@ -29,28 +29,32 @@ class CategoryRulesViewModel @Inject constructor(
         editing,
         pendingDeleteKeyword
     ) { rules, categories, editingState, pendingDelete ->
-        val categoryById = categories.associateBy { it.id }
+        val keywordsByCategory = rules.groupBy({ it.categoryId }, valueTransform = { it.keyword })
         CategoryRulesUiState(
             isLoading = false,
-            // A rule whose category was somehow removed has nothing sensible to show - left out
-            // rather than shown with a blank category.
-            rules = rules.mapNotNull { rule ->
-                categoryById[rule.categoryId]?.let { category ->
-                    CategoryRuleUi(rule.keyword, rule.categoryId, category.emoji, category.name)
-                }
-            }.sortedBy { it.keyword },
+            // Every active category gets a group, even an empty one - its "+ add" chip is the
+            // easiest way to create that category's first rule.
+            groups = categories.map { category ->
+                CategoryGroupUi(
+                    categoryId = category.id,
+                    categoryEmoji = category.emoji,
+                    categoryName = category.name,
+                    keywords = (keywordsByCategory[category.id] ?: emptyList()).sorted()
+                )
+            },
             categories = categories,
             editing = editingState,
             pendingDeleteKeyword = pendingDelete
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CategoryRulesUiState())
 
-    fun onAddClicked() {
-        editing.value = EditingRuleUi(keyword = "", selectedCategoryId = null, isNew = true)
+    /** Opens the add sheet pre-filled to the group whose "+ add" chip was tapped. */
+    fun onAddClicked(categoryId: Long) {
+        editing.value = EditingRuleUi(keyword = "", selectedCategoryId = categoryId, isNew = true)
     }
 
-    fun onRuleClicked(rule: CategoryRuleUi) {
-        editing.value = EditingRuleUi(keyword = rule.keyword, selectedCategoryId = rule.categoryId, isNew = false)
+    fun onRuleClicked(keyword: String, categoryId: Long) {
+        editing.value = EditingRuleUi(keyword = keyword, selectedCategoryId = categoryId, isNew = false)
     }
 
     fun onKeywordChanged(value: String) {

@@ -1,26 +1,27 @@
 package com.budgetmanager.app.feature.categoryrules
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Label
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -37,8 +38,8 @@ import com.budgetmanager.app.core.model.Category
 @Composable
 fun CategoryRulesContent(
     state: CategoryRulesUiState,
-    onAddClicked: () -> Unit,
-    onRuleClicked: (CategoryRuleUi) -> Unit,
+    onAddClicked: (Long) -> Unit,
+    onRuleClicked: (keyword: String, categoryId: Long) -> Unit,
     onDeleteRequested: (String) -> Unit,
     onKeywordChanged: (String) -> Unit,
     onCategorySelected: (Long) -> Unit,
@@ -48,27 +49,23 @@ fun CategoryRulesContent(
     onCancelDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.fillMaxSize()) {
-        if (!state.isLoading && state.rules.isEmpty()) {
-            EmptyState(
-                icon = Icons.Default.Label,
-                message = "No rules yet. A rule maps a word in a message to a category, so " +
-                    "matching messages suggest it automatically."
-            )
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(state.rules, key = { it.keyword }) { rule ->
-                    RuleRow(rule, onClick = { onRuleClicked(rule) }, onDelete = { onDeleteRequested(rule.keyword) })
-                    HorizontalDivider()
-                }
-                item { Spacer(Modifier.height(72.dp)) } // keeps the last row clear of the FAB
+    if (!state.isLoading && state.groups.isEmpty()) {
+        EmptyState(
+            icon = Icons.Default.Label,
+            message = "No categories yet. Set up your budget from the side panel first.",
+            modifier = modifier
+        )
+    } else {
+        LazyColumn(modifier = modifier.fillMaxSize()) {
+            items(state.groups, key = { it.categoryId }) { group ->
+                CategoryGroupSection(
+                    group = group,
+                    onChipClick = { keyword -> onRuleClicked(keyword, group.categoryId) },
+                    onChipDelete = onDeleteRequested,
+                    onAddClick = { onAddClicked(group.categoryId) }
+                )
+                HorizontalDivider()
             }
-        }
-        FloatingActionButton(
-            onClick = onAddClicked,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "New rule")
         }
     }
 
@@ -94,24 +91,63 @@ fun CategoryRulesContent(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-private fun RuleRow(rule: CategoryRuleUi, onClick: () -> Unit, onDelete: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text("\"${rule.keyword}\"", style = MaterialTheme.typography.bodyLarge)
+private fun CategoryGroupSection(
+    group: CategoryGroupUi,
+    onChipClick: (String) -> Unit,
+    onChipDelete: (String) -> Unit,
+    onAddClick: () -> Unit
+) {
+    Column(modifier = Modifier.padding(vertical = 10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                "${rule.categoryEmoji} ${rule.categoryName}",
-                style = MaterialTheme.typography.bodySmall,
+                "${group.categoryEmoji} ${group.categoryName}",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text(
+                wordCountLabel(group.keywords.size),
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Default.Delete, contentDescription = "Delete rule")
+        FlowRow(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            group.keywords.forEach { keyword ->
+                InputChip(
+                    selected = false,
+                    onClick = { onChipClick(keyword) },
+                    label = { Text(keyword) },
+                    trailingIcon = {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Delete \"$keyword\"",
+                            modifier = Modifier
+                                .size(InputChipDefaults.IconSize)
+                                // Its own tap target, separate from the chip's onClick above -
+                                // otherwise tapping the x would open the edit sheet instead of
+                                // deleting.
+                                .clickable(onClick = { onChipDelete(keyword) })
+                        )
+                    }
+                )
+            }
+            AssistChip(onClick = onAddClick, label = { Text("+ add") })
         }
     }
+}
+
+private fun wordCountLabel(count: Int): String = when (count) {
+    0 -> "No words"
+    1 -> "1 word"
+    else -> "$count words"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

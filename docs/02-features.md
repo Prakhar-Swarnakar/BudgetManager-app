@@ -51,7 +51,7 @@ Category management (create, rename, change icon, reorder) and setting each one'
 - If no keyword matches, the category is left empty.
 - The starter categories come with a built-in keyword list (for example Swiggy and Zomato map to Food & Dining).
 - **Learning from choices** (built 2026-10-01): saving an accepted message's transaction remembers that message's merchant as a keyword for whichever category was actually chosen - even when it overrides the suggestion - so the same merchant is suggested correctly next time, without hand-editing a rule.
-- **Editable keyword rules** (built 2026-10-01, UI under review - see [06-backlog.md](06-backlog.md)): a Settings → "Category rules" page lists every keyword → category rule, lets you add a new one, change an existing one's category, or delete it. A rule's keyword can't be edited in place - it's the rule's identity, so changing it would silently leave the old rule behind; delete and re-add instead.
+- **Editable keyword rules** (built 2026-10-01, grouped layout 2026-10-02): a Settings → "Category rules" page, grouped by category - each category is a section showing its words as removable chips plus a "+ add" chip, including a category with none yet. Tapping a chip reassigns its category; a rule's keyword can't be edited in place - it's the rule's identity, so changing it would silently leave the old rule behind; delete and re-add instead.
 
 ## F7. Budget tracking
 
