@@ -45,11 +45,15 @@ fun DonutChart(
 
     Box(modifier = modifier.aspectRatio(1f), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidth = size.minDimension * 0.16f
-            val diameter = size.minDimension - strokeWidth
+            // The ring and its labels must both fit inside size.minDimension / 2 - Canvas does not
+            // clip its own drawing, so a label radius past that bleeds into whatever is laid out
+            // below this composable (the legend row). Leaves ~15% of the radius as label margin.
+            val strokeWidth = size.minDimension * 0.12f
+            val diameter = size.minDimension * 0.58f
+            val labelRadius = size.minDimension * 0.42f
             val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
             val arcSize = Size(diameter, diameter)
-            emojiPaint.textSize = strokeWidth * 0.85f
+            emojiPaint.textSize = strokeWidth * 1f
 
             var startAngle = -90f
             slices.forEach { slice ->
@@ -78,7 +82,6 @@ fun DonutChart(
                     }
 
                     val midAngleRad = Math.toRadians((startAngle + sweep / 2f).toDouble())
-                    val labelRadius = diameter / 2f + strokeWidth * 0.85f
                     val labelX = size.width / 2f + (labelRadius * cos(midAngleRad)).toFloat()
                     val labelY = size.height / 2f + (labelRadius * sin(midAngleRad)).toFloat() +
                         emojiPaint.textSize * 0.35f // nudge down to vertically centre the glyph on its baseline

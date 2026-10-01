@@ -20,7 +20,7 @@ Items agreed to postpone, or proposed and not yet scheduled. None of these are i
 | Daily summary reminder | One gentle reminder such as "3 messages need review" |
 | Like-for-like comparison | Compare this month so far with the same days of last month, instead of the full previous month |
 | Category history in Trends | Tap a category to see its own month-by-month history |
-| Grouping small slices | If there are many categories, combine the smallest slices in the This month chart into "Others" |
+| Grouping small slices | If there are many categories, combine the smallest slices in the This month chart into "Others". Confirmed worth doing during M10 on-device testing (2026-09-25): with 10+ budgeted categories and an uneven spread (one ~30% category, several under 5%), the small slices' emoji labels crowd together near the ring's start/end seam. Not a bug - each label is at its mathematically correct midpoint - just a readability issue once a real category list gets long and uneven |
 | Merge on restore | Let Import merge a backup into existing data instead of replacing it |
 | Backup reminder | A gentle nudge if the last export was more than about 30 days ago |
 | Archive old messages | Move accepted and rejected messages out of the main list after some time. In v1 they stay, and the filter chips manage the list |
