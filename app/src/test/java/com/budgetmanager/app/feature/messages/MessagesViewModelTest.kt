@@ -276,6 +276,47 @@ class MessagesViewModelTest {
     }
 
     @Test
+    fun `two Not assigned messages with the same amount, different senders, close in time are both flagged`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val now = Instant.now()
+        val bankId = repo.ingest(
+            testMessage("k1").copy(sender = "AX-SBICRD-S", receivedAt = now)
+        )!!
+        val upiAppId = repo.ingest(
+            testMessage("k2").copy(sender = "VM-GOOGLEPAY", receivedAt = now.plusSeconds(60))
+        )!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val rows = viewModel.uiState.value.rows.associateBy { it.id }
+        assertTrue(rows[bankId]!!.isPossibleDuplicate)
+        assertTrue(rows[upiAppId]!!.isPossibleDuplicate)
+        collector.cancel()
+    }
+
+    @Test
+    fun `selecting a flagged message shows which other message it might duplicate`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val now = Instant.now()
+        val bankId = repo.ingest(testMessage("k1").copy(sender = "AX-SBICRD-S", receivedAt = now))!!
+        val upiAppId = repo.ingest(
+            testMessage("k2").copy(sender = "VM-GOOGLEPAY", receivedAt = now.plusSeconds(60))
+        )!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onRowClick(bankId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(upiAppId, viewModel.uiState.value.selectedMessageDuplicateOf?.id)
+        collector.cancel()
+    }
+
+    @Test
     fun `onImportTodaySms delegates to the inbox scanner from start of today`() = runTest {
         val repo = FakeMessageRepository()
         val scanner = FakeInboxScanner()

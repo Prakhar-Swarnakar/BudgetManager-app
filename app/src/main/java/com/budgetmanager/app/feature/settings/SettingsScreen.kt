@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
+    onOpenCategoryRules: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -130,6 +131,7 @@ fun SettingsScreen(
         onDismissImportError = viewModel::onDismissImportError,
         onDismissImportSuccess = viewModel::onDismissImportSuccess,
         onDismissExportError = viewModel::onDismissExportError,
+        onOpenCategoryRules = onOpenCategoryRules,
         modifier = modifier
     )
 }

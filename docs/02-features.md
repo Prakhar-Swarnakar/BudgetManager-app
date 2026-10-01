@@ -36,6 +36,7 @@ Category management (create, rename, change icon, reorder) and setting each one'
 - The page's icon shows a small red circle when there are new messages.
 - Each message is coloured by its status: white (not assigned), green (accepted), red (rejected).
 - Swipe to accept or reject, or tap to open the message.
+- **Possible-duplicate warning** (built 2026-10-01): a Not assigned message is flagged when another Not assigned message has the same amount, a different sender, and arrived within 10 minutes of it - for example a bank's debit alert and a UPI app's own confirmation for the same payment. Shown as a small warning badge on the row and, in the detail sheet, which other message it might duplicate. This is separate from the exact-SMS-counted-twice bug fixed the same day (see `DedupeKey.kt`) - that was one physical message processed twice; this is two different messages that may describe the same real payment, and the user still decides which (if either) to accept.
 - Full detail in [04-messages-and-notifications.md](04-messages-and-notifications.md).
 
 ## F5. Notification for new messages
@@ -48,7 +49,9 @@ Category management (create, rename, change icon, reorder) and setting each one'
 - When a message is accepted, the Add Transaction page opens with a category suggested from keywords in the merchant or SMS text.
 - The user can change it before saving.
 - If no keyword matches, the category is left empty.
-- The starter categories come with a built-in keyword list (for example Swiggy and Zomato map to Food & Dining). Editing the keyword list is in the backlog.
+- The starter categories come with a built-in keyword list (for example Swiggy and Zomato map to Food & Dining).
+- **Learning from choices** (built 2026-10-01): saving an accepted message's transaction remembers that message's merchant as a keyword for whichever category was actually chosen - even when it overrides the suggestion - so the same merchant is suggested correctly next time, without hand-editing a rule.
+- **Editable keyword rules** (built 2026-10-01, UI under review - see [06-backlog.md](06-backlog.md)): a Settings → "Category rules" page lists every keyword → category rule, lets you add a new one, change an existing one's category, or delete it. A rule's keyword can't be edited in place - it's the rule's identity, so changing it would silently leave the old rule behind; delete and re-add instead.
 
 ## F7. Budget tracking
 

@@ -9,6 +9,7 @@ import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.data.repository.CategoryRepository
 import com.budgetmanager.app.data.repository.MessageRepository
 import com.budgetmanager.app.data.repository.TransactionRepository
+import com.budgetmanager.app.domain.DetectPossibleDuplicates
 import com.budgetmanager.app.sms.InboxScanner
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,13 +59,17 @@ class MessagesViewModel @Inject constructor(
         raw to categories
     }.combine(transactionRepository.observeCategoryIdsBySourceMessage()) { (raw, categories), categoryIdsByMessage ->
         val categoryById = categories.associateBy { it.id }
+        val messageById = raw.messages.associateBy { it.id }
+        val duplicateOfId = DetectPossibleDuplicates(raw.messages)
+        val selectedMessage = messageById[raw.selectedId]
         MessagesUiState(
             isLoading = false,
             filter = raw.filter,
             rows = raw.messages.filter { matchesFilter(it, raw.filter) }
-                .map { it.toRowUi(categoryIdsByMessage, categoryById) },
+                .map { it.toRowUi(categoryIdsByMessage, categoryById, duplicateOfId.containsKey(it.id)) },
             counts = MessageFilter.entries.associateWith { f -> raw.messages.count { matchesFilter(it, f) } },
-            selectedMessage = raw.messages.firstOrNull { it.id == raw.selectedId },
+            selectedMessage = selectedMessage,
+            selectedMessageDuplicateOf = duplicateOfId[selectedMessage?.id]?.let { messageById[it] },
             undoRejectedMessageId = raw.undoId,
             navigateToAddTransactionForMessageId = raw.navId
         )
@@ -202,7 +207,8 @@ class MessagesViewModel @Inject constructor(
 
     private fun SmsMessage.toRowUi(
         categoryIdsByMessage: Map<Long, Long>,
-        categoryById: Map<Long, Category>
+        categoryById: Map<Long, Category>,
+        isPossibleDuplicate: Boolean
     ): MessageRowUi {
         val category = categoryIdsByMessage[id]?.let { categoryById[it] }
         return MessageRowUi(
@@ -215,7 +221,8 @@ class MessagesViewModel @Inject constructor(
             status = status,
             isNew = isNew,
             categoryEmoji = category?.emoji,
-            categoryName = category?.name
+            categoryName = category?.name,
+            isPossibleDuplicate = isPossibleDuplicate
         )
     }
 }

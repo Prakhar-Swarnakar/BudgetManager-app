@@ -42,6 +42,7 @@ fun SettingsContent(
     onEightyPercentAlertsToggled: (Boolean) -> Unit,
     onOverBudgetAlertsToggled: (Boolean) -> Unit,
     onTrendsMonthsShownChanged: (Int) -> Unit,
+    onOpenCategoryRules: () -> Unit,
     onExportClick: () -> Unit,
     onImportClick: () -> Unit,
     onConfirmImport: () -> Unit,
@@ -98,6 +99,19 @@ fun SettingsContent(
             modifier = Modifier.padding(top = 8.dp)
         )
         MonthsShownRow(selected = state.trendsMonthsShown, onSelect = onTrendsMonthsShownChanged)
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+        Text("Category rules", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Which words in a message suggest which category",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        OutlinedButton(onClick = onOpenCategoryRules, modifier = Modifier.padding(top = 8.dp)) {
+            Text("Manage rules")
+        }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 

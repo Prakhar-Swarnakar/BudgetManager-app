@@ -39,6 +39,7 @@ Because several banks are used, the app cannot rely on one fixed SMS format. Par
 - Accepted and rejected messages stay in the list. The filter chips (All, Not assigned, Accepted, Rejected) keep the list manageable. Archiving old messages is in the backlog.
 - The red circle on the tab clears when the user opens the Messages page. Rows keep their bold text and blue dot until the user leaves the page, so they can see which ones were new.
 - The Home line "N messages to review" counts messages that are still **Not assigned**, which is different from the "new" flag.
+- **Possible-duplicate warning** (built 2026-10-01, `DetectPossibleDuplicates`): a Not assigned row gets a small warning badge when another Not assigned message has the same amount, a different sender, and arrived within 10 minutes - e.g. a bank debit alert and a UPI app's own confirmation for the same payment. The detail sheet names which other message it might match. Only Not assigned messages are considered - once a message is Accepted or Rejected the user has already decided, so flagging it again would just be noise. This never auto-rejects anything; the user still chooses.
 
 ### Gestures
 
@@ -67,10 +68,19 @@ The user can change any field. The message becomes green when the transaction is
 
 ## Category suggestion
 
-- A keyword list maps words to categories, for example a food-delivery merchant to Food.
+- A keyword list maps words to categories, for example a food-delivery merchant to Food. The
+  longest matching keyword wins (`CategorySuggester`), so a more specific word beats a shorter
+  one that happens to also be a substring.
 - The suggestion is only a pre-fill. The user always sees it and can change it.
 - If nothing matches, no category is suggested.
-- Learning from past choices and user-editable keyword rules are in the backlog.
+- **Learning from choices** (built 2026-10-01): saving an accepted message's transaction remembers
+  its merchant as a keyword mapped to whichever category the user actually picked - including
+  when that overrides the original suggestion - so the same merchant suggests correctly next
+  time. Merchant text under 3 characters is never learned, since a very short word is more likely
+  to misfire against an unrelated future message than to help.
+- **User-editable keyword rules** (built 2026-10-01): a list/add/edit/delete page under Settings →
+  "Category rules". The page's own layout is still under review - see "Editable keyword rules" in
+  [06-backlog.md](06-backlog.md).
 
 ## Notifications
 

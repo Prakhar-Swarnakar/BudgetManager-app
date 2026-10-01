@@ -19,7 +19,10 @@ data class MessageRowUi(
     /** Set only for an Accepted row, from its transaction's category - shown so you don't have
      *  to open the message to see what a spend was filed under. */
     val categoryEmoji: String?,
-    val categoryName: String?
+    val categoryName: String?,
+    /** True when another Not assigned message looks like it could be the same real payment -
+     *  same amount, different sender, within a few minutes (DetectPossibleDuplicates). */
+    val isPossibleDuplicate: Boolean = false
 )
 
 data class MessagesUiState(
@@ -28,6 +31,9 @@ data class MessagesUiState(
     val rows: List<MessageRowUi> = emptyList(),
     val counts: Map<MessageFilter, Int> = emptyMap(),
     val selectedMessage: SmsMessage? = null,
+    /** The other message [selectedMessage] looks like a possible duplicate of, for the detail
+     *  sheet to show side by side - null when there's no match. */
+    val selectedMessageDuplicateOf: SmsMessage? = null,
     val undoRejectedMessageId: Long? = null,
     val navigateToAddTransactionForMessageId: Long? = null
 )

@@ -7,6 +7,7 @@ import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.data.repository.FakeAlertLogRepository
 import com.budgetmanager.app.data.repository.FakeCategoryRepository
+import com.budgetmanager.app.data.repository.FakeKeywordRuleRepository
 import com.budgetmanager.app.data.repository.FakeMessageRepository
 import com.budgetmanager.app.data.repository.FakeMonthlyBudgetRepository
 import com.budgetmanager.app.data.repository.FakeSettingsRepository
@@ -53,7 +54,8 @@ class AddTransactionViewModelTest {
         val messages: FakeMessageRepository,
         val transactions: FakeTransactionRepository,
         val budgets: FakeMonthlyBudgetRepository,
-        val notifier: FakeBudgetAlertNotifier
+        val notifier: FakeBudgetAlertNotifier,
+        val keywordRules: FakeKeywordRuleRepository
     )
 
     private fun setUpViewModel(): TestHarness {
@@ -64,11 +66,12 @@ class AddTransactionViewModelTest {
         val transactions = FakeTransactionRepository(messages)
         val budgets = FakeMonthlyBudgetRepository()
         val notifier = FakeBudgetAlertNotifier()
+        val keywordRules = FakeKeywordRuleRepository()
         val evaluateBudgetAlerts = EvaluateBudgetAlerts(
             budgets, transactions, FakeAlertLogRepository(), categories, FakeSettingsRepository(), notifier
         )
-        val viewModel = AddTransactionViewModel(transactions, messages, evaluateBudgetAlerts, categories)
-        return TestHarness(viewModel, messages, transactions, budgets, notifier)
+        val viewModel = AddTransactionViewModel(transactions, messages, evaluateBudgetAlerts, keywordRules, categories)
+        return TestHarness(viewModel, messages, transactions, budgets, notifier, keywordRules)
     }
 
     @Test
@@ -153,6 +156,68 @@ class AddTransactionViewModelTest {
 
         assertTrue(viewModel.uiState.value.saved)
         assertEquals(MessageStatus.ACCEPTED, messages.getById(messageId)!!.status)
+        collector.cancel()
+    }
+
+    @Test
+    fun `accepting a message learns its merchant maps to the category the user chose`() = runTest {
+        val (viewModel, messages, _, _, _, keywordRules) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "Swiggy", suggestedCategoryId = 1, status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val messageId = messages.ingest(message)!!
+        viewModel.load(messageId = messageId, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onCategorySelected(2) // overrides the suggested category - the user's actual choice
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val learned = keywordRules.getAll().single { it.keyword == "swiggy" }
+        assertEquals(2L, learned.categoryId)
+        collector.cancel()
+    }
+
+    @Test
+    fun `a very short merchant is never learned - too likely to misfire against unrelated messages`() = runTest {
+        val (viewModel, messages, _, _, _, keywordRules) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "SB", suggestedCategoryId = null, status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val messageId = messages.ingest(message)!!
+        viewModel.load(messageId = messageId, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onCategorySelected(1)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(keywordRules.getAll().isEmpty())
+        collector.cancel()
+    }
+
+    @Test
+    fun `a manual transaction with no linked message learns nothing`() = runTest {
+        val (viewModel, _, _, _, _, keywordRules) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onAmountChanged("250")
+        viewModel.onCategorySelected(1)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(keywordRules.getAll().isEmpty())
         collector.cancel()
     }
 

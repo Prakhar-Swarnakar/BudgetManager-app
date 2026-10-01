@@ -32,6 +32,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import com.budgetmanager.app.core.designsystem.components.AppScaffold
 import com.budgetmanager.app.feature.budget.MonthlyBudgetScreen
+import com.budgetmanager.app.feature.categoryrules.CategoryRulesScreen
 import com.budgetmanager.app.feature.budget.MonthlyBudgetViewModel
 import com.budgetmanager.app.feature.categorydetail.CategoryDetailScreen
 import com.budgetmanager.app.feature.home.HomeScreen
@@ -57,7 +58,8 @@ private val sidePanelItems = listOf(
 /** True for a screen pushed onto the back stack rather than reached from the bottom bar or side
  *  panel - it gets a back arrow in the top bar instead of the hamburger menu. */
 private fun isPushedDetail(destination: Destination): Boolean =
-    destination is Destination.AddTransaction || destination is Destination.CategoryDetail
+    destination is Destination.AddTransaction || destination is Destination.CategoryDetail ||
+        destination is Destination.CategoryRules
 
 private fun titleFor(destination: Destination): String = when (destination) {
     Destination.Home -> "Home"
@@ -65,6 +67,7 @@ private fun titleFor(destination: Destination): String = when (destination) {
     Destination.Trends -> "Trends"
     Destination.MonthlyBudget -> "Monthly budget"
     Destination.Settings -> "Settings"
+    Destination.CategoryRules -> "Category rules"
     is Destination.AddTransaction -> if (destination.transactionId != null) "Edit transaction" else "Add transaction"
     is Destination.CategoryDetail -> destination.categoryName
 }
@@ -184,7 +187,13 @@ fun AppNavigation() {
                         }
                         Destination.Trends -> NavEntry(destination) { TrendsScreen(contentModifier) }
                         Destination.MonthlyBudget -> NavEntry(destination) { MonthlyBudgetScreen(contentModifier) }
-                        Destination.Settings -> NavEntry(destination) { SettingsScreen(contentModifier) }
+                        Destination.Settings -> NavEntry(destination) {
+                            SettingsScreen(
+                                onOpenCategoryRules = { backStack.add(Destination.CategoryRules) },
+                                modifier = contentModifier
+                            )
+                        }
+                        Destination.CategoryRules -> NavEntry(destination) { CategoryRulesScreen(contentModifier) }
                         is Destination.AddTransaction -> NavEntry(destination) {
                             AddTransactionScreen(
                                 messageId = destination.messageId,

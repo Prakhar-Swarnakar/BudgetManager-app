@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,6 +58,22 @@ fun MessageRow(row: MessageRowUi, onClick: () -> Unit, modifier: Modifier = Modi
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             StatusBadge(row.status, modifier = Modifier.padding(top = 4.dp))
+            if (row.isPossibleDuplicate) {
+                Row(modifier = Modifier.padding(top = 4.dp)) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = StatusColors.warning,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        "Possible duplicate",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = StatusColors.warning,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+            }
         }
         Column(horizontalAlignment = Alignment.End) {
             row.amountText?.let { amount ->

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.data.repository.CategoryRepository
+import com.budgetmanager.app.data.repository.KeywordRuleRepository
 import com.budgetmanager.app.data.repository.MessageRepository
 import com.budgetmanager.app.data.repository.TransactionRepository
 import com.budgetmanager.app.domain.EvaluateBudgetAlerts
@@ -25,6 +26,7 @@ class AddTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val messageRepository: MessageRepository,
     private val evaluateBudgetAlerts: EvaluateBudgetAlerts,
+    private val keywordRuleRepository: KeywordRuleRepository,
     categoryRepository: CategoryRepository
 ) : ViewModel() {
 
@@ -145,6 +147,7 @@ class AddTransactionViewModel @Inject constructor(
                         categoryId = categoryId,
                         note = note
                     )
+                    learnFromChoice(message.merchant, categoryId)
                     evaluateBudgetAlerts(monthKey, categoryId)
                 }
                 else -> {
@@ -164,6 +167,18 @@ class AddTransactionViewModel @Inject constructor(
 
     fun onSavedHandled() {
         internalState.update { it.copy(saved = false) }
+    }
+
+    /** Remembers merchant -> category after the user accepts a message, so next time the same
+     *  merchant shows up it's suggested automatically (06-backlog.md, "Learning from choices").
+     *  Skipped for very short merchant text - a one- or two-character match is more likely to
+     *  misfire against an unrelated future message than to help. Always takes the category the
+     *  user actually chose here, even overriding an existing rule for the same merchant - that's
+     *  the point of learning from a correction. */
+    private suspend fun learnFromChoice(merchant: String?, categoryId: Long) {
+        val keyword = merchant?.trim()?.lowercase() ?: return
+        if (keyword.length < 3) return
+        keywordRuleRepository.upsert(keyword, categoryId)
     }
 
     private fun formatForInput(paise: Long): String {

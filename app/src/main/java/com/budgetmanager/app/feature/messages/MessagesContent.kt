@@ -124,6 +124,7 @@ fun MessagesContent(
     state.selectedMessage?.let { message ->
         MessageDetailSheet(
             message = message,
+            duplicateOf = state.selectedMessageDuplicateOf,
             onDismiss = onDetailDismissed,
             onAccept = { onAcceptFromDetail(message.id) },
             onReject = { onRejectFromDetail(message.id) }
