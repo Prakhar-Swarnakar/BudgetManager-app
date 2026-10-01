@@ -240,6 +240,51 @@ class MessagesViewModelTest {
     }
 
     @Test
+    fun `a Not assigned row shows its keyword suggestion in the same spot an Accepted row shows its real category`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val id = repo.ingest(testMessage("k1").copy(suggestedCategoryId = 1))!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertEquals(MessageStatus.NOT_ASSIGNED, row.status)
+        assertEquals("🍔", row.categoryEmoji)
+        assertEquals("Food & Dining", row.categoryName)
+        collector.cancel()
+    }
+
+    @Test
+    fun `a Not assigned row with no keyword match shows no category`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val id = repo.ingest(testMessage("k1"))!! // suggestedCategoryId is null by default
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertNull(row.categoryEmoji)
+        collector.cancel()
+    }
+
+    @Test
+    fun `a Rejected row never shows a category, even if one was suggested`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val id = repo.ingest(testMessage("k1").copy(suggestedCategoryId = 1))!!
+        repo.updateStatus(id, MessageStatus.REJECTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertNull(row.categoryEmoji)
+        collector.cancel()
+    }
+
+    @Test
     fun `swipe end on Rejected is a no-op - only Not assigned can become Rejected`() = runTest {
         val repo = FakeMessageRepository()
         val viewModel = viewModel(repo)

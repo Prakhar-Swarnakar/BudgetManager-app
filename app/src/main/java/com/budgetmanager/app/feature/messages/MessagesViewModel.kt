@@ -210,7 +210,15 @@ class MessagesViewModel @Inject constructor(
         categoryById: Map<Long, Category>,
         isPossibleDuplicate: Boolean
     ): MessageRowUi {
-        val category = categoryIdsByMessage[id]?.let { categoryById[it] }
+        // Accepted shows its transaction's real category; Not assigned shows the keyword
+        // suggestion (if any) in the same spot, so you can see what it'll be filed under before
+        // you've even opened it - Rejected never shows one, since it isn't a real spend.
+        val displayCategoryId = when (status) {
+            MessageStatus.ACCEPTED -> categoryIdsByMessage[id]
+            MessageStatus.NOT_ASSIGNED -> suggestedCategoryId
+            MessageStatus.REJECTED -> null
+        }
+        val category = displayCategoryId?.let { categoryById[it] }
         return MessageRowUi(
             id = id,
             sender = sender,

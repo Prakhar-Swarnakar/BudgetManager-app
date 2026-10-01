@@ -79,9 +79,10 @@ fun MessageRow(row: MessageRowUi, onClick: () -> Unit, modifier: Modifier = Modi
             row.amountText?.let { amount ->
                 Text(amount, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
-            // Only an Accepted row has a category yet - it comes from its transaction, which is
-            // the only thing that ever sets one (04-messages-and-notifications.md).
-            if (row.status == MessageStatus.ACCEPTED && row.categoryEmoji != null) {
+            // The ViewModel already decides what this means per status - the transaction's real
+            // category once Accepted, a keyword suggestion while still Not assigned, or nothing
+            // for Rejected - so the row just shows whatever it's given, the same way either time.
+            if (row.categoryEmoji != null) {
                 Text(
                     "${row.categoryEmoji} ${row.categoryName}",
                     style = MaterialTheme.typography.bodySmall,

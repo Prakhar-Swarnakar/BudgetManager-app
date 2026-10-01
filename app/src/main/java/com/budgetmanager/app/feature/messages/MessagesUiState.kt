@@ -16,8 +16,10 @@ data class MessageRowUi(
     val receivedAt: Instant,
     val status: MessageStatus,
     val isNew: Boolean,
-    /** Set only for an Accepted row, from its transaction's category - shown so you don't have
-     *  to open the message to see what a spend was filed under. */
+    /** An Accepted row's actual category (from its transaction), or a Not assigned row's keyword
+     *  suggestion - shown the same way either side, so you can see what a spend was (or would be)
+     *  filed under without opening the message. Null for a Rejected row, or a Not assigned row
+     *  with no keyword match. */
     val categoryEmoji: String?,
     val categoryName: String?,
     /** True when another Not assigned message looks like it could be the same real payment -

@@ -40,6 +40,7 @@ Because several banks are used, the app cannot rely on one fixed SMS format. Par
 - The red circle on the tab clears when the user opens the Messages page. Rows keep their bold text and blue dot until the user leaves the page, so they can see which ones were new.
 - The Home line "N messages to review" counts messages that are still **Not assigned**, which is different from the "new" flag.
 - **Possible-duplicate warning** (built 2026-10-01, `DetectPossibleDuplicates`): a Not assigned row gets a small warning badge when another Not assigned message has the same amount, a different sender, and arrived within 10 minutes - e.g. a bank debit alert and a UPI app's own confirmation for the same payment. The detail sheet names which other message it might match. Only Not assigned messages are considered - once a message is Accepted or Rejected the user has already decided, so flagging it again would just be noise. This never auto-rejects anything; the user still chooses.
+- **Category shown before accepting** (built 2026-10-02): the row's category slot isn't Accepted-only - a Not assigned row shows its keyword suggestion there too, in the same spot and style a real category appears in once Accepted, so you can see what a spend would be filed under without opening it. Rejected never shows one, since it isn't a real spend.
 
 ### Gestures
 
