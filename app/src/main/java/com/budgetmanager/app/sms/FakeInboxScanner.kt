@@ -4,14 +4,14 @@ package com.budgetmanager.app.sms
 class FakeInboxScanner : InboxScanner {
     var scanCallCount = 0
         private set
-    var lastScanFromMillis: Long? = null
+    var lastScanRange: Pair<Long, Long>? = null
         private set
 
     override suspend fun scan() {
         scanCallCount++
     }
 
-    override suspend fun scanFrom(sinceMillis: Long) {
-        lastScanFromMillis = sinceMillis
+    override suspend fun scanRange(sinceMillis: Long, untilMillisExclusive: Long) {
+        lastScanRange = sinceMillis to untilMillisExclusive
     }
 }

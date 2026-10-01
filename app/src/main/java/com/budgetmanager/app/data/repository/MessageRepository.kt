@@ -21,5 +21,9 @@ interface MessageRepository {
      *  named method. */
     suspend fun setStatus(id: Long, status: MessageStatus)
 
+    /** Updates only the keyword suggestion - used to re-run category rules against existing
+     *  messages without touching status, a linked transaction, or anything else. */
+    suspend fun updateSuggestedCategory(id: Long, categoryId: Long?)
+
     suspend fun markAllSeen()
 }

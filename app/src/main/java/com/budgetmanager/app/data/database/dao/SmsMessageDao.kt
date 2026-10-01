@@ -44,6 +44,11 @@ interface SmsMessageDao {
     @Query("UPDATE sms_message SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: Long, status: MessageStatus)
 
+    /** Updates only the keyword suggestion - used to re-run category rules against existing
+     *  messages without touching status or anything else. */
+    @Query("UPDATE sms_message SET suggested_category_id = :categoryId WHERE id = :id")
+    suspend fun updateSuggestedCategory(id: Long, categoryId: Long?)
+
     @Query("UPDATE sms_message SET is_new = 0")
     suspend fun markAllSeen()
 

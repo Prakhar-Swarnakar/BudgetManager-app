@@ -4,12 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.budgetmanager.app.core.model.Category
 import com.budgetmanager.app.core.model.MessageStatus
-import com.budgetmanager.app.core.model.Money
+import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.data.repository.CategoryRepository
 import com.budgetmanager.app.data.repository.MessageRepository
 import com.budgetmanager.app.data.repository.TransactionRepository
 import com.budgetmanager.app.domain.DetectPossibleDuplicates
+import com.budgetmanager.app.sms.CategorySuggester
 import com.budgetmanager.app.sms.InboxScanner
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,19 +20,23 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import javax.inject.Inject
 
-/** The 5 things the filter/selection/undo/nav state needs from the message list, bundled so the
- *  category-join step below can stay a plain 2-flow combine instead of needing a 7-arg one. */
-private data class RawMessagesState(
-    val messages: List<SmsMessage>,
+/** The 5 things the message-list combine needs besides the messages themselves, bundled so that
+ *  step can stay a plain 2-flow combine instead of needing a 6-arg one. */
+private data class SelectionState(
     val filter: MessageFilter,
     val selectedId: Long?,
     val undoId: Long?,
-    val navId: Long?
+    val navId: Long?,
+    val monthKey: MonthKey
+)
+
+private data class RawMessagesState(
+    val messages: List<SmsMessage>,
+    val selection: SelectionState
 )
 
 @HiltViewModel
@@ -39,44 +44,65 @@ class MessagesViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val transactionRepository: TransactionRepository,
     private val inboxScanner: InboxScanner,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val categorySuggester: CategorySuggester
 ) : ViewModel() {
 
     private val filter = MutableStateFlow(MessageFilter.ALL)
     private val selectedMessageId = MutableStateFlow<Long?>(null)
     private val undoRejectedMessageId = MutableStateFlow<Long?>(null)
     private val navigateToAddTransactionForMessageId = MutableStateFlow<Long?>(null)
+    private val monthKey = MutableStateFlow(MonthKey.current())
+
+    private val selectionState = combine(
+        filter, selectedMessageId, undoRejectedMessageId, navigateToAddTransactionForMessageId, monthKey
+    ) { f, selectedId, undoId, navId, month -> SelectionState(f, selectedId, undoId, navId, month) }
 
     val uiState: StateFlow<MessagesUiState> = combine(
         messageRepository.observeAll(),
-        filter,
-        selectedMessageId,
-        undoRejectedMessageId,
-        navigateToAddTransactionForMessageId
-    ) { messages, selectedFilter, selectedId, undoId, navId ->
-        RawMessagesState(messages, selectedFilter, selectedId, undoId, navId)
+        selectionState
+    ) { messages, selection ->
+        RawMessagesState(messages, selection)
     }.combine(categoryRepository.observeAll()) { raw, categories ->
         raw to categories
     }.combine(transactionRepository.observeCategoryIdsBySourceMessage()) { (raw, categories), categoryIdsByMessage ->
         val categoryById = categories.associateBy { it.id }
         val messageById = raw.messages.associateBy { it.id }
+        val zone = ZoneId.systemDefault()
+        // Computed against every message, not just the viewed month's - a bank alert just before
+        // midnight and a UPI app's confirmation just after it are still the same real payment.
         val duplicateOfId = DetectPossibleDuplicates(raw.messages)
-        val selectedMessage = messageById[raw.selectedId]
+        val monthMessages = raw.messages.filter { MonthKey.from(it.receivedAt, zone) == raw.selection.monthKey }
+        val selectedMessage = messageById[raw.selection.selectedId]
         MessagesUiState(
             isLoading = false,
-            filter = raw.filter,
-            rows = raw.messages.filter { matchesFilter(it, raw.filter) }
+            filter = raw.selection.filter,
+            monthKey = raw.selection.monthKey,
+            canGoNext = raw.selection.monthKey < MonthKey.current(),
+            rows = monthMessages.filter { matchesFilter(it, raw.selection.filter) }
                 .map { it.toRowUi(categoryIdsByMessage, categoryById, duplicateOfId.containsKey(it.id)) },
-            counts = MessageFilter.entries.associateWith { f -> raw.messages.count { matchesFilter(it, f) } },
+            counts = MessageFilter.entries.associateWith { f -> monthMessages.count { matchesFilter(it, f) } },
             selectedMessage = selectedMessage,
             selectedMessageDuplicateOf = duplicateOfId[selectedMessage?.id]?.let { messageById[it] },
-            undoRejectedMessageId = raw.undoId,
-            navigateToAddTransactionForMessageId = raw.navId
+            undoRejectedMessageId = raw.selection.undoId,
+            navigateToAddTransactionForMessageId = raw.selection.navId
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MessagesUiState())
 
     fun onFilterSelected(newFilter: MessageFilter) {
         filter.value = newFilter
+    }
+
+    fun onPreviousMonth() {
+        monthKey.value = monthKey.value.previous()
+    }
+
+    /** Messages are tied to real calendar dates that have already happened - same restriction
+     *  as Home, never Monthly budget's "set next month's budget ahead of time" case. */
+    fun onNextMonth() {
+        if (monthKey.value < MonthKey.current()) {
+            monthKey.value = monthKey.value.next()
+        }
     }
 
     /**
@@ -161,40 +187,34 @@ class MessagesViewModel @Inject constructor(
         viewModelScope.launch { messageRepository.markAllSeen() }
     }
 
-    /** Debug-only (see MessagesContent's BuildConfig.DEBUG gate): backfills today's real spend
-     *  SMS as Not assigned, for quick testing without waiting on the live receiver. */
-    fun onImportTodaySms() {
+    /** Fetches SMS for the currently viewed month straight from the SMS Provider, independent of
+     *  the automatic catch-up marker - for backfilling a month the live receiver missed, or one
+     *  from before the app was set up. Safe to run more than once: already-seen messages are
+     *  skipped by their dedupe key (see sms/DedupeKey.kt), same as any other ingest path. */
+    fun onFetchMonth() {
         viewModelScope.launch {
-            val startOfToday = LocalDate.now(ZoneId.systemDefault())
-                .atStartOfDay(ZoneId.systemDefault())
-                .toInstant()
-                .toEpochMilli()
-            inboxScanner.scanFrom(startOfToday)
+            val (start, end) = monthKey.value.toMillisRange(ZoneId.systemDefault())
+            inboxScanner.scanRange(start, end)
         }
     }
 
-    /** Debug-only: inserts one fabricated Not assigned message so a "new" row shows up instantly,
-     *  without waiting on a real SMS or the live receiver. */
-    fun onAddTestMessage() {
+    /** Re-runs category rules against every Not assigned message in the currently viewed month,
+     *  using whatever keyword rules exist right now - lets a rule added today fix an old
+     *  suggestion without re-deciding anything. Only ever touches [SmsMessage.suggestedCategoryId]:
+     *  never status, never an Accepted message's real transaction category, and Accepted/Rejected
+     *  messages aren't considered at all. */
+    fun onRunRule() {
         viewModelScope.launch {
-            val now = Instant.now()
-            val amountRupees = (50..999).random()
-            val firstCategoryId = categoryRepository.observeActive().first().firstOrNull()?.id
-            val message = SmsMessage(
-                id = 0,
-                sender = "TESTBANK",
-                body = "Rs $amountRupees.00 debited from a/c XX1234 at TEST MERCHANT. Avl bal Rs 5000.",
-                receivedAt = now,
-                smsProviderId = null,
-                dedupeKey = "debug-${now.toEpochMilli()}-${(0..999_999).random()}",
-                parsedAmount = Money.ofRupees(amountRupees.toLong()),
-                merchant = "TEST MERCHANT",
-                paymentMethod = "UPI",
-                suggestedCategoryId = firstCategoryId,
-                status = MessageStatus.NOT_ASSIGNED,
-                isNew = true
-            )
-            messageRepository.ingest(message)
+            val month = monthKey.value
+            val zone = ZoneId.systemDefault()
+            val notAssignedThisMonth = messageRepository.observeByStatus(MessageStatus.NOT_ASSIGNED).first()
+                .filter { MonthKey.from(it.receivedAt, zone) == month }
+            notAssignedThisMonth.forEach { message ->
+                val newSuggestion = categorySuggester.suggest(message.merchant ?: message.body)
+                if (newSuggestion != message.suggestedCategoryId) {
+                    messageRepository.updateSuggestedCategory(message.id, newSuggestion)
+                }
+            }
         }
     }
 
@@ -233,4 +253,11 @@ class MessagesViewModel @Inject constructor(
             isPossibleDuplicate = isPossibleDuplicate
         )
     }
+}
+
+/** [MonthKey]'s [start, end) as device-local epoch millis, for an SMS Provider date-range query. */
+private fun MonthKey.toMillisRange(zone: ZoneId): Pair<Long, Long> {
+    val start = YearMonth.of(year, month).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+    val end = YearMonth.of(year, month).plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+    return start to end
 }

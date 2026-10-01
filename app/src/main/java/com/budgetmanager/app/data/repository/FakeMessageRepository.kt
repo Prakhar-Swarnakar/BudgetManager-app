@@ -30,6 +30,10 @@ class FakeMessageRepository : MessageRepository {
         updateStatus(id, status)
     }
 
+    override suspend fun updateSuggestedCategory(id: Long, categoryId: Long?) {
+        state.value = state.value.map { if (it.id == id) it.copy(suggestedCategoryId = categoryId) else it }
+    }
+
     override suspend fun markAllSeen() {
         state.value = state.value.map { it.copy(isNew = false) }
     }

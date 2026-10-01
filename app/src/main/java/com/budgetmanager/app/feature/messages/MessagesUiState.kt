@@ -1,6 +1,7 @@
 package com.budgetmanager.app.feature.messages
 
 import com.budgetmanager.app.core.model.MessageStatus
+import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
 import java.time.Instant
 
@@ -30,6 +31,10 @@ data class MessageRowUi(
 data class MessagesUiState(
     val isLoading: Boolean = true,
     val filter: MessageFilter = MessageFilter.ALL,
+    val monthKey: MonthKey = MonthKey.current(),
+    /** The month selector's next arrow is disabled once this is false - messages are tied to
+     *  real calendar dates that have already happened, so there's never a future month to see. */
+    val canGoNext: Boolean = false,
     val rows: List<MessageRowUi> = emptyList(),
     val counts: Map<MessageFilter, Int> = emptyMap(),
     val selectedMessage: SmsMessage? = null,

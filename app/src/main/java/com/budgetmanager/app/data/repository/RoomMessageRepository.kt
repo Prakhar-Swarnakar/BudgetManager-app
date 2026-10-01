@@ -40,6 +40,10 @@ class RoomMessageRepository @Inject constructor(
         smsMessageDao.updateStatus(id, status)
     }
 
+    override suspend fun updateSuggestedCategory(id: Long, categoryId: Long?) {
+        smsMessageDao.updateSuggestedCategory(id, categoryId)
+    }
+
     override suspend fun markAllSeen() {
         smsMessageDao.markAllSeen()
     }

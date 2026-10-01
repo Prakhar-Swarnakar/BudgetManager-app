@@ -37,6 +37,7 @@ Category management (create, rename, change icon, reorder) and setting each one'
 - Each message is coloured by its status: white (not assigned), green (accepted), red (rejected).
 - Swipe to accept or reject, or tap to open the message.
 - **Possible-duplicate warning** (built 2026-10-01): a Not assigned message is flagged when another Not assigned message has the same amount, a different sender, and arrived within 10 minutes of it - for example a bank's debit alert and a UPI app's own confirmation for the same payment. Shown as a small warning badge on the row and, in the detail sheet, which other message it might duplicate. This is separate from the exact-SMS-counted-twice bug fixed the same day (see `DedupeKey.kt`) - that was one physical message processed twice; this is two different messages that may describe the same real payment, and the user still decides which (if either) to accept.
+- **Split by month** (built 2026-10-02): the page has its own month selector, scoped to the viewed month only, with "Fetch SMS" (backfills that month's SMS from the phone's inbox) and "Run rule" (re-applies current keyword rules to that month's Not assigned messages only, never touching status or an already-decided message) buttons underneath it.
 - Full detail in [04-messages-and-notifications.md](04-messages-and-notifications.md).
 
 ## F5. Notification for new messages

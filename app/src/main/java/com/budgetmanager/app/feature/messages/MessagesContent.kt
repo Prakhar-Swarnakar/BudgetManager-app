@@ -13,18 +13,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MarkEmailRead
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.budgetmanager.app.BuildConfig
 import com.budgetmanager.app.core.designsystem.components.EmptyState
 import com.budgetmanager.app.core.designsystem.components.FilterChipItem
 import com.budgetmanager.app.core.designsystem.components.FilterChipRow
+import com.budgetmanager.app.core.designsystem.components.MonthSelector
 import com.budgetmanager.app.core.designsystem.components.NoSwipeAction
 import com.budgetmanager.app.core.designsystem.components.SwipeAction
 import com.budgetmanager.app.core.designsystem.components.SwipeRow
@@ -47,8 +47,10 @@ fun MessagesContent(
     onRejectFromDetail: (Long) -> Unit,
     onUndoReject: () -> Unit,
     onUndoDismissed: () -> Unit,
-    onImportTodaySms: () -> Unit,
-    onAddTestMessage: () -> Unit,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onFetchMonth: () -> Unit,
+    onRunRule: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -62,14 +64,19 @@ fun MessagesContent(
     )
 
     Column(modifier = modifier.fillMaxSize()) {
-        if (BuildConfig.DEBUG) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                TextButton(onClick = onImportTodaySms) { Text("Import today's SMS") }
-                TextButton(onClick = onAddTestMessage) { Text("Add test message") }
-            }
+        MonthSelector(
+            monthKey = state.monthKey,
+            onPrevious = onPreviousMonth,
+            onNext = onNextMonth,
+            canGoNext = state.canGoNext,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(onClick = onFetchMonth) { Text("Fetch SMS") }
+            OutlinedButton(onClick = onRunRule) { Text("Run rule") }
         }
 
         FilterChipRow(

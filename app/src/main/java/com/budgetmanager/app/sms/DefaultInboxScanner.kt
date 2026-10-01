@@ -44,26 +44,40 @@ class DefaultInboxScanner @Inject constructor(
             return
         }
 
-        val latestSeen = scanAndIngest(lastProcessed)
+        val latestSeen = scanAndIngest(lastProcessed, untilExclusive = null)
         if (latestSeen != null && latestSeen > lastProcessed) settings.setLastProcessedSmsAt(latestSeen)
     }
 
-    override suspend fun scanFrom(sinceMillis: Long) {
+    override suspend fun scanRange(sinceMillis: Long, untilMillisExclusive: Long) {
         if (!hasSmsPermission()) return
-        scanAndIngest(sinceMillis)
+        scanAndIngest(sinceMillis, untilMillisExclusive)
     }
 
-    /** Returns the newest message date seen (even non-spend ones), or null if the query failed. */
-    private suspend fun scanAndIngest(since: Long): Long? {
+    /** Returns the newest message date seen (even non-spend ones), or null if the query failed.
+     *  [untilExclusive] null means open-ended (used by the automatic catch-up); set, it bounds
+     *  the query to one range (used by the manual per-month fetch), so re-running it for a past
+     *  month never re-walks everything between that month and today. */
+    private suspend fun scanAndIngest(since: Long, untilExclusive: Long?): Long? {
         var latestSeen = since
         var insertedCount = 0
+
+        val selection = if (untilExclusive != null) {
+            "${Telephony.Sms.DATE} > ? AND ${Telephony.Sms.DATE} < ?"
+        } else {
+            "${Telephony.Sms.DATE} > ?"
+        }
+        val selectionArgs = if (untilExclusive != null) {
+            arrayOf(since.toString(), untilExclusive.toString())
+        } else {
+            arrayOf(since.toString())
+        }
 
         try {
             context.contentResolver.query(
                 Telephony.Sms.Inbox.CONTENT_URI,
                 arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.DATE, Telephony.Sms.BODY),
-                "${Telephony.Sms.DATE} > ?",
-                arrayOf(since.toString()),
+                selection,
+                selectionArgs,
                 "${Telephony.Sms.DATE} ASC"
             )?.use { cursor ->
                 val addressIndex = cursor.getColumnIndex(Telephony.Sms.ADDRESS)

@@ -1,13 +1,16 @@
 package com.budgetmanager.app.feature.messages
 
 import com.budgetmanager.app.core.model.Category
+import com.budgetmanager.app.core.model.KeywordRule
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.data.repository.FakeCategoryRepository
+import com.budgetmanager.app.data.repository.FakeKeywordRuleRepository
 import com.budgetmanager.app.data.repository.FakeMessageRepository
 import com.budgetmanager.app.data.repository.FakeTransactionRepository
+import com.budgetmanager.app.sms.CategorySuggester
 import com.budgetmanager.app.sms.FakeInboxScanner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,12 +22,13 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.Instant
+import java.time.YearMonth
+import java.time.ZoneId
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MessagesViewModelTest {
@@ -48,8 +52,9 @@ class MessagesViewModelTest {
     private fun viewModel(
         repo: FakeMessageRepository,
         transactions: FakeTransactionRepository = FakeTransactionRepository(repo),
-        scanner: FakeInboxScanner = FakeInboxScanner()
-    ) = MessagesViewModel(repo, transactions, scanner, categoryRepository())
+        scanner: FakeInboxScanner = FakeInboxScanner(),
+        categorySuggester: CategorySuggester = CategorySuggester(FakeKeywordRuleRepository())
+    ) = MessagesViewModel(repo, transactions, scanner, categoryRepository(), categorySuggester)
 
     private fun testMessage(dedupeKey: String) = SmsMessage(
         id = 0, sender = "TESTBANK", body = "Rs 100 debited", receivedAt = Instant.now(),
@@ -57,6 +62,11 @@ class MessagesViewModelTest {
         merchant = "Test Store", suggestedCategoryId = null, status = MessageStatus.NOT_ASSIGNED,
         isNew = true
     )
+
+    /** An Instant that falls inside [month], in the device's own zone - for tests that need
+     *  messages placed in a specific month relative to [MonthKey.current]'s real one. */
+    private fun instantIn(month: MonthKey, dayOfMonth: Int = 15): Instant =
+        YearMonth.of(month.year, month.month).atDay(dayOfMonth).atStartOfDay(ZoneId.systemDefault()).toInstant()
 
     @Test
     fun `filter counts reflect message statuses`() = runTest {
@@ -302,25 +312,6 @@ class MessagesViewModelTest {
     }
 
     @Test
-    fun `onAddTestMessage inserts one Not assigned message with an amount and suggested category`() = runTest {
-        val repo = FakeMessageRepository()
-        val viewModel = viewModel(repo)
-        val collector = viewModel.uiState.onEach { }.launchIn(this)
-
-        viewModel.onAddTestMessage()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(1, viewModel.uiState.value.counts[MessageFilter.ALL])
-        val row = viewModel.uiState.value.rows.first()
-        assertEquals(MessageStatus.NOT_ASSIGNED, row.status)
-        // Debug-only fixture: gives Add Transaction's pre-fill something to show without
-        // waiting on a real SMS to arrive.
-        assertNotNull(row.amountText)
-        assertNotNull(repo.getById(row.id)!!.suggestedCategoryId)
-        collector.cancel()
-    }
-
-    @Test
     fun `two Not assigned messages with the same amount, different senders, close in time are both flagged`() = runTest {
         val repo = FakeMessageRepository()
         val viewModel = viewModel(repo)
@@ -362,16 +353,102 @@ class MessagesViewModelTest {
     }
 
     @Test
-    fun `onImportTodaySms delegates to the inbox scanner from start of today`() = runTest {
+    fun `onFetchMonth scans the currently viewed month's full range`() = runTest {
         val repo = FakeMessageRepository()
         val scanner = FakeInboxScanner()
         val viewModel = viewModel(repo, scanner = scanner)
         val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val month = viewModel.uiState.value.monthKey
 
-        viewModel.onImportTodaySms()
+        viewModel.onPreviousMonth()
+        viewModel.onFetchMonth()
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertTrue(scanner.lastScanFromMillis != null)
+        val previousMonth = month.previous()
+        val zone = ZoneId.systemDefault()
+        val expectedStart = YearMonth.of(previousMonth.year, previousMonth.month)
+            .atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val expectedEnd = YearMonth.of(previousMonth.year, previousMonth.month)
+            .plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        assertEquals(expectedStart to expectedEnd, scanner.lastScanRange)
+        collector.cancel()
+    }
+
+    @Test
+    fun `onPreviousMonth and onNextMonth move the viewed month, never past the current one`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val currentMonth = viewModel.uiState.value.monthKey
+
+        assertEquals(false, viewModel.uiState.value.canGoNext)
+
+        viewModel.onPreviousMonth()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(currentMonth.previous(), viewModel.uiState.value.monthKey)
+        assertTrue(viewModel.uiState.value.canGoNext)
+
+        viewModel.onNextMonth()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(currentMonth, viewModel.uiState.value.monthKey)
+
+        // Already back at the current month - next is a no-op, never moves into the future.
+        viewModel.onNextMonth()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(currentMonth, viewModel.uiState.value.monthKey)
+        collector.cancel()
+    }
+
+    @Test
+    fun `rows and counts are scoped to the viewed month only`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val currentMonth = viewModel.uiState.value.monthKey
+
+        val thisMonthId = repo.ingest(testMessage("k1").copy(receivedAt = instantIn(currentMonth)))!!
+        repo.ingest(testMessage("k2").copy(receivedAt = instantIn(currentMonth.previous())))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.counts[MessageFilter.ALL])
+        assertEquals(thisMonthId, viewModel.uiState.value.rows.single().id)
+
+        viewModel.onPreviousMonth()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.counts[MessageFilter.ALL])
+        assertEquals("k2", repo.getById(viewModel.uiState.value.rows.single().id)!!.dedupeKey)
+        collector.cancel()
+    }
+
+    @Test
+    fun `onRunRule updates suggestions only for Not assigned messages in the viewed month`() = runTest {
+        val repo = FakeMessageRepository()
+        val keywordRules = FakeKeywordRuleRepository().apply {
+            seed(listOf(KeywordRule(keyword = "test store", categoryId = 1)))
+        }
+        val viewModel = viewModel(repo, categorySuggester = CategorySuggester(keywordRules))
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val currentMonth = viewModel.uiState.value.monthKey
+
+        val notAssignedId = repo.ingest(testMessage("k1").copy(receivedAt = instantIn(currentMonth)))!!
+        val acceptedId = repo.ingest(testMessage("k2").copy(receivedAt = instantIn(currentMonth)))!!
+        repo.updateStatus(acceptedId, MessageStatus.ACCEPTED)
+        val rejectedId = repo.ingest(testMessage("k3").copy(receivedAt = instantIn(currentMonth)))!!
+        repo.updateStatus(rejectedId, MessageStatus.REJECTED)
+        val otherMonthId = repo.ingest(
+            testMessage("k4").copy(receivedAt = instantIn(currentMonth.previous()))
+        )!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onRunRule()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1L, repo.getById(notAssignedId)!!.suggestedCategoryId)
+        assertNull(repo.getById(acceptedId)!!.suggestedCategoryId)
+        assertEquals(MessageStatus.ACCEPTED, repo.getById(acceptedId)!!.status)
+        assertNull(repo.getById(rejectedId)!!.suggestedCategoryId)
+        assertEquals(MessageStatus.REJECTED, repo.getById(rejectedId)!!.status)
+        assertNull(repo.getById(otherMonthId)!!.suggestedCategoryId)
         collector.cancel()
     }
 }

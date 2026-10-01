@@ -37,8 +37,10 @@ fun MessagesScreen(
         onRejectFromDetail = viewModel::onRejectFromDetail,
         onUndoReject = viewModel::onUndoReject,
         onUndoDismissed = viewModel::onUndoDismissed,
-        onImportTodaySms = viewModel::onImportTodaySms,
-        onAddTestMessage = viewModel::onAddTestMessage,
+        onPreviousMonth = viewModel::onPreviousMonth,
+        onNextMonth = viewModel::onNextMonth,
+        onFetchMonth = viewModel::onFetchMonth,
+        onRunRule = viewModel::onRunRule,
         modifier = modifier
     )
 }
