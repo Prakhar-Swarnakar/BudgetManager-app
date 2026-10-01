@@ -205,7 +205,7 @@ Originally built as its own page - drag to reorder, swipe to archive, an archive
 
 ### M12. Hardening and release
 
-**Build:** the release build with R8 and your signing key from Phase 1; a repeatable install and update routine (`adb install -r`, with a backup export first); permission onboarding polish; duplicate-payment flagging if you want it; fixes from real use.
+**Build:** the release build with R8 and your signing key from Phase 1; a repeatable install and update routine (`adb install -r`, with a backup export first); permission onboarding polish; a UI consistency pass across every screen (spacing, empty states, dark theme); duplicate-payment flagging if you want it; fixes from real use; a code review for crash risk and correctness bugs, not just the release-build mechanics.
 
 **Tests:** the release build is tested on the phone, not only debug.
 
