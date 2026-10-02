@@ -28,11 +28,13 @@ Category management (create, rename, change icon, reorder) lives on this same pa
 3. They save.
 4. The category's remaining amount updates, and a budget alert fires if a threshold is crossed (see flow 8).
 
+Post-v1 additions (2026-10-02, see [02-features.md](02-features.md) F2/F6/F6b): the page also has a **Merchant** field and a **payment method (taxonomy)** field, each with its own "Add to rule" checkbox - checking one before saving remembers that merchant's category or payment method as a keyword rule for next time.
+
 ## 4. An SMS arrives
 
 1. A bank SMS arrives on the phone.
 2. The app checks whether it is a debit message. If not, it is ignored.
-3. If it is, the app extracts the amount, merchant, and date, and saves it as a message with status **not assigned**.
+3. If it is, the app extracts the amount, merchant, and date, and saves it as a message with status **not assigned** - with a suggested category and (post-v1, 2026-10-02) a suggested payment method, each from its own keyword-rule engine.
 4. The Messages page icon shows a small red circle.
 5. The app shows a simple notification, for example "3 new spends detected".
 6. Tapping the notification opens the app *(assumed to land on the Messages page directly; as built in M2, it opens `MainActivity` generally and lands on Home - the Messages deep link, R20 in [09-risks-and-phases.md](09-risks-and-phases.md), is not wired up yet, see [07-open-questions.md](07-open-questions.md))*.
@@ -45,12 +47,13 @@ Category management (create, rename, change icon, reorder) lives on this same pa
    - **Swipe right** to accept
    - **Swipe left** to reject
    - **Tap** the message to open it and read the full SMS
-4. On an **Accepted** or **Rejected** row, the one live swipe direction reverts it to Not assigned instead (see flows 6 and 7). Built and confirmed on-device in M4; full gesture table in [04-messages-and-notifications.md](04-messages-and-notifications.md#gestures).
+4. On an **Accepted** or **Rejected** row, the one live swipe direction reverts it to Not assigned instead (see flows 6 and 7). Built and confirmed on-device in M4; full gesture table in [04-messages-and-notifications.md](04-messages-and-notifications.md#gestures). **Currently under investigation (2026-10-02):** you reported that swiping a Rejected row the "revert" direction isn't returning it to Not assigned on-device - the code traces correctly end-to-end and is unit tested, so this needs a live repro to pin down further; not yet resolved.
+5. The page is split by month (post-v1, 2026-10-02), with its own month selector and three buttons: **Fetch SMS** (backfills the viewed month directly from the phone), **Run rule** (re-applies current keyword rules - both category and taxonomy - to that month's Not assigned messages only), and **Clear month** (removes every message in the viewed month after confirming, keeping any linked transaction, only unlinked).
 
 ## 6. Accept a message
 
 1. The user accepts a message by swiping.
-2. The Add Transaction page opens with the details pre-filled: amount, date, merchant as the note, and a suggested category if a keyword matched.
+2. The Add Transaction page opens with the details pre-filled: amount, date, a suggested category if a keyword matched, and (post-v1, 2026-10-02) the merchant in its own field and a suggested payment method from the separate taxonomy keyword rules, each with its own "Add to rule" checkbox.
 3. The user edits anything they want and saves.
 4. The message turns green (accepted) and the transaction is added to the category. Both happen together in one atomic database write, confirmed in M4.
 5. If the user leaves without saving, the message stays white (not assigned).

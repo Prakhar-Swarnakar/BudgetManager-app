@@ -4,10 +4,10 @@ A simple personal app for managing a monthly budget. Set a budget per category a
 
 - **Platform:** native Android app, single user
 - **Data:** stored on the phone only
-- **Phase:** Phase 1 (SMS, notification, and install testing) run and mostly confirmed working. Building the real app: M0-M4 done (project foundation, domain core and database, SMS receive/catch-up, Messages page, Add Transaction and the accept flow) - one M4 item (the Cancel button) has a fix shipped but not yet confirmed, see the "still open" list in `07-open-questions.md`. M5 (Categories) is next. See the progress tracker in `14-implementation-plan.md`.
+- **Phase:** Phase 1 (SMS, notification, and install testing) run and mostly confirmed working. M0 through M11 done (project foundation through Trends - This month, Previous month, Historic, and the range setting). M12 (Hardening and release) is next. Several post-v1 rounds since (2026-10-01/02): a real SMS-dedupe fix, possible-duplicate warnings, keyword-rule learning generalised into an explicit "Add to rule" checkbox, Messages split by month with Fetch SMS/Run rule/Clear month, and a full payment-method taxonomy (a second classification alongside Category, with its own keyword-rule engine, Add Transaction field, and side-panel page) built via a real schema migration - see the progress tracker in `14-implementation-plan.md` for the full detail. Credit handling (money coming in) is being discussed, not yet built - see `06-backlog.md`.
 - **Built with:** Kotlin and Jetpack Compose, in Android Studio
 - **Code:** private repo at [BudgetManager-app](https://github.com/Prakhar-Swarnakar/BudgetManager-app)
-- **Last updated:** 2026-09-25
+- **Last updated:** 2026-10-02
 
 ## Documents
 

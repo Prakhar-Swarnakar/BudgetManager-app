@@ -66,7 +66,7 @@ These protect the app's core promise of honest numbers, so they are **Must**.
 
 - `exportSchema = true`, and commit the schema files. They let us test migrations.
 - **Every schema change bumps the version and ships a migration.** Never use destructive migration in a release build. It deletes your data.
-- **Test each migration** against a database created at the previous version, with sample data in it.
+- **Test each migration** against a database created at the previous version, with sample data in it. Room's own `MigrationTestHelper` has been broken since v1→v2 (an `AbstractMethodError` from a Room 2.8.5/kotlinx-serialization version mismatch, not fixable from this app's build file - see R23 in [09-risks-and-phases.md](09-risks-and-phases.md)). The established substitute, used for both real migrations so far: hand-diff the exported schema JSON, then rehearse the exact migration SQL against a byte-verified copy of the real on-device database - confirming `PRAGMA user_version` and every row count - before it ever runs against the device itself.
 - Related writes go in **one database transaction**. Accepting a message is the example: insert the transaction and mark the message accepted together, or not at all.
 - Add indexes for columns used in filters (month key, category ID, status). Add unique constraints where duplicates must not exist (`dedupeKey`, budget per month and category).
 - Do not use `fallbackToDestructiveMigration`. If a migration is hard, ask first.

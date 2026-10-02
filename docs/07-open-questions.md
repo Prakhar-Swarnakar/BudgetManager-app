@@ -64,6 +64,7 @@ Earlier this file listed assumptions and open questions. On 24 September 2026 yo
 | ~~Confirm the application ID in row 27~~ Done: `com.budgetmanager.app` | Before milestone M0 | You |
 | ~~Whether Navigation 3 is stable~~ Done: confirmed stable, in use since M0 (row 26) | Milestone M0 | Me |
 | Whether Room 3.0 is stable | Not needed - staying on Room 2.x (2.8.5) through v1 as planned; no reason to revisit | Me |
+| Swiping a Rejected message to revert it to Not assigned is reported not working on-device (2026-10-02). Traced the full path (`SwipeRow`'s `confirmValueChange` → `MessagesViewModel.onSwipeStart` → `MessageRepository.setStatus` → `SmsMessageDao.updateStatus`) and it's correct end-to-end, matching the existing passing unit test - no logic bug found yet, same situation as the Cancel-button row above. Needs a live repro (which exact message, logcat while reproducing) to pin down further | Not blocking other work, but a real reported bug - needs confirming which message and whether the database write itself happens | You |
 
 ## Pages
 

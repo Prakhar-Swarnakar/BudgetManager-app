@@ -30,10 +30,11 @@ One user (the owner), on their own Android phone, with accounts at several diffe
 | Category icon | An emoji, entered with the phone's own keyboard | Decided |
 | Adding transactions | Entered manually, or created from a bank SMS after the user reviews it | Decided |
 | SMS categorisation | Keyword-based suggestion that the user can change or confirm | Decided |
+| Payment method | A second, independent classification (taxonomy) alongside category - what it was for vs. how it was paid - fixed set of 8 values, own keyword-rule engine, own Add Transaction field | Decided, built 2026-10-02 (see [06-backlog.md](06-backlog.md), "Payment method taxonomy") |
 | SMS review | Done on a dedicated Messages page, not through notification buttons | Decided |
 | Notification | A simple "new spends detected" notification. Action buttons are in the backlog | Decided |
 | Budget alerts | Notify at 80% of a category budget and when it is overspent | Decided |
-| Navigation | Bottom bar for Home, Messages, and Trends. Side panel for Monthly budget and Settings | Decided - the separate Categories page (built in M5) was removed 2026-09-25 and folded into Monthly budget, see below |
+| Navigation | Bottom bar for Home, Messages, and Trends. Side panel for Monthly budget, Category rules, Taxonomy rules, and Settings | Decided - the separate Categories page (built in M5) was removed 2026-09-25 and folded into Monthly budget, see below. Category rules and Taxonomy rules added post-v1, 2026-10-02 |
 | Backup and restore | Lives inside Settings. It is not a separate page or side panel item | Decided |
 | Monthly budget page | Lists every category with its amount for the month. A category with no amount shows ₹0. Tapping a category renames it, changes its icon, and edits its amount, all in one sheet - category management lives here, not on a separate page | Decided, revised 2026-09-25 |
 | Monthly budget: + button | Adds a new category (icon, name, and its budget for the month). It does not change the budget of an existing category | Decided |

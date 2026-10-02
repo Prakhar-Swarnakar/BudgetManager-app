@@ -279,7 +279,7 @@ Phase 1 is testing this. The real design follows the same rules:
 
 ## 7. Settings and backup
 
-- **DataStore** holds settings: alert switches, months shown in charts, and the last export date.
+- **DataStore** holds settings: alert switches, months shown in charts, the last export date, and (added v3) the one-time flag gating `SeedKeywordTaxonomy`'s background backfill.
 - **Backup** writes one JSON file containing every table plus a `formatVersion`. Export and import use Android's file picker, so the app needs no storage permission. Import checks the version, shows a summary, and asks for confirmation before replacing data.
 
 ## 8. Testing approach
