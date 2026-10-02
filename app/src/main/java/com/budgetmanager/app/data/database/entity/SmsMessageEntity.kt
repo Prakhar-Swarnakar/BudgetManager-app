@@ -6,6 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.budgetmanager.app.core.model.MessageStatus
+import com.budgetmanager.app.core.model.TaxonomyType
 
 /** An SMS that looked like a spend. Only debit-looking messages become a row; OTPs are never stored. */
 @Entity(
@@ -34,6 +35,7 @@ data class SmsMessageEntity(
     val merchant: String?,
     @ColumnInfo(name = "payment_method") val paymentMethod: String? = null,
     @ColumnInfo(name = "suggested_category_id") val suggestedCategoryId: Long?,
+    @ColumnInfo(name = "suggested_taxonomy") val suggestedTaxonomy: TaxonomyType? = null,
     val status: MessageStatus = MessageStatus.NOT_ASSIGNED,
     @ColumnInfo(name = "is_new") val isNew: Boolean = true
 )

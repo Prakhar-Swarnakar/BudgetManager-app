@@ -14,7 +14,9 @@ import com.budgetmanager.app.data.repository.RoomKeywordRuleRepository
 import com.budgetmanager.app.data.repository.RoomMessageRepository
 import com.budgetmanager.app.data.repository.RoomMonthlyBudgetRepository
 import com.budgetmanager.app.data.repository.RoomTransactionRepository
+import com.budgetmanager.app.data.repository.RoomTaxonomyKeywordRuleRepository
 import com.budgetmanager.app.data.repository.SettingsRepository
+import com.budgetmanager.app.data.repository.TaxonomyKeywordRuleRepository
 import com.budgetmanager.app.data.repository.TransactionRepository
 import dagger.Binds
 import dagger.Module
@@ -57,4 +59,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindBackupRepository(impl: RoomBackupRepository): BackupRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTaxonomyKeywordRuleRepository(
+        impl: RoomTaxonomyKeywordRuleRepository
+    ): TaxonomyKeywordRuleRepository
 }

@@ -10,6 +10,7 @@ sealed interface Destination {
     data object MonthlyBudget : Destination
     data object Settings : Destination
     data object CategoryRules : Destination
+    data object TaxonomyRules : Destination
 
     /** Manual add when both are null, accepting a message when [messageId] is set, editing an
      *  existing transaction when [transactionId] is set. Never both at once. */

@@ -29,6 +29,7 @@ class DefaultInboxScanner @Inject constructor(
     private val settings: SettingsDataStore,
     private val notifier: Notifier,
     private val categorySuggester: CategorySuggester,
+    private val taxonomySuggester: TaxonomySuggester,
     private val settingsRepository: SettingsRepository
 ) : InboxScanner {
 
@@ -103,6 +104,7 @@ class DefaultInboxScanner @Inject constructor(
                         merchant = parsed.merchant,
                         paymentMethod = parsed.paymentMethod,
                         suggestedCategoryId = categorySuggester.suggest(parsed.merchant ?: body),
+                        suggestedTaxonomy = taxonomySuggester.suggest(parsed.merchant ?: body),
                         status = MessageStatus.NOT_ASSIGNED,
                         isNew = true
                     )

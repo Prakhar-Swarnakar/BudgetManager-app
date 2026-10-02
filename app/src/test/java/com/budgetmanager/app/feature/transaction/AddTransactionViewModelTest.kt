@@ -5,12 +5,14 @@ import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
+import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.data.repository.FakeAlertLogRepository
 import com.budgetmanager.app.data.repository.FakeCategoryRepository
 import com.budgetmanager.app.data.repository.FakeKeywordRuleRepository
 import com.budgetmanager.app.data.repository.FakeMessageRepository
 import com.budgetmanager.app.data.repository.FakeMonthlyBudgetRepository
 import com.budgetmanager.app.data.repository.FakeSettingsRepository
+import com.budgetmanager.app.data.repository.FakeTaxonomyKeywordRuleRepository
 import com.budgetmanager.app.data.repository.FakeTransactionRepository
 import com.budgetmanager.app.domain.EvaluateBudgetAlerts
 import com.budgetmanager.app.domain.FakeBudgetAlertNotifier
@@ -55,7 +57,8 @@ class AddTransactionViewModelTest {
         val transactions: FakeTransactionRepository,
         val budgets: FakeMonthlyBudgetRepository,
         val notifier: FakeBudgetAlertNotifier,
-        val keywordRules: FakeKeywordRuleRepository
+        val keywordRules: FakeKeywordRuleRepository,
+        val taxonomyRules: FakeTaxonomyKeywordRuleRepository
     )
 
     private fun setUpViewModel(): TestHarness {
@@ -67,11 +70,14 @@ class AddTransactionViewModelTest {
         val budgets = FakeMonthlyBudgetRepository()
         val notifier = FakeBudgetAlertNotifier()
         val keywordRules = FakeKeywordRuleRepository()
+        val taxonomyRules = FakeTaxonomyKeywordRuleRepository()
         val evaluateBudgetAlerts = EvaluateBudgetAlerts(
             budgets, transactions, FakeAlertLogRepository(), categories, FakeSettingsRepository(), notifier
         )
-        val viewModel = AddTransactionViewModel(transactions, messages, evaluateBudgetAlerts, keywordRules, categories)
-        return TestHarness(viewModel, messages, transactions, budgets, notifier, keywordRules)
+        val viewModel = AddTransactionViewModel(
+            transactions, messages, evaluateBudgetAlerts, keywordRules, taxonomyRules, categories
+        )
+        return TestHarness(viewModel, messages, transactions, budgets, notifier, keywordRules, taxonomyRules)
     }
 
     @Test
@@ -414,6 +420,144 @@ class AddTransactionViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(notifier.calls.isEmpty())
+        collector.cancel()
+    }
+
+    @Test
+    fun `accepting a message pre-fills the taxonomy suggestion, unchecked by default`() = runTest {
+        val (viewModel, messages, _) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "Swiggy", suggestedCategoryId = 1, suggestedTaxonomy = TaxonomyType.UPI,
+            status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val messageId = messages.ingest(message)!!
+
+        viewModel.load(messageId = messageId, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(TaxonomyType.UPI, viewModel.uiState.value.selectedTaxonomy)
+        assertEquals(TaxonomyType.UPI, viewModel.uiState.value.suggestedTaxonomy)
+        assertFalse(viewModel.uiState.value.addTaxonomyToRule)
+        collector.cancel()
+    }
+
+    @Test
+    fun `checking Add to rule for taxonomy on a manual transaction learns the merchant`() = runTest {
+        val (viewModel, _, _, _, _, _, taxonomyRules) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onMerchantChanged("Swiggy")
+        viewModel.onTaxonomySelected(TaxonomyType.UPI)
+        viewModel.onAddTaxonomyToRuleToggled(true)
+        viewModel.onAmountChanged("250")
+        viewModel.onCategorySelected(1)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val learned = taxonomyRules.getAll().single { it.keyword == "swiggy" }
+        assertEquals(TaxonomyType.UPI, learned.taxonomy)
+        collector.cancel()
+    }
+
+    @Test
+    fun `leaving Add to rule for taxonomy unchecked learns nothing, even with a taxonomy selected`() = runTest {
+        val (viewModel, _, _, _, _, _, taxonomyRules) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onMerchantChanged("Swiggy")
+        viewModel.onTaxonomySelected(TaxonomyType.UPI)
+        viewModel.onAmountChanged("250")
+        viewModel.onCategorySelected(1)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(taxonomyRules.getAll().isEmpty())
+        collector.cancel()
+    }
+
+    @Test
+    fun `a very short merchant is never learned into the taxonomy rule either, even when checked`() = runTest {
+        val (viewModel, _, _, _, _, _, taxonomyRules) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onMerchantChanged("SB")
+        viewModel.onTaxonomySelected(TaxonomyType.UPI)
+        viewModel.onAddTaxonomyToRuleToggled(true)
+        viewModel.onAmountChanged("250")
+        viewModel.onCategorySelected(1)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(taxonomyRules.getAll().isEmpty())
+        collector.cancel()
+    }
+
+    @Test
+    fun `clearing the merchant field also unchecks Add to rule for taxonomy`() = runTest {
+        val (viewModel, _, _) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onMerchantChanged("Swiggy")
+        viewModel.onAddTaxonomyToRuleToggled(true)
+        viewModel.onMerchantChanged("")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.addTaxonomyToRule)
+        collector.cancel()
+    }
+
+    @Test
+    fun `editing a transaction pre-fills its taxonomy directly, with Add to rule unchecked`() = runTest {
+        val (viewModel, _, transactions) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val transactionId = transactions.insert(
+            amount = Money.ofRupees(300), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Original", taxonomy = TaxonomyType.CASH
+        )
+
+        viewModel.load(messageId = null, transactionId = transactionId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(TaxonomyType.CASH, viewModel.uiState.value.selectedTaxonomy)
+        assertFalse(viewModel.uiState.value.addTaxonomyToRule)
+        collector.cancel()
+    }
+
+    @Test
+    fun `saving a manual transaction persists the selected taxonomy`() = runTest {
+        val (viewModel, _, transactions) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val date = viewModel.uiState.value.date
+        viewModel.onAmountChanged("250")
+        viewModel.onCategorySelected(1)
+        viewModel.onTaxonomySelected(TaxonomyType.CREDIT_CARD)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val monthKey = MonthKey.of(date.year, date.monthValue)
+        val saved = transactions.observeForCategoryAndMonth(monthKey, 1).first()
+        assertEquals(TaxonomyType.CREDIT_CARD, saved.first().taxonomy)
         collector.cancel()
     }
 }

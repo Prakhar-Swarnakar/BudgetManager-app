@@ -3,6 +3,7 @@ package com.budgetmanager.app.data.repository
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.SmsMessage
+import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.data.database.dao.SmsMessageDao
 import com.budgetmanager.app.data.database.entity.SmsMessageEntity
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +45,10 @@ class RoomMessageRepository @Inject constructor(
         smsMessageDao.updateSuggestedCategory(id, categoryId)
     }
 
+    override suspend fun updateSuggestedTaxonomy(id: Long, taxonomy: TaxonomyType?) {
+        smsMessageDao.updateSuggestedTaxonomy(id, taxonomy)
+    }
+
     override suspend fun markAllSeen() {
         smsMessageDao.markAllSeen()
     }
@@ -64,6 +69,7 @@ private fun SmsMessageEntity.toDomain() = SmsMessage(
     merchant = merchant,
     paymentMethod = paymentMethod,
     suggestedCategoryId = suggestedCategoryId,
+    suggestedTaxonomy = suggestedTaxonomy,
     status = status,
     isNew = isNew
 )
@@ -79,6 +85,7 @@ private fun SmsMessage.toEntity() = SmsMessageEntity(
     merchant = merchant,
     paymentMethod = paymentMethod,
     suggestedCategoryId = suggestedCategoryId,
+    suggestedTaxonomy = suggestedTaxonomy,
     status = status,
     isNew = isNew
 )

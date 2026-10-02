@@ -2,6 +2,7 @@ package com.budgetmanager.app.data.repository
 
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.SmsMessage
+import com.budgetmanager.app.core.model.TaxonomyType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 
@@ -32,6 +33,10 @@ class FakeMessageRepository : MessageRepository {
 
     override suspend fun updateSuggestedCategory(id: Long, categoryId: Long?) {
         state.value = state.value.map { if (it.id == id) it.copy(suggestedCategoryId = categoryId) else it }
+    }
+
+    override suspend fun updateSuggestedTaxonomy(id: Long, taxonomy: TaxonomyType?) {
+        state.value = state.value.map { if (it.id == id) it.copy(suggestedTaxonomy = taxonomy) else it }
     }
 
     override suspend fun markAllSeen() {

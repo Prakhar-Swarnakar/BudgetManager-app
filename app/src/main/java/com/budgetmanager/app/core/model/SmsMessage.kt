@@ -16,6 +16,9 @@ data class SmsMessage(
     /** e.g. "UPI", "NEFT" - null when the SMS text didn't say or the format isn't recognised. */
     val paymentMethod: String? = null,
     val suggestedCategoryId: Long?,
+    /** A keyword-rule guess at how this was paid for, same idea as [suggestedCategoryId] but
+     *  against the separate taxonomy rule set - never auto-applied, only a pre-fill. */
+    val suggestedTaxonomy: TaxonomyType? = null,
     val status: MessageStatus,
     val isNew: Boolean
 )

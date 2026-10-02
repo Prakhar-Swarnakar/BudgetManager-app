@@ -20,4 +20,9 @@ interface SettingsRepository {
     /** How many months Trends' Previous month and Historic charts show - 3, 6, or 12; 6 by default. */
     fun observeTrendsMonthsShown(): Flow<Int>
     suspend fun setTrendsMonthsShown(months: Int)
+
+    /** One-time flag gating SeedKeywordTaxonomy's background backfill - checked once at app
+     *  startup, not observed reactively, so a plain suspend get/set rather than a Flow. */
+    suspend fun isTaxonomyKeywordsSeeded(): Boolean
+    suspend fun setTaxonomyKeywordsSeeded(seeded: Boolean)
 }

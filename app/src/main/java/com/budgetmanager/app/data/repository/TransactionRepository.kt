@@ -4,6 +4,7 @@ import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.core.model.Transaction
+import com.budgetmanager.app.core.model.TaxonomyType
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
@@ -23,7 +24,14 @@ interface TransactionRepository {
     suspend fun getById(id: Long): Transaction?
 
     /** A manual transaction - no linked message. */
-    suspend fun insert(amount: Money, occurredAt: Instant, monthKey: MonthKey, categoryId: Long, note: String?): Long
+    suspend fun insert(
+        amount: Money,
+        occurredAt: Instant,
+        monthKey: MonthKey,
+        categoryId: Long,
+        note: String?,
+        taxonomy: TaxonomyType? = null
+    ): Long
 
     suspend fun update(transaction: Transaction)
 
@@ -38,7 +46,8 @@ interface TransactionRepository {
         occurredAt: Instant,
         monthKey: MonthKey,
         categoryId: Long,
-        note: String?
+        note: String?,
+        taxonomy: TaxonomyType? = null
     ): Long
 
     /**

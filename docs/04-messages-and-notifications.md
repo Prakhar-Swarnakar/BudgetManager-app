@@ -43,7 +43,7 @@ Because several banks are used, the app cannot rely on one fixed SMS format. Par
 - **Category shown before accepting** (built 2026-10-02): the row's category slot isn't Accepted-only - a Not assigned row shows its keyword suggestion there too, in the same spot and style a real category appears in once Accepted, so you can see what a spend would be filed under without opening it. Rejected never shows one, since it isn't a real spend.
 - **Split by month, with per-month fetch and rule re-run** (built 2026-10-02): the page has its own month selector (same control as Home), always showing the currently viewed month's messages only - filter chips, counts, and rows are all scoped to it. The selector cannot move past the real current month. Two buttons sit under it:
     - **Fetch SMS** - scans the phone's SMS inbox for the viewed month's date range specifically, independent of the automatic catch-up marker that runs on app open. Safe to tap more than once; an already-saved message is skipped by its dedupe key, same as any other ingest path. This replaced the old debug-only "Import today's SMS" / "Add test message" buttons.
-    - **Run rule** - re-applies the current keyword rules to every **Not assigned** message in the viewed month, updating only [`suggestedCategoryId`](../app/src/main/java/com/budgetmanager/app/core/model/SmsMessage.kt). It never touches status, and never touches an Accepted or Rejected message - those have already been decided (or weren't a real spend) and are left exactly as they are. Useful after adding or editing a keyword rule, to fix old suggestions without re-deciding anything.
+    - **Run rule** - re-applies the current keyword rules to every **Not assigned** message in the viewed month, updating [`suggestedCategoryId`](../app/src/main/java/com/budgetmanager/app/core/model/SmsMessage.kt) and (built 2026-10-02) [`suggestedTaxonomy`](../app/src/main/java/com/budgetmanager/app/core/model/SmsMessage.kt) - the separate payment-method suggestion. It never touches status, and never touches an Accepted or Rejected message - those have already been decided (or weren't a real spend) and are left exactly as they are. Useful after adding or editing a keyword rule, to fix old suggestions without re-deciding anything.
     - **Clear month** - removes every message in the viewed month, regardless of status, after a confirmation naming the month. A linked transaction is kept, only unlinked (`source_message_id` set null) - its amount and category spend are untouched. For re-importing a month cleanly via Fetch SMS without old rows lingering.
     - Possible-duplicate detection (above) still runs against every message, not just the viewed month's - a payment can straddle a month boundary (e.g. 11:58pm vs 12:01am).
 - **Exact-duplicate fix: sender dropped from the dedupe key** (built 2026-10-02): real on-device data showed the same bank re-sending an identical debit SMS through more than one registered sender header minutes apart (e.g. the same notification arriving as both `BG-XXXXXX-S` and `JD-XXXXXX-S`) - `DedupeKey` previously included the sender, so each header produced a different key and every copy got saved as a separate message. The key now only uses the day and the body text, since two genuinely different same-day transactions already differ in body (amount, merchant, a reference number) without the sender's help.
@@ -90,6 +90,19 @@ The user can change any field. The message becomes green when the transaction is
   removable chips plus a "+ add" chip, including a category with none yet. Tapping a chip reassigns
   its category; the keyword itself can't be edited in place - see "Editable keyword rules" in
   [06-backlog.md](06-backlog.md).
+
+## Payment method taxonomy (built 2026-10-02)
+
+A second, independent keyword-rule engine alongside category suggestion - same shape
+(`TaxonomySuggester`, same longest-match-wins algorithm), a separate table
+(`taxonomy_keyword_rule`), so a word like "zomato" can suggest a category and a payment method
+at once, from two different rules. Suggested at the same ingest time as the category
+(`SmsReceiver`, `DefaultInboxScanner`), stored on the message as `suggestedTaxonomy`, and
+refreshed by "Run rule" the same way. The 8 values are fixed (UPI, Credit Card, Debit Card,
+Credit Card via UPI, Bank Transfer, Wallet, Cash, Other), so its own "Taxonomy rules" page in the
+side panel has no create/rename step the way Category rules does - just adding or removing
+keywords under each already-existing value. See "Payment method taxonomy" in
+[06-backlog.md](06-backlog.md).
 
 ## Notifications
 

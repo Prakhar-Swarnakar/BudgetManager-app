@@ -2,6 +2,7 @@ package com.budgetmanager.app.data.repository
 
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.SmsMessage
+import com.budgetmanager.app.core.model.TaxonomyType
 import kotlinx.coroutines.flow.Flow
 
 interface MessageRepository {
@@ -24,6 +25,9 @@ interface MessageRepository {
     /** Updates only the keyword suggestion - used to re-run category rules against existing
      *  messages without touching status, a linked transaction, or anything else. */
     suspend fun updateSuggestedCategory(id: Long, categoryId: Long?)
+
+    /** Same idea as [updateSuggestedCategory], for the separate taxonomy rule set. */
+    suspend fun updateSuggestedTaxonomy(id: Long, taxonomy: TaxonomyType?)
 
     suspend fun markAllSeen()
 

@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.Rule
 import androidx.compose.material.icons.filled.Mail
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material3.Badge
@@ -39,6 +40,7 @@ import com.budgetmanager.app.feature.categorydetail.CategoryDetailScreen
 import com.budgetmanager.app.feature.home.HomeScreen
 import com.budgetmanager.app.feature.messages.MessagesScreen
 import com.budgetmanager.app.feature.settings.SettingsScreen
+import com.budgetmanager.app.feature.taxonomyrules.TaxonomyRulesScreen
 import com.budgetmanager.app.feature.transaction.AddTransactionScreen
 import com.budgetmanager.app.feature.trends.TrendsScreen
 import kotlinx.coroutines.launch
@@ -54,6 +56,7 @@ private val bottomBarItems = listOf(
 private val sidePanelItems = listOf(
     NavItem(Destination.MonthlyBudget, "Monthly budget", Icons.Default.AccountBalanceWallet),
     NavItem(Destination.CategoryRules, "Category rules", Icons.AutoMirrored.Filled.Rule),
+    NavItem(Destination.TaxonomyRules, "Taxonomy rules", Icons.Default.Payments),
     NavItem(Destination.Settings, "Settings", Icons.Default.Settings)
 )
 
@@ -69,15 +72,16 @@ private fun titleFor(destination: Destination): String = when (destination) {
     Destination.MonthlyBudget -> "Monthly budget"
     Destination.Settings -> "Settings"
     Destination.CategoryRules -> "Category rules"
+    Destination.TaxonomyRules -> "Taxonomy rules"
     is Destination.AddTransaction -> if (destination.transactionId != null) "Edit transaction" else "Add transaction"
     is Destination.CategoryDetail -> destination.categoryName
 }
 
 /**
  * Bottom bar for Home/Messages/Trends (daily use), side panel for Monthly budget/Category
- * rules/Settings (used a few times a month). See 08-pages-and-navigation.md. Category
- * management (create, rename, reorder) lives on the Monthly budget page - there is no separate
- * Categories page.
+ * rules/Taxonomy rules/Settings (used a few times a month). See 08-pages-and-navigation.md.
+ * Category management (create, rename, reorder) lives on the Monthly budget page - there is no
+ * separate Categories page.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -193,6 +197,7 @@ fun AppNavigation() {
                             SettingsScreen(modifier = contentModifier)
                         }
                         Destination.CategoryRules -> NavEntry(destination) { CategoryRulesScreen(contentModifier) }
+                        Destination.TaxonomyRules -> NavEntry(destination) { TaxonomyRulesScreen(contentModifier) }
                         is Destination.AddTransaction -> NavEntry(destination) {
                             AddTransactionScreen(
                                 messageId = destination.messageId,

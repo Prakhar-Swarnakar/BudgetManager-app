@@ -28,6 +28,7 @@ class SettingsDataStore @Inject constructor(
     private val overBudgetAlertsEnabledKey = booleanPreferencesKey("over_budget_alerts_enabled")
     private val lastExportAtKey = longPreferencesKey("last_export_at")
     private val trendsMonthsShownKey = intPreferencesKey("trends_months_shown")
+    private val taxonomyKeywordsSeededV1Key = booleanPreferencesKey("taxonomy_keywords_seeded_v1")
 
     /** Null means the catch-up scan has never run - the caller must not treat that as epoch 0,
      *  or the very first scan would bulk-import the phone's entire SMS history. */
@@ -73,5 +74,14 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setTrendsMonthsShown(months: Int) {
         context.dataStore.edit { it[trendsMonthsShownKey] = months }
+    }
+
+    /** One-shot, checked once at app startup - not observed reactively like the flags above, so
+     *  a plain suspend get/set rather than a Flow (same shape as getLastProcessedSmsAt). */
+    suspend fun isTaxonomyKeywordsSeeded(): Boolean =
+        context.dataStore.data.first()[taxonomyKeywordsSeededV1Key] ?: false
+
+    suspend fun setTaxonomyKeywordsSeeded(seeded: Boolean) {
+        context.dataStore.edit { it[taxonomyKeywordsSeededV1Key] = seeded }
     }
 }

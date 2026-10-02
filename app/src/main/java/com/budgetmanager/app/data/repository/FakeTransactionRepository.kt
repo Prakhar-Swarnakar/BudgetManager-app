@@ -4,6 +4,7 @@ import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.core.model.Transaction
+import com.budgetmanager.app.core.model.TaxonomyType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
@@ -50,10 +51,11 @@ class FakeTransactionRepository(
         occurredAt: Instant,
         monthKey: MonthKey,
         categoryId: Long,
-        note: String?
+        note: String?,
+        taxonomy: TaxonomyType?
     ): Long {
         val id = nextId++
-        state.value = state.value + Transaction(id, amount, occurredAt, monthKey, categoryId, note, null)
+        state.value = state.value + Transaction(id, amount, occurredAt, monthKey, categoryId, note, null, taxonomy)
         return id
     }
 
@@ -67,13 +69,14 @@ class FakeTransactionRepository(
         occurredAt: Instant,
         monthKey: MonthKey,
         categoryId: Long,
-        note: String?
+        note: String?,
+        taxonomy: TaxonomyType?
     ): Long {
         // Mirrors RoomTransactionRepository: update in place if a transaction is already linked
         // to this message, rather than adding a second one for the same sourceMessageId.
         val existing = state.value.firstOrNull { it.sourceMessageId == message.id }
         val id = existing?.id ?: nextId++
-        val transaction = Transaction(id, amount, occurredAt, monthKey, categoryId, note, message.id)
+        val transaction = Transaction(id, amount, occurredAt, monthKey, categoryId, note, message.id, taxonomy)
         state.value = if (existing != null) {
             state.value.map { if (it.id == id) transaction else it }
         } else {

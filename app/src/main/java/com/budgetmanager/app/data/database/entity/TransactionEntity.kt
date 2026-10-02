@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.budgetmanager.app.core.model.TaxonomyType
 
 /** The table is named "transactions" because "transaction" is a SQL keyword.
  *  [sourceMessageId] links back to the SMS that produced this row, when there is one. */
@@ -37,5 +38,6 @@ data class TransactionEntity(
     @ColumnInfo(name = "month_key") val monthKey: String,
     @ColumnInfo(name = "category_id") val categoryId: Long,
     val note: String?,
-    @ColumnInfo(name = "source_message_id") val sourceMessageId: Long? = null
+    @ColumnInfo(name = "source_message_id") val sourceMessageId: Long? = null,
+    val taxonomy: TaxonomyType? = null
 )

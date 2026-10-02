@@ -11,6 +11,7 @@ import com.budgetmanager.app.data.database.dao.CategoryDao
 import com.budgetmanager.app.data.database.dao.KeywordRuleDao
 import com.budgetmanager.app.data.database.dao.MonthlyBudgetDao
 import com.budgetmanager.app.data.database.dao.SmsMessageDao
+import com.budgetmanager.app.data.database.dao.TaxonomyKeywordRuleDao
 import com.budgetmanager.app.data.database.dao.TransactionDao
 import dagger.Module
 import dagger.Provides
@@ -38,7 +39,7 @@ object DatabaseModule {
         databaseProvider: Provider<AppDatabase>
     ): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
-            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
@@ -66,4 +67,8 @@ object DatabaseModule {
 
     @Provides
     fun provideKeywordRuleDao(database: AppDatabase): KeywordRuleDao = database.keywordRuleDao()
+
+    @Provides
+    fun provideTaxonomyKeywordRuleDao(database: AppDatabase): TaxonomyKeywordRuleDao =
+        database.taxonomyKeywordRuleDao()
 }

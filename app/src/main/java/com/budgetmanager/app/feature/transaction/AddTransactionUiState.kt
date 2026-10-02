@@ -1,6 +1,7 @@
 package com.budgetmanager.app.feature.transaction
 
 import com.budgetmanager.app.core.model.Category
+import com.budgetmanager.app.core.model.TaxonomyType
 import java.time.LocalDate
 
 data class AddTransactionUiState(
@@ -18,6 +19,11 @@ data class AddTransactionUiState(
     val selectedCategoryId: Long? = null,
     val categoryError: String? = null,
     val suggestedCategoryId: Long? = null,
+    val selectedTaxonomy: TaxonomyType? = null,
+    val suggestedTaxonomy: TaxonomyType? = null,
+    /** Mirrors [addToRule] for the separate taxonomy rule set - independent, since you might
+     *  want to remember a merchant's category but not its taxonomy, or vice versa. */
+    val addTaxonomyToRule: Boolean = false,
     /** The original SMS text, shown as a banner - only set when opened from a message. */
     val smsBannerText: String? = null,
     val messageIdForAccept: Long? = null,

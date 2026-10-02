@@ -26,4 +26,8 @@ class DataStoreSettingsRepository @Inject constructor(
     override fun observeTrendsMonthsShown() = settingsDataStore.observeTrendsMonthsShown()
     override suspend fun setTrendsMonthsShown(months: Int) =
         settingsDataStore.setTrendsMonthsShown(months)
+
+    override suspend fun isTaxonomyKeywordsSeeded() = settingsDataStore.isTaxonomyKeywordsSeeded()
+    override suspend fun setTaxonomyKeywordsSeeded(seeded: Boolean) =
+        settingsDataStore.setTaxonomyKeywordsSeeded(seeded)
 }

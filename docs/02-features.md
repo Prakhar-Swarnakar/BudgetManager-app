@@ -18,7 +18,7 @@ Category management (create, rename, change icon, reorder) and setting each one'
 
 ## F2. Manual transactions
 
-- Add a transaction with amount, category, merchant, date, and an optional note.
+- Add a transaction with amount, category, payment method (taxonomy), merchant, date, and an optional note.
 - Edit or delete a transaction later, from the **Category detail** page (tap a category card on Home). It lists that category's transactions for the month. Tap one to edit it, or swipe left to delete it.
 - The same Add Transaction page is used when accepting an SMS, with the fields pre-filled, and when editing.
 - Deleting a transaction that came from an SMS returns that message to **Not assigned**.
@@ -54,6 +54,14 @@ Category management (create, rename, change icon, reorder) and setting each one'
 - The starter categories come with a built-in keyword list (for example Swiggy and Zomato map to Food & Dining).
 - **Learning from choices** (built 2026-10-01, generalised 2026-10-02): Add Transaction has its own **Merchant** field (pre-filled when opened from a message, blank otherwise) and an **"Add to rule"** checkbox next to it - always starts unchecked, and disabled when the field is blank. Checking it before Save upserts that merchant → the chosen category as a keyword rule, the same moment the transaction saves - this works the same way whether the transaction is manual, message-linked, or an edit; it's an explicit opt-in every time, not an automatic default like the old message-only behavior. A very short merchant (under 3 characters) is still never learned, checkbox or not - too likely to misfire against an unrelated future message.
 - **Editable keyword rules** (built 2026-10-01, grouped layout 2026-10-02, moved to the side panel 2026-10-02): a "Category rules" page in the side panel (previously a button inside Settings), grouped by category - each category is a section showing its words as removable chips plus a "+ add" chip, including a category with none yet. Tapping a chip reassigns its category; a rule's keyword can't be edited in place - it's the rule's identity, so changing it would silently leave the old rule behind; delete and re-add instead.
+
+## F6b. Payment method taxonomy (built 2026-10-02)
+
+A second classification alongside Category - **what** a transaction is for (Category) vs. **how** you paid for it (taxonomy) - tracked completely independently, each with its own keyword-rule engine, since the same merchant doesn't reliably map to one payment method the way it reliably maps to one category.
+
+- A fixed set of 8 values: UPI, Credit Card, Debit Card, Credit Card via UPI (a credit card linked through a UPI app - the hardest to tell apart, since the SMS often just says "UPI"), Bank Transfer, Wallet, Cash, Other.
+- Add Transaction has its own payment-method dropdown next to Category, pre-filled from a message's keyword suggestion the same way Category is, and its own "Add to rule" checkbox - independent of Category's, so you can remember one without the other.
+- A "Taxonomy rules" page in the side panel, laid out the same way as Category rules (grouped chips, a "+ add" per group), except every one of the 8 values always has a group - there's no creating or renaming a taxonomy value, only adding or removing the keywords that suggest it.
 
 ## F7. Budget tracking
 

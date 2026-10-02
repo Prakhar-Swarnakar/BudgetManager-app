@@ -8,6 +8,7 @@ class FakeSettingsRepository : SettingsRepository {
     private val overBudgetAlertsEnabled = MutableStateFlow(true)
     private val lastExportAt = MutableStateFlow<Long?>(null)
     private val trendsMonthsShown = MutableStateFlow(6)
+    private var taxonomyKeywordsSeeded = false
 
     override fun observeNewSpendsAlertsEnabled() = newSpendsAlertsEnabled
     override suspend fun setNewSpendsAlertsEnabled(enabled: Boolean) {
@@ -32,5 +33,10 @@ class FakeSettingsRepository : SettingsRepository {
     override fun observeTrendsMonthsShown() = trendsMonthsShown
     override suspend fun setTrendsMonthsShown(months: Int) {
         trendsMonthsShown.value = months
+    }
+
+    override suspend fun isTaxonomyKeywordsSeeded() = taxonomyKeywordsSeeded
+    override suspend fun setTaxonomyKeywordsSeeded(seeded: Boolean) {
+        taxonomyKeywordsSeeded = seeded
     }
 }

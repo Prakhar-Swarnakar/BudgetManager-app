@@ -249,10 +249,11 @@ All amounts are `Long` paise. Dates are stored as epoch milliseconds, with a mon
 |---|---|---|
 | `category` | id, name, emoji, sortOrder, archived | The `archived` column stays in the schema but is unused in v1 after archiving was removed 2026-09-25 (dropping it would need a migration, which wasn't worth it for a column that just always reads false) |
 | `monthly_budget` | id, monthKey, categoryId, amountPaise | Unique on (monthKey, categoryId). A category with no row shows ₹0 |
-| `transactions` | id, amountPaise, occurredAt, monthKey, categoryId, note, sourceMessageId (nullable) | `sourceMessageId` links back to the SMS when there is one. The table is named `transactions` because `transaction` is an SQL keyword |
-| `sms_message` | id, sender, body, receivedAt, smsProviderId, dedupeKey, parsedAmountPaise (nullable), merchant (nullable), suggestedCategoryId, status, isNew | `status` is Not assigned, Accepted, or Rejected. `dedupeKey` is unique, which stops the same SMS being saved twice (R11). The amount and merchant are null when the text could not be parsed |
+| `transactions` | id, amountPaise, occurredAt, monthKey, categoryId, note, sourceMessageId (nullable), taxonomy (nullable, added v3) | `sourceMessageId` links back to the SMS when there is one. The table is named `transactions` because `transaction` is an SQL keyword |
+| `sms_message` | id, sender, body, receivedAt, smsProviderId, dedupeKey, parsedAmountPaise (nullable), merchant (nullable), suggestedCategoryId, suggestedTaxonomy (nullable, added v3), status, isNew | `status` is Not assigned, Accepted, or Rejected. `dedupeKey` is unique, which stops the same SMS being saved twice (R11). The amount and merchant are null when the text could not be parsed |
 | `alert_log` | monthKey, categoryId, type | Unique on all three. Makes each alert fire once per category per month (R21) |
-| `keyword_rule` | keyword, categoryId | Drives category suggestions. Seeded with defaults. The app has no screen to edit them in v1 (backlog) |
+| `keyword_rule` | keyword, categoryId | Drives category suggestions. Has its own editable "Category rules" page in the side panel (built 2026-10-02) |
+| `taxonomy_keyword_rule` | keyword, taxonomy | Added v3 (2026-10-02). Drives payment-method suggestions - a separate table from `keyword_rule`, not a shared one, so the same keyword can map independently to a category and a taxonomy value. `taxonomy` stores a `TaxonomyType` enum constant, a fixed closed set (unlike `category`, there's no id/row for each value) |
 
 **Seeded data.** When the database is first created, a Room callback inserts the nine starter categories (Rent, Groceries, Food & Dining, Transport, Bills & Utilities, Entertainment, Shopping, Health, Other) and their default keywords. Starter budgets are ₹0.
 

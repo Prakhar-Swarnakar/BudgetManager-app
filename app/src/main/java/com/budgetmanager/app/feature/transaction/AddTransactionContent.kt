@@ -23,6 +23,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import com.budgetmanager.app.core.designsystem.components.AmountField
 import com.budgetmanager.app.core.designsystem.components.CategoryDropdown
+import com.budgetmanager.app.core.designsystem.components.TaxonomyDropdown
+import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.feature.transaction.components.DateField
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.OutlinedTextField
@@ -33,6 +35,8 @@ fun AddTransactionContent(
     onAmountChanged: (String) -> Unit,
     onMerchantChanged: (String) -> Unit,
     onAddToRuleToggled: (Boolean) -> Unit,
+    onTaxonomySelected: (TaxonomyType) -> Unit,
+    onAddTaxonomyToRuleToggled: (Boolean) -> Unit,
     onNoteChanged: (String) -> Unit,
     onDateChanged: (java.time.LocalDate) -> Unit,
     onCategorySelected: (Long) -> Unit,
@@ -109,6 +113,27 @@ fun AddTransactionContent(
                 enabled = state.merchant.isNotBlank()
             )
             Text("Add to rule: always use this category for this merchant")
+        }
+
+        Spacer(Modifier.height(20.dp))
+        Text("Payment method", style = MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.height(8.dp))
+        TaxonomyDropdown(
+            selectedTaxonomy = state.selectedTaxonomy,
+            suggestedTaxonomy = state.suggestedTaxonomy,
+            onSelect = onTaxonomySelected,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 4.dp)
+        ) {
+            Checkbox(
+                checked = state.addTaxonomyToRule,
+                onCheckedChange = onAddTaxonomyToRuleToggled,
+                enabled = state.merchant.isNotBlank()
+            )
+            Text("Add to rule: always use this payment method for this merchant")
         }
 
         Spacer(Modifier.height(20.dp))

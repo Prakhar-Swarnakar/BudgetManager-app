@@ -6,12 +6,16 @@ import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.core.model.MonthKey
+import com.budgetmanager.app.core.model.TaxonomyRule
+import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.data.repository.FakeCategoryRepository
 import com.budgetmanager.app.data.repository.FakeKeywordRuleRepository
 import com.budgetmanager.app.data.repository.FakeMessageRepository
+import com.budgetmanager.app.data.repository.FakeTaxonomyKeywordRuleRepository
 import com.budgetmanager.app.data.repository.FakeTransactionRepository
 import com.budgetmanager.app.sms.CategorySuggester
 import com.budgetmanager.app.sms.FakeInboxScanner
+import com.budgetmanager.app.sms.TaxonomySuggester
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.launchIn
@@ -53,8 +57,9 @@ class MessagesViewModelTest {
         repo: FakeMessageRepository,
         transactions: FakeTransactionRepository = FakeTransactionRepository(repo),
         scanner: FakeInboxScanner = FakeInboxScanner(),
-        categorySuggester: CategorySuggester = CategorySuggester(FakeKeywordRuleRepository())
-    ) = MessagesViewModel(repo, transactions, scanner, categoryRepository(), categorySuggester)
+        categorySuggester: CategorySuggester = CategorySuggester(FakeKeywordRuleRepository()),
+        taxonomySuggester: TaxonomySuggester = TaxonomySuggester(FakeTaxonomyKeywordRuleRepository())
+    ) = MessagesViewModel(repo, transactions, scanner, categoryRepository(), categorySuggester, taxonomySuggester)
 
     private fun testMessage(dedupeKey: String) = SmsMessage(
         id = 0, sender = "TESTBANK", body = "Rs 100 debited", receivedAt = Instant.now(),
@@ -449,6 +454,29 @@ class MessagesViewModelTest {
         assertNull(repo.getById(rejectedId)!!.suggestedCategoryId)
         assertEquals(MessageStatus.REJECTED, repo.getById(rejectedId)!!.status)
         assertNull(repo.getById(otherMonthId)!!.suggestedCategoryId)
+        collector.cancel()
+    }
+
+    @Test
+    fun `onRunRule also refreshes taxonomy suggestions, same Not assigned and viewed month scoping`() = runTest {
+        val repo = FakeMessageRepository()
+        val taxonomyRules = FakeTaxonomyKeywordRuleRepository().apply {
+            seed(listOf(TaxonomyRule("test store", TaxonomyType.UPI)))
+        }
+        val viewModel = viewModel(repo, taxonomySuggester = TaxonomySuggester(taxonomyRules))
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val currentMonth = viewModel.uiState.value.monthKey
+
+        val notAssignedId = repo.ingest(testMessage("k1").copy(receivedAt = instantIn(currentMonth)))!!
+        val acceptedId = repo.ingest(testMessage("k2").copy(receivedAt = instantIn(currentMonth)))!!
+        repo.updateStatus(acceptedId, MessageStatus.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onRunRule()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(TaxonomyType.UPI, repo.getById(notAssignedId)!!.suggestedTaxonomy)
+        assertNull(repo.getById(acceptedId)!!.suggestedTaxonomy)
         collector.cancel()
     }
 

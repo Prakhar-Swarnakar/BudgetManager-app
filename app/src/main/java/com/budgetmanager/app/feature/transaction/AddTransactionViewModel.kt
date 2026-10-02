@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.MonthKey
+import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.data.repository.CategoryRepository
 import com.budgetmanager.app.data.repository.KeywordRuleRepository
 import com.budgetmanager.app.data.repository.MessageRepository
+import com.budgetmanager.app.data.repository.TaxonomyKeywordRuleRepository
 import com.budgetmanager.app.data.repository.TransactionRepository
 import com.budgetmanager.app.domain.EvaluateBudgetAlerts
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,6 +29,7 @@ class AddTransactionViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val evaluateBudgetAlerts: EvaluateBudgetAlerts,
     private val keywordRuleRepository: KeywordRuleRepository,
+    private val taxonomyKeywordRuleRepository: TaxonomyKeywordRuleRepository,
     categoryRepository: CategoryRepository
 ) : ViewModel() {
 
@@ -64,7 +67,8 @@ class AddTransactionViewModel @Inject constructor(
                             merchant = merchant,
                             note = transaction.note.orEmpty(),
                             date = transaction.occurredAt.atZone(ZoneId.systemDefault()).toLocalDate(),
-                            selectedCategoryId = transaction.categoryId
+                            selectedCategoryId = transaction.categoryId,
+                            selectedTaxonomy = transaction.taxonomy
                         )
                     }
                 }
@@ -82,6 +86,8 @@ class AddTransactionViewModel @Inject constructor(
                             date = message.receivedAt.atZone(ZoneId.systemDefault()).toLocalDate(),
                             selectedCategoryId = message.suggestedCategoryId,
                             suggestedCategoryId = message.suggestedCategoryId,
+                            selectedTaxonomy = message.suggestedTaxonomy,
+                            suggestedTaxonomy = message.suggestedTaxonomy,
                             smsBannerText = message.body
                         )
                     }
@@ -97,14 +103,27 @@ class AddTransactionViewModel @Inject constructor(
 
     fun onMerchantChanged(value: String) {
         internalState.update {
-            // Clearing the merchant also clears the checkbox - there'd be nothing left to learn,
-            // and leaving it checked would silently resurrect once a new merchant is typed in.
-            it.copy(merchant = value, addToRule = if (value.isBlank()) false else it.addToRule)
+            // Clearing the merchant also clears both checkboxes - there'd be nothing left to
+            // learn, and leaving them checked would silently resurrect once a new merchant is
+            // typed in.
+            it.copy(
+                merchant = value,
+                addToRule = if (value.isBlank()) false else it.addToRule,
+                addTaxonomyToRule = if (value.isBlank()) false else it.addTaxonomyToRule
+            )
         }
     }
 
     fun onAddToRuleToggled(checked: Boolean) {
         internalState.update { it.copy(addToRule = checked) }
+    }
+
+    fun onTaxonomySelected(taxonomy: TaxonomyType) {
+        internalState.update { it.copy(selectedTaxonomy = taxonomy) }
+    }
+
+    fun onAddTaxonomyToRuleToggled(checked: Boolean) {
+        internalState.update { it.copy(addTaxonomyToRule = checked) }
     }
 
     fun onNoteChanged(value: String) {
@@ -154,7 +173,8 @@ class AddTransactionViewModel @Inject constructor(
                             occurredAt = occurredAt,
                             monthKey = monthKey,
                             categoryId = categoryId,
-                            note = note
+                            note = note,
+                            taxonomy = current.selectedTaxonomy
                         )
                     )
                 }
@@ -166,7 +186,8 @@ class AddTransactionViewModel @Inject constructor(
                         occurredAt = occurredAt,
                         monthKey = monthKey,
                         categoryId = categoryId,
-                        note = note
+                        note = note,
+                        taxonomy = current.selectedTaxonomy
                     )
                     evaluateBudgetAlerts(monthKey, categoryId)
                 }
@@ -176,13 +197,17 @@ class AddTransactionViewModel @Inject constructor(
                         occurredAt = occurredAt,
                         monthKey = monthKey,
                         categoryId = categoryId,
-                        note = note
+                        note = note,
+                        taxonomy = current.selectedTaxonomy
                     )
                     evaluateBudgetAlerts(monthKey, categoryId)
                 }
             }
             if (current.addToRule) {
                 learnFromChoice(current.merchant, categoryId)
+            }
+            if (current.addTaxonomyToRule) {
+                learnTaxonomyFromChoice(current.merchant, current.selectedTaxonomy)
             }
             internalState.update { it.copy(saved = true, isSaving = false) }
         }
@@ -203,6 +228,13 @@ class AddTransactionViewModel @Inject constructor(
         val keyword = merchant?.trim()?.lowercase() ?: return
         if (keyword.length < 3) return
         keywordRuleRepository.upsert(keyword, categoryId)
+    }
+
+    /** Same idea as [learnFromChoice], for the separate taxonomy rule set. */
+    private suspend fun learnTaxonomyFromChoice(merchant: String?, taxonomy: TaxonomyType?) {
+        val keyword = merchant?.trim()?.lowercase() ?: return
+        if (keyword.length < 3 || taxonomy == null) return
+        taxonomyKeywordRuleRepository.upsert(keyword, taxonomy)
     }
 
     private fun formatForInput(paise: Long): String {

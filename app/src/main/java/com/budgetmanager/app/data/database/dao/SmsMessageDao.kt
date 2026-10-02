@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import com.budgetmanager.app.core.model.MessageStatus
+import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.data.database.entity.SmsMessageEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -48,6 +49,10 @@ interface SmsMessageDao {
      *  messages without touching status or anything else. */
     @Query("UPDATE sms_message SET suggested_category_id = :categoryId WHERE id = :id")
     suspend fun updateSuggestedCategory(id: Long, categoryId: Long?)
+
+    /** Same idea as [updateSuggestedCategory], for the separate taxonomy rule set. */
+    @Query("UPDATE sms_message SET suggested_taxonomy = :taxonomy WHERE id = :id")
+    suspend fun updateSuggestedTaxonomy(id: Long, taxonomy: TaxonomyType?)
 
     @Query("UPDATE sms_message SET is_new = 0")
     suspend fun markAllSeen()

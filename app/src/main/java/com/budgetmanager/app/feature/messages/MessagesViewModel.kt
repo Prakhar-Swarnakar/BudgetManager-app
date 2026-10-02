@@ -12,6 +12,7 @@ import com.budgetmanager.app.data.repository.TransactionRepository
 import com.budgetmanager.app.domain.DetectPossibleDuplicates
 import com.budgetmanager.app.sms.CategorySuggester
 import com.budgetmanager.app.sms.InboxScanner
+import com.budgetmanager.app.sms.TaxonomySuggester
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,7 +46,8 @@ class MessagesViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val inboxScanner: InboxScanner,
     private val categoryRepository: CategoryRepository,
-    private val categorySuggester: CategorySuggester
+    private val categorySuggester: CategorySuggester,
+    private val taxonomySuggester: TaxonomySuggester
 ) : ViewModel() {
 
     private val filter = MutableStateFlow(MessageFilter.ALL)
@@ -201,11 +203,12 @@ class MessagesViewModel @Inject constructor(
         }
     }
 
-    /** Re-runs category rules against every Not assigned message in the currently viewed month,
-     *  using whatever keyword rules exist right now - lets a rule added today fix an old
-     *  suggestion without re-deciding anything. Only ever touches [SmsMessage.suggestedCategoryId]:
-     *  never status, never an Accepted message's real transaction category, and Accepted/Rejected
-     *  messages aren't considered at all. */
+    /** Re-runs category AND taxonomy rules against every Not assigned message in the currently
+     *  viewed month, using whatever keyword rules exist right now - lets a rule added today fix
+     *  an old suggestion without re-deciding anything. Only ever touches
+     *  [SmsMessage.suggestedCategoryId]/[SmsMessage.suggestedTaxonomy]: never status, never an
+     *  Accepted message's real transaction category/taxonomy, and Accepted/Rejected messages
+     *  aren't considered at all. */
     fun onRunRule() {
         viewModelScope.launch {
             val month = monthKey.value
@@ -213,9 +216,14 @@ class MessagesViewModel @Inject constructor(
             val notAssignedThisMonth = messageRepository.observeByStatus(MessageStatus.NOT_ASSIGNED).first()
                 .filter { MonthKey.from(it.receivedAt, zone) == month }
             notAssignedThisMonth.forEach { message ->
-                val newSuggestion = categorySuggester.suggest(message.merchant ?: message.body)
-                if (newSuggestion != message.suggestedCategoryId) {
-                    messageRepository.updateSuggestedCategory(message.id, newSuggestion)
+                val text = message.merchant ?: message.body
+                val newCategorySuggestion = categorySuggester.suggest(text)
+                if (newCategorySuggestion != message.suggestedCategoryId) {
+                    messageRepository.updateSuggestedCategory(message.id, newCategorySuggestion)
+                }
+                val newTaxonomySuggestion = taxonomySuggester.suggest(text)
+                if (newTaxonomySuggestion != message.suggestedTaxonomy) {
+                    messageRepository.updateSuggestedTaxonomy(message.id, newTaxonomySuggestion)
                 }
             }
         }

@@ -38,6 +38,7 @@ class SmsReceiver : BroadcastReceiver() {
         fun messageRepository(): MessageRepository
         fun notifier(): Notifier
         fun categorySuggester(): CategorySuggester
+        fun taxonomySuggester(): TaxonomySuggester
         fun settingsRepository(): SettingsRepository
     }
 
@@ -57,6 +58,7 @@ class SmsReceiver : BroadcastReceiver() {
                     dependencies.messageRepository(),
                     dependencies.notifier(),
                     dependencies.categorySuggester(),
+                    dependencies.taxonomySuggester(),
                     dependencies.settingsRepository()
                 )
             } catch (e: Exception) {
@@ -72,6 +74,7 @@ class SmsReceiver : BroadcastReceiver() {
         messageRepository: MessageRepository,
         notifier: Notifier,
         categorySuggester: CategorySuggester,
+        taxonomySuggester: TaxonomySuggester,
         settingsRepository: SettingsRepository
     ) {
         val parts = Telephony.Sms.Intents.getMessagesFromIntent(intent)
@@ -98,6 +101,7 @@ class SmsReceiver : BroadcastReceiver() {
             merchant = parsed.merchant,
             paymentMethod = parsed.paymentMethod,
             suggestedCategoryId = categorySuggester.suggest(parsed.merchant ?: body),
+            suggestedTaxonomy = taxonomySuggester.suggest(parsed.merchant ?: body),
             status = MessageStatus.NOT_ASSIGNED,
             isNew = true
         )

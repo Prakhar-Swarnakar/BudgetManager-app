@@ -6,6 +6,7 @@ import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.core.model.Transaction
+import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.data.database.AppDatabase
 import com.budgetmanager.app.data.database.dao.SmsMessageDao
 import com.budgetmanager.app.data.database.dao.TransactionDao
@@ -43,7 +44,8 @@ class RoomTransactionRepository @Inject constructor(
         occurredAt: Instant,
         monthKey: MonthKey,
         categoryId: Long,
-        note: String?
+        note: String?,
+        taxonomy: TaxonomyType?
     ): Long = transactionDao.insert(
         TransactionEntity(
             amountPaise = amount.paise,
@@ -51,7 +53,8 @@ class RoomTransactionRepository @Inject constructor(
             monthKey = monthKey.value,
             categoryId = categoryId,
             note = note,
-            sourceMessageId = null
+            sourceMessageId = null,
+            taxonomy = taxonomy
         )
     )
 
@@ -65,7 +68,8 @@ class RoomTransactionRepository @Inject constructor(
         occurredAt: Instant,
         monthKey: MonthKey,
         categoryId: Long,
-        note: String?
+        note: String?,
+        taxonomy: TaxonomyType?
     ): Long = database.withTransaction {
         // source_message_id is unique - if a transaction is already linked to this message
         // (e.g. accepted once, then its status got out of sync some other way), update that one
@@ -78,7 +82,8 @@ class RoomTransactionRepository @Inject constructor(
                     occurredAt = occurredAt.toEpochMilli(),
                     monthKey = monthKey.value,
                     categoryId = categoryId,
-                    note = note
+                    note = note,
+                    taxonomy = taxonomy
                 )
             )
             existing.id
@@ -90,7 +95,8 @@ class RoomTransactionRepository @Inject constructor(
                     monthKey = monthKey.value,
                     categoryId = categoryId,
                     note = note,
-                    sourceMessageId = message.id
+                    sourceMessageId = message.id,
+                    taxonomy = taxonomy
                 )
             )
         }
@@ -124,7 +130,8 @@ private fun TransactionEntity.toDomain() = Transaction(
     monthKey = MonthKey(monthKey),
     categoryId = categoryId,
     note = note,
-    sourceMessageId = sourceMessageId
+    sourceMessageId = sourceMessageId,
+    taxonomy = taxonomy
 )
 
 private fun Transaction.toEntity() = TransactionEntity(
@@ -134,5 +141,6 @@ private fun Transaction.toEntity() = TransactionEntity(
     monthKey = monthKey.value,
     categoryId = categoryId,
     note = note,
-    sourceMessageId = sourceMessageId
+    sourceMessageId = sourceMessageId,
+    taxonomy = taxonomy
 )
