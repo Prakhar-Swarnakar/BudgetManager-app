@@ -90,6 +90,16 @@ fun MessageRow(row: MessageRowUi, onClick: () -> Unit, modifier: Modifier = Modi
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
+            // Same slot/style as category, directly below it - how it was paid, alongside what
+            // it was for.
+            if (row.taxonomyLabel != null) {
+                Text(
+                    row.taxonomyLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
         }
     }
 }

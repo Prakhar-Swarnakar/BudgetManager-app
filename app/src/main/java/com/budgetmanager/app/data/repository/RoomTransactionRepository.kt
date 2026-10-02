@@ -37,6 +37,10 @@ class RoomTransactionRepository @Inject constructor(
         transactionDao.observeCategoryBySourceMessage()
             .map { rows -> rows.associate { it.messageId to it.categoryId } }
 
+    override fun observeTaxonomyBySourceMessage(): Flow<Map<Long, TaxonomyType>> =
+        transactionDao.observeTaxonomyBySourceMessage()
+            .map { rows -> rows.associate { it.messageId to it.taxonomy } }
+
     override suspend fun getById(id: Long): Transaction? = transactionDao.getById(id)?.toDomain()
 
     override suspend fun insert(

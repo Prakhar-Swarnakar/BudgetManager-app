@@ -44,6 +44,15 @@ class FakeTransactionRepository(
             }.toMap()
         }
 
+    override fun observeTaxonomyBySourceMessage() =
+        state.map { list ->
+            list.mapNotNull { transaction ->
+                val messageId = transaction.sourceMessageId ?: return@mapNotNull null
+                val taxonomy = transaction.taxonomy ?: return@mapNotNull null
+                messageId to taxonomy
+            }.toMap()
+        }
+
     override suspend fun getById(id: Long) = state.value.firstOrNull { it.id == id }
 
     override suspend fun insert(

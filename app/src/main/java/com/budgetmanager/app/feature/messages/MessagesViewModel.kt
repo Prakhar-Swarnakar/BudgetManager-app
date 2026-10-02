@@ -6,6 +6,7 @@ import com.budgetmanager.app.core.model.Category
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
+import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.data.repository.CategoryRepository
 import com.budgetmanager.app.data.repository.MessageRepository
 import com.budgetmanager.app.data.repository.TransactionRepository
@@ -69,6 +70,8 @@ class MessagesViewModel @Inject constructor(
     }.combine(categoryRepository.observeAll()) { raw, categories ->
         raw to categories
     }.combine(transactionRepository.observeCategoryIdsBySourceMessage()) { (raw, categories), categoryIdsByMessage ->
+        Triple(raw, categories, categoryIdsByMessage)
+    }.combine(transactionRepository.observeTaxonomyBySourceMessage()) { (raw, categories, categoryIdsByMessage), taxonomyByMessage ->
         val categoryById = categories.associateBy { it.id }
         val messageById = raw.messages.associateBy { it.id }
         val zone = ZoneId.systemDefault()
@@ -83,7 +86,7 @@ class MessagesViewModel @Inject constructor(
             monthKey = raw.selection.monthKey,
             canGoNext = raw.selection.monthKey < MonthKey.current(),
             rows = monthMessages.filter { matchesFilter(it, raw.selection.filter) }
-                .map { it.toRowUi(categoryIdsByMessage, categoryById, duplicateOfId.containsKey(it.id)) },
+                .map { it.toRowUi(categoryIdsByMessage, categoryById, taxonomyByMessage, duplicateOfId.containsKey(it.id)) },
             counts = MessageFilter.entries.associateWith { f -> monthMessages.count { matchesFilter(it, f) } },
             selectedMessage = selectedMessage,
             selectedMessageDuplicateOf = duplicateOfId[selectedMessage?.id]?.let { messageById[it] },
@@ -258,6 +261,7 @@ class MessagesViewModel @Inject constructor(
     private fun SmsMessage.toRowUi(
         categoryIdsByMessage: Map<Long, Long>,
         categoryById: Map<Long, Category>,
+        taxonomyByMessage: Map<Long, TaxonomyType>,
         isPossibleDuplicate: Boolean
     ): MessageRowUi {
         // Accepted shows its transaction's real category; Not assigned shows the keyword
@@ -269,6 +273,12 @@ class MessagesViewModel @Inject constructor(
             MessageStatus.REJECTED -> null
         }
         val category = displayCategoryId?.let { categoryById[it] }
+        // Same idea as category, for the separate taxonomy value.
+        val displayTaxonomy = when (status) {
+            MessageStatus.ACCEPTED -> taxonomyByMessage[id]
+            MessageStatus.NOT_ASSIGNED -> suggestedTaxonomy
+            MessageStatus.REJECTED -> null
+        }
         return MessageRowUi(
             id = id,
             sender = sender,
@@ -280,6 +290,7 @@ class MessagesViewModel @Inject constructor(
             isNew = isNew,
             categoryEmoji = category?.emoji,
             categoryName = category?.name,
+            taxonomyLabel = displayTaxonomy?.label,
             isPossibleDuplicate = isPossibleDuplicate
         )
     }

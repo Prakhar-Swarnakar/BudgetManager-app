@@ -62,6 +62,7 @@ A second classification alongside Category - **what** a transaction is for (Cate
 - A fixed set of 8 values: UPI, Credit Card, Debit Card, Credit Card via UPI (a credit card linked through a UPI app - the hardest to tell apart, since the SMS often just says "UPI"), Bank Transfer, Wallet, Cash, Other.
 - Add Transaction has its own payment-method dropdown next to Category, pre-filled from a message's keyword suggestion the same way Category is, and its own "Add to rule" checkbox - independent of Category's, so you can remember one without the other.
 - A "Taxonomy rules" page in the side panel, laid out the same way as Category rules (grouped chips, a "+ add" per group), except every one of the 8 values always has a group - there's no creating or renaming a taxonomy value, only adding or removing the keywords that suggest it.
+- Shown on the Messages row (built 2026-10-02): the same slot and style category uses, directly underneath it.
 
 ## F7. Budget tracking
 

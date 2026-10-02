@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
+import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.data.database.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -13,6 +14,9 @@ data class CategorySpent(val categoryId: Long, val total: Long)
 
 /** One row of [TransactionDao.observeCategoryBySourceMessage]. */
 data class MessageCategory(val messageId: Long, val categoryId: Long)
+
+/** One row of [TransactionDao.observeTaxonomyBySourceMessage]. */
+data class MessageTaxonomy(val messageId: Long, val taxonomy: TaxonomyType)
 
 @Dao
 interface TransactionDao {
@@ -37,6 +41,14 @@ interface TransactionDao {
             "WHERE source_message_id IS NOT NULL"
     )
     fun observeCategoryBySourceMessage(): Flow<List<MessageCategory>>
+
+    /** Same idea as [observeCategoryBySourceMessage], for the separate taxonomy value - a
+     *  message's row has no taxonomy of its own to show, only its linked transaction's. */
+    @Query(
+        "SELECT source_message_id as messageId, taxonomy FROM transactions " +
+            "WHERE source_message_id IS NOT NULL AND taxonomy IS NOT NULL"
+    )
+    fun observeTaxonomyBySourceMessage(): Flow<List<MessageTaxonomy>>
 
     /** Every transaction, for backup export. */
     @Query("SELECT * FROM transactions")

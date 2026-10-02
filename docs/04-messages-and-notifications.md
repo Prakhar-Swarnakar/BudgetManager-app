@@ -101,8 +101,10 @@ at once, from two different rules. Suggested at the same ingest time as the cate
 refreshed by "Run rule" the same way. The 8 values are fixed (UPI, Credit Card, Debit Card,
 Credit Card via UPI, Bank Transfer, Wallet, Cash, Other), so its own "Taxonomy rules" page in the
 side panel has no create/rename step the way Category rules does - just adding or removing
-keywords under each already-existing value. See "Payment method taxonomy" in
-[06-backlog.md](06-backlog.md).
+keywords under each already-existing value. **Shown on the row** (built 2026-10-02): the same
+slot/style as category, directly underneath it - an Accepted row's real transaction taxonomy, or
+a Not assigned row's keyword suggestion, same rule as category (Rejected never shows one). See
+"Payment method taxonomy" in [06-backlog.md](06-backlog.md).
 
 ## Notifications
 

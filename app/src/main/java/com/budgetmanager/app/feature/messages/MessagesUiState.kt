@@ -23,6 +23,10 @@ data class MessageRowUi(
      *  with no keyword match. */
     val categoryEmoji: String?,
     val categoryName: String?,
+    /** Same idea as [categoryEmoji]/[categoryName] but for the separate taxonomy (payment
+     *  method) value - an Accepted row's real transaction taxonomy, or a Not assigned row's
+     *  keyword suggestion. Null for Rejected, or when nothing is set/suggested. */
+    val taxonomyLabel: String?,
     /** True when another Not assigned message looks like it could be the same real payment -
      *  same amount, different sender, within a few minutes (DetectPossibleDuplicates). */
     val isPossibleDuplicate: Boolean = false

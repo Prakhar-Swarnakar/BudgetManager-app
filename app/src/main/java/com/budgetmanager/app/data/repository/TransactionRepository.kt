@@ -21,6 +21,9 @@ interface TransactionRepository {
      *  lets the Messages list show a row's category without a per-row lookup. */
     fun observeCategoryIdsBySourceMessage(): Flow<Map<Long, Long>>
 
+    /** Same idea as [observeCategoryIdsBySourceMessage], for the separate taxonomy value. */
+    fun observeTaxonomyBySourceMessage(): Flow<Map<Long, TaxonomyType>>
+
     suspend fun getById(id: Long): Transaction?
 
     /** A manual transaction - no linked message. */

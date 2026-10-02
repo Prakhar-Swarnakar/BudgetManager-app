@@ -255,6 +255,57 @@ class MessagesViewModelTest {
     }
 
     @Test
+    fun `an Accepted row shows the label of its transaction's taxonomy`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+
+        val id = repo.ingest(testMessage("k1"))!!
+        val message = repo.getById(id)!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        transactions.saveFromMessage(
+            message = message, amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test", taxonomy = TaxonomyType.UPI
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertEquals(TaxonomyType.UPI.label, row.taxonomyLabel)
+        collector.cancel()
+    }
+
+    @Test
+    fun `a Not assigned row shows its taxonomy keyword suggestion in the same spot an Accepted row shows its real taxonomy`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val id = repo.ingest(testMessage("k1").copy(suggestedTaxonomy = TaxonomyType.UPI))!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertEquals(MessageStatus.NOT_ASSIGNED, row.status)
+        assertEquals(TaxonomyType.UPI.label, row.taxonomyLabel)
+        collector.cancel()
+    }
+
+    @Test
+    fun `a Rejected row never shows a taxonomy, even if one was suggested`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val id = repo.ingest(testMessage("k1").copy(suggestedTaxonomy = TaxonomyType.UPI))!!
+        repo.updateStatus(id, MessageStatus.REJECTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertNull(row.taxonomyLabel)
+        collector.cancel()
+    }
+
+    @Test
     fun `a Not assigned row shows its keyword suggestion in the same spot an Accepted row shows its real category`() = runTest {
         val repo = FakeMessageRepository()
         val viewModel = viewModel(repo)
