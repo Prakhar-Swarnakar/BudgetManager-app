@@ -93,7 +93,7 @@ class SmsReceiver : BroadcastReceiver() {
             body = body,
             receivedAt = Instant.ofEpochMilli(smsTimestamp),
             smsProviderId = null,
-            dedupeKey = DedupeKey.build(sender, smsTimestamp, body),
+            dedupeKey = DedupeKey.build(smsTimestamp, body),
             parsedAmount = parsed.amount,
             merchant = parsed.merchant,
             paymentMethod = parsed.paymentMethod,

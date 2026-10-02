@@ -50,12 +50,18 @@ class AddTransactionViewModel @Inject constructor(
             when {
                 transactionId != null -> {
                     val transaction = transactionRepository.getById(transactionId) ?: return@launch
+                    // Transaction itself has no merchant column - only a message it came from
+                    // (if any) ever had one, so look there to prefill the field for editing.
+                    val merchant = transaction.sourceMessageId
+                        ?.let { messageRepository.getById(it)?.merchant }
+                        .orEmpty()
                     internalState.update {
                         it.copy(
                             isLoading = false,
                             isEditMode = true,
                             transactionIdForEdit = transactionId,
                             amountInput = formatForInput(transaction.amount.paise),
+                            merchant = merchant,
                             note = transaction.note.orEmpty(),
                             date = transaction.occurredAt.atZone(ZoneId.systemDefault()).toLocalDate(),
                             selectedCategoryId = transaction.categoryId
@@ -64,12 +70,17 @@ class AddTransactionViewModel @Inject constructor(
                 }
                 messageId != null -> {
                     val message = messageRepository.getById(messageId) ?: return@launch
+                    val merchant = message.merchant.orEmpty()
                     internalState.update {
                         it.copy(
                             isLoading = false,
                             messageIdForAccept = messageId,
                             amountInput = message.parsedAmount?.let { amount -> formatForInput(amount.paise) } ?: "",
-                            note = message.merchant.orEmpty(),
+                            merchant = merchant,
+                            // Defaults checked whenever there's something to learn, preserving
+                            // today's always-on behavior for the common case - the user can
+                            // still uncheck it before saving.
+                            addToRule = merchant.isNotBlank(),
                             date = message.receivedAt.atZone(ZoneId.systemDefault()).toLocalDate(),
                             selectedCategoryId = message.suggestedCategoryId,
                             suggestedCategoryId = message.suggestedCategoryId,
@@ -84,6 +95,18 @@ class AddTransactionViewModel @Inject constructor(
 
     fun onAmountChanged(value: String) {
         internalState.update { it.copy(amountInput = value, amountError = null) }
+    }
+
+    fun onMerchantChanged(value: String) {
+        internalState.update {
+            // Clearing the merchant also clears the checkbox - there'd be nothing left to learn,
+            // and leaving it checked would silently resurrect once a new merchant is typed in.
+            it.copy(merchant = value, addToRule = if (value.isBlank()) false else it.addToRule)
+        }
+    }
+
+    fun onAddToRuleToggled(checked: Boolean) {
+        internalState.update { it.copy(addToRule = checked) }
     }
 
     fun onNoteChanged(value: String) {
@@ -147,7 +170,6 @@ class AddTransactionViewModel @Inject constructor(
                         categoryId = categoryId,
                         note = note
                     )
-                    learnFromChoice(message.merchant, categoryId)
                     evaluateBudgetAlerts(monthKey, categoryId)
                 }
                 else -> {
@@ -161,6 +183,9 @@ class AddTransactionViewModel @Inject constructor(
                     evaluateBudgetAlerts(monthKey, categoryId)
                 }
             }
+            if (current.addToRule) {
+                learnFromChoice(current.merchant, categoryId)
+            }
             internalState.update { it.copy(saved = true, isSaving = false) }
         }
     }
@@ -169,12 +194,13 @@ class AddTransactionViewModel @Inject constructor(
         internalState.update { it.copy(saved = false) }
     }
 
-    /** Remembers merchant -> category after the user accepts a message, so next time the same
-     *  merchant shows up it's suggested automatically (06-backlog.md, "Learning from choices").
-     *  Skipped for very short merchant text - a one- or two-character match is more likely to
-     *  misfire against an unrelated future message than to help. Always takes the category the
-     *  user actually chose here, even overriding an existing rule for the same merchant - that's
-     *  the point of learning from a correction. */
+    /** Remembers merchant -> category so next time the same merchant shows up it's suggested
+     *  automatically (06-backlog.md, "Learning from choices") - called from any save (manual,
+     *  message-linked, or edit) when the user has "Add to rule" checked, not just on accepting a
+     *  message. Skipped for very short merchant text - a one- or two-character match is more
+     *  likely to misfire against an unrelated future message than to help. Always takes the
+     *  category the user actually chose here, even overriding an existing rule for the same
+     *  merchant - that's the point of learning from a correction. */
     private suspend fun learnFromChoice(merchant: String?, categoryId: Long) {
         val keyword = merchant?.trim()?.lowercase() ?: return
         if (keyword.length < 3) return

@@ -53,6 +53,7 @@ class MessagesViewModel @Inject constructor(
     private val undoRejectedMessageId = MutableStateFlow<Long?>(null)
     private val navigateToAddTransactionForMessageId = MutableStateFlow<Long?>(null)
     private val monthKey = MutableStateFlow(MonthKey.current())
+    private val showClearMonthConfirm = MutableStateFlow(false)
 
     private val selectionState = combine(
         filter, selectedMessageId, undoRejectedMessageId, navigateToAddTransactionForMessageId, monthKey
@@ -87,6 +88,8 @@ class MessagesViewModel @Inject constructor(
             undoRejectedMessageId = raw.selection.undoId,
             navigateToAddTransactionForMessageId = raw.selection.navId
         )
+    }.combine(showClearMonthConfirm) { state, showConfirm ->
+        state.copy(showClearMonthConfirm = showConfirm)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MessagesUiState())
 
     fun onFilterSelected(newFilter: MessageFilter) {
@@ -215,6 +218,25 @@ class MessagesViewModel @Inject constructor(
                     messageRepository.updateSuggestedCategory(message.id, newSuggestion)
                 }
             }
+        }
+    }
+
+    fun onClearMonthClicked() {
+        showClearMonthConfirm.value = true
+    }
+
+    fun onClearMonthDismissed() {
+        showClearMonthConfirm.value = false
+    }
+
+    /** Deletes every message in the currently viewed month, regardless of status. A linked
+     *  transaction is kept, only unlinked from its source message (ON DELETE SET NULL) - its
+     *  amount and category spend are untouched. */
+    fun onClearMonthConfirmed() {
+        viewModelScope.launch {
+            val (start, end) = monthKey.value.toMillisRange(ZoneId.systemDefault())
+            messageRepository.deleteByReceivedAtRange(start, end)
+            showClearMonthConfirm.value = false
         }
     }
 

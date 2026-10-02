@@ -42,5 +42,7 @@ data class MessagesUiState(
      *  sheet to show side by side - null when there's no match. */
     val selectedMessageDuplicateOf: SmsMessage? = null,
     val undoRejectedMessageId: Long? = null,
-    val navigateToAddTransactionForMessageId: Long? = null
+    val navigateToAddTransactionForMessageId: Long? = null,
+    /** True while the "Clear month" confirmation dialog is open. */
+    val showClearMonthConfirm: Boolean = false
 )

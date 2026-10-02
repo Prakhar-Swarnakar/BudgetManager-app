@@ -47,6 +47,10 @@ class RoomMessageRepository @Inject constructor(
     override suspend fun markAllSeen() {
         smsMessageDao.markAllSeen()
     }
+
+    override suspend fun deleteByReceivedAtRange(sinceMillis: Long, untilMillisExclusive: Long) {
+        smsMessageDao.deleteByReceivedAtRange(sinceMillis, untilMillisExclusive)
+    }
 }
 
 private fun SmsMessageEntity.toDomain() = SmsMessage(

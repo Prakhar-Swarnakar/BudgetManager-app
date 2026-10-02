@@ -16,10 +16,18 @@ import java.time.ZoneId
  * does not use the parsed amount or merchant - not every bank SMS has enough distinguishing text
  * for that to help, and the raw body usually carries more unique detail (a reference number, an
  * account suffix) than the parsed fields alone.
+ *
+ * Deliberately excludes the sender, even though an earlier version included it: real inbox data
+ * (confirmed on-device 2026-10-02) showed the same bank re-sending the identical debit SMS
+ * through more than one registered sender header minutes apart - e.g. one notification arriving
+ * as both "BG-XXXXXX-S" and "JD-XXXXXX-S" - which produced visible duplicate messages under a
+ * sender-inclusive key. Body text already carries enough unique detail (amount, merchant, a
+ * reference number) to distinguish two genuinely different same-day transactions without needing
+ * the sender's help, so dropping it only catches more real duplicates and risks nothing.
  */
 internal object DedupeKey {
-    fun build(sender: String, timestampMillis: Long, body: String): String {
+    fun build(timestampMillis: Long, body: String): String {
         val day = Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()).toLocalDate()
-        return "$sender|$day|${body.hashCode()}"
+        return "$day|${body.hashCode()}"
     }
 }

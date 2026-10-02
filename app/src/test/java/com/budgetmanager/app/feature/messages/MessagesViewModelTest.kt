@@ -451,4 +451,51 @@ class MessagesViewModelTest {
         assertNull(repo.getById(otherMonthId)!!.suggestedCategoryId)
         collector.cancel()
     }
+
+    @Test
+    fun `onClearMonthClicked opens a confirmation, which onClearMonthDismissed can cancel without deleting anything`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val currentMonth = viewModel.uiState.value.monthKey
+
+        repo.ingest(testMessage("k1").copy(receivedAt = instantIn(currentMonth)))
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onClearMonthClicked()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.showClearMonthConfirm)
+
+        viewModel.onClearMonthDismissed()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(false, viewModel.uiState.value.showClearMonthConfirm)
+        assertEquals(1, viewModel.uiState.value.counts[MessageFilter.ALL])
+        collector.cancel()
+    }
+
+    @Test
+    fun `onClearMonthConfirmed deletes every message in the viewed month regardless of status, and nothing outside it`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val currentMonth = viewModel.uiState.value.monthKey
+
+        val notAssignedId = repo.ingest(testMessage("k1").copy(receivedAt = instantIn(currentMonth)))!!
+        val acceptedId = repo.ingest(testMessage("k2").copy(receivedAt = instantIn(currentMonth)))!!
+        repo.updateStatus(acceptedId, MessageStatus.ACCEPTED)
+        val otherMonthId = repo.ingest(
+            testMessage("k3").copy(receivedAt = instantIn(currentMonth.previous()))
+        )!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onClearMonthClicked()
+        viewModel.onClearMonthConfirmed()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(repo.getById(notAssignedId))
+        assertNull(repo.getById(acceptedId))
+        assertEquals(otherMonthId, repo.getById(otherMonthId)!!.id)
+        assertEquals(false, viewModel.uiState.value.showClearMonthConfirm)
+        collector.cancel()
+    }
 }

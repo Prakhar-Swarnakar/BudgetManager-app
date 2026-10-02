@@ -98,7 +98,7 @@ class DefaultInboxScanner @Inject constructor(
                         body = body,
                         receivedAt = Instant.ofEpochMilli(date),
                         smsProviderId = null,
-                        dedupeKey = DedupeKey.build(sender, date, body),
+                        dedupeKey = DedupeKey.build(date, body),
                         parsedAmount = parsed.amount,
                         merchant = parsed.merchant,
                         paymentMethod = parsed.paymentMethod,

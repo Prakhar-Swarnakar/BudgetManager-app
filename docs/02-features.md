@@ -18,10 +18,11 @@ Category management (create, rename, change icon, reorder) and setting each one'
 
 ## F2. Manual transactions
 
-- Add a transaction with amount, category, date, and an optional note.
+- Add a transaction with amount, category, merchant, date, and an optional note.
 - Edit or delete a transaction later, from the **Category detail** page (tap a category card on Home). It lists that category's transactions for the month. Tap one to edit it, or swipe left to delete it.
 - The same Add Transaction page is used when accepting an SMS, with the fields pre-filled, and when editing.
 - Deleting a transaction that came from an SMS returns that message to **Not assigned**.
+- Category is picked from a dropdown (built 2026-10-02, replacing a chip grid) - a single-line field that expands into a list on tap, showing the keyword-suggested category marked "Suggested".
 
 ## F3. SMS reading
 
@@ -37,7 +38,7 @@ Category management (create, rename, change icon, reorder) and setting each one'
 - Each message is coloured by its status: white (not assigned), green (accepted), red (rejected).
 - Swipe to accept or reject, or tap to open the message.
 - **Possible-duplicate warning** (built 2026-10-01): a Not assigned message is flagged when another Not assigned message has the same amount, a different sender, and arrived within 10 minutes of it - for example a bank's debit alert and a UPI app's own confirmation for the same payment. Shown as a small warning badge on the row and, in the detail sheet, which other message it might duplicate. This is separate from the exact-SMS-counted-twice bug fixed the same day (see `DedupeKey.kt`) - that was one physical message processed twice; this is two different messages that may describe the same real payment, and the user still decides which (if either) to accept.
-- **Split by month** (built 2026-10-02): the page has its own month selector, scoped to the viewed month only, with "Fetch SMS" (backfills that month's SMS from the phone's inbox) and "Run rule" (re-applies current keyword rules to that month's Not assigned messages only, never touching status or an already-decided message) buttons underneath it.
+- **Split by month** (built 2026-10-02): the page has its own month selector, scoped to the viewed month only, with "Fetch SMS" (backfills that month's SMS from the phone's inbox), "Run rule" (re-applies current keyword rules to that month's Not assigned messages only, never touching status or an already-decided message), and "Clear month" (removes every message in the viewed month after confirming - a linked transaction is kept, only unlinked) buttons underneath it.
 - Full detail in [04-messages-and-notifications.md](04-messages-and-notifications.md).
 
 ## F5. Notification for new messages
@@ -51,7 +52,7 @@ Category management (create, rename, change icon, reorder) and setting each one'
 - The user can change it before saving.
 - If no keyword matches, the category is left empty.
 - The starter categories come with a built-in keyword list (for example Swiggy and Zomato map to Food & Dining).
-- **Learning from choices** (built 2026-10-01): saving an accepted message's transaction remembers that message's merchant as a keyword for whichever category was actually chosen - even when it overrides the suggestion - so the same merchant is suggested correctly next time, without hand-editing a rule.
+- **Learning from choices** (built 2026-10-01, generalised 2026-10-02): Add Transaction has its own **Merchant** field (pre-filled when opened from a message, blank otherwise) and an **"Add to rule"** checkbox next to it - checked by default whenever a message pre-filled a merchant, unchecked and disabled when the field is blank. Checking it before Save upserts that merchant → the chosen category as a keyword rule, the same moment the transaction saves - this works the same way whether the transaction is manual, message-linked, or an edit, not just on accepting a message like before. A very short merchant (under 3 characters) is still never learned, checkbox or not - too likely to misfire against an unrelated future message.
 - **Editable keyword rules** (built 2026-10-01, grouped layout 2026-10-02): a Settings → "Category rules" page, grouped by category - each category is a section showing its words as removable chips plus a "+ add" chip, including a category with none yet. Tapping a chip reassigns its category; a rule's keyword can't be edited in place - it's the rule's identity, so changing it would silently leave the old rule behind; delete and re-add instead.
 
 ## F7. Budget tracking

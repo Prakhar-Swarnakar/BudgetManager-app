@@ -54,4 +54,10 @@ interface SmsMessageDao {
 
     @Query("DELETE FROM sms_message")
     suspend fun deleteAll()
+
+    /** Deletes every message received in [sinceMillis, untilMillisExclusive) - backs the
+     *  Messages page's per-month "Clear month" button. A linked transaction is kept, only
+     *  unlinked (source_message_id ON DELETE SET NULL on the transactions table). */
+    @Query("DELETE FROM sms_message WHERE received_at >= :sinceMillis AND received_at < :untilMillisExclusive")
+    suspend fun deleteByReceivedAtRange(sinceMillis: Long, untilMillisExclusive: Long)
 }

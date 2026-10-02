@@ -11,16 +11,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import com.budgetmanager.app.core.designsystem.components.AmountField
-import com.budgetmanager.app.core.designsystem.components.CategoryChipGrid
+import com.budgetmanager.app.core.designsystem.components.CategoryDropdown
 import com.budgetmanager.app.feature.transaction.components.DateField
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.OutlinedTextField
@@ -29,6 +31,8 @@ import androidx.compose.material3.OutlinedTextField
 fun AddTransactionContent(
     state: AddTransactionUiState,
     onAmountChanged: (String) -> Unit,
+    onMerchantChanged: (String) -> Unit,
+    onAddToRuleToggled: (Boolean) -> Unit,
     onNoteChanged: (String) -> Unit,
     onDateChanged: (java.time.LocalDate) -> Unit,
     onCategorySelected: (Long) -> Unit,
@@ -76,14 +80,35 @@ fun AddTransactionContent(
         Spacer(Modifier.height(20.dp))
         Text("Category", style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(8.dp))
-        CategoryChipGrid(
+        CategoryDropdown(
             categories = state.categories,
             selectedCategoryId = state.selectedCategoryId,
             suggestedCategoryId = state.suggestedCategoryId,
-            onSelect = onCategorySelected
+            isError = state.categoryError != null,
+            onSelect = onCategorySelected,
+            modifier = Modifier.fillMaxWidth()
         )
         state.categoryError?.let {
             Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+        }
+
+        Spacer(Modifier.height(20.dp))
+        OutlinedTextField(
+            value = state.merchant,
+            onValueChange = onMerchantChanged,
+            label = { Text("Merchant") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 4.dp)
+        ) {
+            Checkbox(
+                checked = state.addToRule,
+                onCheckedChange = onAddToRuleToggled,
+                enabled = state.merchant.isNotBlank()
+            )
+            Text("Add to rule: always use this category for this merchant")
         }
 
         Spacer(Modifier.height(20.dp))

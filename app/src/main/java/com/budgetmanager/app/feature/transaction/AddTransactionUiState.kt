@@ -8,6 +8,10 @@ data class AddTransactionUiState(
     val isEditMode: Boolean = false,
     val amountInput: String = "",
     val amountError: String? = null,
+    val merchant: String = "",
+    /** Whether saving should also upsert (merchant, category) as a keyword rule. Disabled in the
+     *  UI whenever [merchant] is blank - nothing to learn from. */
+    val addToRule: Boolean = false,
     val note: String = "",
     val date: LocalDate = LocalDate.now(),
     val categories: List<Category> = emptyList(),

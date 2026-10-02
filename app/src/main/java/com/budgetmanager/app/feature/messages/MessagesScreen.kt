@@ -41,6 +41,9 @@ fun MessagesScreen(
         onNextMonth = viewModel::onNextMonth,
         onFetchMonth = viewModel::onFetchMonth,
         onRunRule = viewModel::onRunRule,
+        onClearMonthClicked = viewModel::onClearMonthClicked,
+        onClearMonthConfirmed = viewModel::onClearMonthConfirmed,
+        onClearMonthDismissed = viewModel::onClearMonthDismissed,
         modifier = modifier
     )
 }

@@ -38,6 +38,12 @@ class FakeMessageRepository : MessageRepository {
         state.value = state.value.map { it.copy(isNew = false) }
     }
 
+    override suspend fun deleteByReceivedAtRange(sinceMillis: Long, untilMillisExclusive: Long) {
+        val since = java.time.Instant.ofEpochMilli(sinceMillis)
+        val untilExclusive = java.time.Instant.ofEpochMilli(untilMillisExclusive)
+        state.value = state.value.filterNot { it.receivedAt >= since && it.receivedAt < untilExclusive }
+    }
+
     /** Also used by FakeTransactionRepository to keep the two fakes in sync. */
     fun updateStatus(id: Long, status: MessageStatus) {
         state.value = state.value.map { if (it.id == id) it.copy(status = status) else it }

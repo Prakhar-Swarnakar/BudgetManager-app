@@ -18,32 +18,35 @@ class DedupeKeyTest {
         // genuinely differ by seconds to a few minutes for the same physical SMS (confirmed
         // on-device 2026-10-01) - this is exactly the gap that caused a real spend to be
         // counted twice.
-        val fromLiveReceiver = DedupeKey.build("AX-SBICRD-S", noon, "Rs.1,499.00 spent at NYKAA")
-        val fromCatchUpScan = DedupeKey.build("AX-SBICRD-S", noon + 180_000, "Rs.1,499.00 spent at NYKAA")
+        val fromLiveReceiver = DedupeKey.build(noon, "Rs.1,499.00 spent at NYKAA")
+        val fromCatchUpScan = DedupeKey.build(noon + 180_000, "Rs.1,499.00 spent at NYKAA")
 
         assertEquals(fromLiveReceiver, fromCatchUpScan)
     }
 
     @Test
     fun `the same wording on a different day is not treated as a duplicate`() {
-        val today = DedupeKey.build("AX-SBICRD-S", noon, "Rs 500 debited")
-        val tomorrow = DedupeKey.build("AX-SBICRD-S", noon + 24 * 60 * 60 * 1000, "Rs 500 debited")
+        val today = DedupeKey.build(noon, "Rs 500 debited")
+        val tomorrow = DedupeKey.build(noon + 24 * 60 * 60 * 1000, "Rs 500 debited")
 
         assertNotEquals(today, tomorrow)
     }
 
     @Test
-    fun `a different sender is not treated as a duplicate, even with identical text and time`() {
-        val bankA = DedupeKey.build("AX-SBICRD-S", noon, "Rs 500 debited")
-        val bankB = DedupeKey.build("VM-ICICIB-S", noon, "Rs 500 debited")
+    fun `identical text on the same day is a duplicate even when it came through a different sender header`() {
+        // Confirmed on-device 2026-10-02: the same bank re-sent the identical debit SMS through
+        // more than one registered sender header minutes apart - a real duplicate that a
+        // sender-inclusive key let through, since the key never saw the sender at all.
+        val first = DedupeKey.build(noon, "Rs 500 debited")
+        val secondHeader = DedupeKey.build(noon + 120_000, "Rs 500 debited")
 
-        assertNotEquals(bankA, bankB)
+        assertEquals(first, secondHeader)
     }
 
     @Test
     fun `different wording on the same day is not treated as a duplicate`() {
-        val first = DedupeKey.build("AX-SBICRD-S", noon, "Rs.1,499.00 spent at NYKAA")
-        val second = DedupeKey.build("AX-SBICRD-S", noon, "Rs.650.00 spent at ZOMATO")
+        val first = DedupeKey.build(noon, "Rs.1,499.00 spent at NYKAA")
+        val second = DedupeKey.build(noon, "Rs.650.00 spent at ZOMATO")
 
         assertNotEquals(first, second)
     }

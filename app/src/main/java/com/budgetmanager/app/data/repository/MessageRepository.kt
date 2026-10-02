@@ -26,4 +26,9 @@ interface MessageRepository {
     suspend fun updateSuggestedCategory(id: Long, categoryId: Long?)
 
     suspend fun markAllSeen()
+
+    /** Deletes every message received in [sinceMillis, untilMillisExclusive) - used by the
+     *  Messages page's per-month "Clear month" button. A linked transaction is kept, only
+     *  unlinked - never deleted, never its category spend. */
+    suspend fun deleteByReceivedAtRange(sinceMillis: Long, untilMillisExclusive: Long)
 }

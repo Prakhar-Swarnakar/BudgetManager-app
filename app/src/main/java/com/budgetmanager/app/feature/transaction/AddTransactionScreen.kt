@@ -35,6 +35,8 @@ fun AddTransactionScreen(
     AddTransactionContent(
         state = state,
         onAmountChanged = viewModel::onAmountChanged,
+        onMerchantChanged = viewModel::onMerchantChanged,
+        onAddToRuleToggled = viewModel::onAddToRuleToggled,
         onNoteChanged = viewModel::onNoteChanged,
         onDateChanged = viewModel::onDateChanged,
         onCategorySelected = viewModel::onCategorySelected,

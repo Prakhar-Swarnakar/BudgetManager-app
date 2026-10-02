@@ -1,5 +1,6 @@
 package com.budgetmanager.app.feature.messages
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -21,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.budgetmanager.app.core.designsystem.components.ConfirmDialog
 import com.budgetmanager.app.core.designsystem.components.EmptyState
 import com.budgetmanager.app.core.designsystem.components.FilterChipItem
 import com.budgetmanager.app.core.designsystem.components.FilterChipRow
@@ -31,6 +34,7 @@ import com.budgetmanager.app.core.designsystem.components.SwipeRow
 import com.budgetmanager.app.core.designsystem.components.UndoSnackbarEffect
 import com.budgetmanager.app.core.designsystem.components.revertSwipeAction
 import com.budgetmanager.app.core.model.MessageStatus
+import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.feature.messages.components.MessageDetailSheet
 import com.budgetmanager.app.feature.messages.components.MessageRow
 import com.budgetmanager.app.ui.theme.StatusColors
@@ -51,6 +55,9 @@ fun MessagesContent(
     onNextMonth: () -> Unit,
     onFetchMonth: () -> Unit,
     onRunRule: () -> Unit,
+    onClearMonthClicked: () -> Unit,
+    onClearMonthConfirmed: () -> Unit,
+    onClearMonthDismissed: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -72,11 +79,15 @@ fun MessagesContent(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OutlinedButton(onClick = onFetchMonth) { Text("Fetch SMS") }
             OutlinedButton(onClick = onRunRule) { Text("Run rule") }
+            OutlinedButton(onClick = onClearMonthClicked) { Text("Clear month") }
         }
 
         FilterChipRow(
@@ -137,6 +148,23 @@ fun MessagesContent(
             onReject = { onRejectFromDetail(message.id) }
         )
     }
+
+    if (state.showClearMonthConfirm) {
+        ConfirmDialog(
+            title = "Clear ${state.monthKey.label()}?",
+            message = "Removes every message in this month, accepted or not. Any transaction " +
+                "they're linked to is kept, just unlinked - its amount and category stay as they are.",
+            onConfirm = onClearMonthConfirmed,
+            onDismiss = onClearMonthDismissed,
+            confirmLabel = "Clear"
+        )
+    }
+}
+
+private fun MonthKey.label(): String {
+    val yearMonth = java.time.YearMonth.of(year, month)
+    val monthName = yearMonth.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())
+    return "$monthName ${yearMonth.year}"
 }
 
 private fun MessageFilter.label(): String = when (this) {

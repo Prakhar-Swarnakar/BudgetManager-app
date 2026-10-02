@@ -146,7 +146,8 @@ class AddTransactionViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals("500", viewModel.uiState.value.amountInput)
-        assertEquals("Swiggy", viewModel.uiState.value.note)
+        assertEquals("Swiggy", viewModel.uiState.value.merchant)
+        assertEquals("", viewModel.uiState.value.note)
         assertEquals(1L, viewModel.uiState.value.suggestedCategoryId)
         assertEquals(1L, viewModel.uiState.value.selectedCategoryId)
         assertNotNull(viewModel.uiState.value.smsBannerText)
@@ -173,12 +174,39 @@ class AddTransactionViewModelTest {
         viewModel.load(messageId = messageId, transactionId = null)
         dispatcher.scheduler.advanceUntilIdle()
 
+        // Add to rule defaults checked whenever a message prefilled a merchant - preserves
+        // today's always-on behavior for the common case unless the user opts out.
+        assertTrue(viewModel.uiState.value.addToRule)
+
         viewModel.onCategorySelected(2) // overrides the suggested category - the user's actual choice
         viewModel.onSave()
         dispatcher.scheduler.advanceUntilIdle()
 
         val learned = keywordRules.getAll().single { it.keyword == "swiggy" }
         assertEquals(2L, learned.categoryId)
+        collector.cancel()
+    }
+
+    @Test
+    fun `unchecking Add to rule before saving a message-linked transaction learns nothing`() = runTest {
+        val (viewModel, messages, _, _, _, keywordRules) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "Swiggy", suggestedCategoryId = 1, status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val messageId = messages.ingest(message)!!
+        viewModel.load(messageId = messageId, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onAddToRuleToggled(false)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.saved)
+        assertTrue(keywordRules.getAll().isEmpty())
         collector.cancel()
     }
 
@@ -205,12 +233,15 @@ class AddTransactionViewModelTest {
     }
 
     @Test
-    fun `a manual transaction with no linked message learns nothing`() = runTest {
+    fun `a manual transaction with Add to rule unchecked learns nothing`() = runTest {
         val (viewModel, _, _, _, _, keywordRules) = setUpViewModel()
         val collector = viewModel.uiState.onEach { }.launchIn(this)
 
         viewModel.load(messageId = null, transactionId = null)
         dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("", viewModel.uiState.value.merchant)
+        assertFalse(viewModel.uiState.value.addToRule)
 
         viewModel.onAmountChanged("250")
         viewModel.onCategorySelected(1)
@@ -218,6 +249,103 @@ class AddTransactionViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(keywordRules.getAll().isEmpty())
+        collector.cancel()
+    }
+
+    @Test
+    fun `checking Add to rule on a manual transaction learns the merchant`() = runTest {
+        val (viewModel, _, _, _, _, keywordRules) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onMerchantChanged("Swiggy")
+        viewModel.onAddToRuleToggled(true)
+        viewModel.onAmountChanged("250")
+        viewModel.onCategorySelected(1)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val learned = keywordRules.getAll().single { it.keyword == "swiggy" }
+        assertEquals(1L, learned.categoryId)
+        collector.cancel()
+    }
+
+    @Test
+    fun `a very short merchant is never learned even with Add to rule checked`() = runTest {
+        val (viewModel, _, _, _, _, keywordRules) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onMerchantChanged("SB")
+        viewModel.onAddToRuleToggled(true)
+        viewModel.onAmountChanged("250")
+        viewModel.onCategorySelected(1)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(keywordRules.getAll().isEmpty())
+        collector.cancel()
+    }
+
+    @Test
+    fun `clearing the merchant field also unchecks Add to rule`() = runTest {
+        val (viewModel, _, _) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onMerchantChanged("Swiggy")
+        viewModel.onAddToRuleToggled(true)
+        viewModel.onMerchantChanged("")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.addToRule)
+        collector.cancel()
+    }
+
+    @Test
+    fun `editing a message-linked transaction prefills merchant from the original message`() = runTest {
+        val (viewModel, messages, transactions) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "Swiggy", suggestedCategoryId = 1, status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val fetchedMessage = messages.ingest(message)!!.let { messages.getById(it)!! }
+        val transactionId = transactions.saveFromMessage(
+            message = fetchedMessage, amount = Money.ofRupees(500), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = null
+        )
+
+        viewModel.load(messageId = null, transactionId = transactionId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Swiggy", viewModel.uiState.value.merchant)
+        assertFalse(viewModel.uiState.value.addToRule)
+        collector.cancel()
+    }
+
+    @Test
+    fun `editing a manual transaction with no linked message has a blank merchant field`() = runTest {
+        val (viewModel, _, transactions) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val transactionId = transactions.insert(
+            amount = Money.ofRupees(300), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Original"
+        )
+
+        viewModel.load(messageId = null, transactionId = transactionId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("", viewModel.uiState.value.merchant)
         collector.cancel()
     }
 
