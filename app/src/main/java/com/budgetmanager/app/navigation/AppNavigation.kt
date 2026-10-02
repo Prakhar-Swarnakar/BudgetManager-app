@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.automirrored.filled.Rule
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShowChart
@@ -52,14 +53,14 @@ private val bottomBarItems = listOf(
 
 private val sidePanelItems = listOf(
     NavItem(Destination.MonthlyBudget, "Monthly budget", Icons.Default.AccountBalanceWallet),
+    NavItem(Destination.CategoryRules, "Category rules", Icons.AutoMirrored.Filled.Rule),
     NavItem(Destination.Settings, "Settings", Icons.Default.Settings)
 )
 
 /** True for a screen pushed onto the back stack rather than reached from the bottom bar or side
  *  panel - it gets a back arrow in the top bar instead of the hamburger menu. */
 private fun isPushedDetail(destination: Destination): Boolean =
-    destination is Destination.AddTransaction || destination is Destination.CategoryDetail ||
-        destination is Destination.CategoryRules
+    destination is Destination.AddTransaction || destination is Destination.CategoryDetail
 
 private fun titleFor(destination: Destination): String = when (destination) {
     Destination.Home -> "Home"
@@ -73,9 +74,10 @@ private fun titleFor(destination: Destination): String = when (destination) {
 }
 
 /**
- * Bottom bar for Home/Messages/Trends (daily use), side panel for Monthly budget/Settings (used
- * a few times a month). See 08-pages-and-navigation.md. Category management (create, rename,
- * reorder) lives on the Monthly budget page - there is no separate Categories page.
+ * Bottom bar for Home/Messages/Trends (daily use), side panel for Monthly budget/Category
+ * rules/Settings (used a few times a month). See 08-pages-and-navigation.md. Category
+ * management (create, rename, reorder) lives on the Monthly budget page - there is no separate
+ * Categories page.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -188,10 +190,7 @@ fun AppNavigation() {
                         Destination.Trends -> NavEntry(destination) { TrendsScreen(contentModifier) }
                         Destination.MonthlyBudget -> NavEntry(destination) { MonthlyBudgetScreen(contentModifier) }
                         Destination.Settings -> NavEntry(destination) {
-                            SettingsScreen(
-                                onOpenCategoryRules = { backStack.add(Destination.CategoryRules) },
-                                modifier = contentModifier
-                            )
+                            SettingsScreen(modifier = contentModifier)
                         }
                         Destination.CategoryRules -> NavEntry(destination) { CategoryRulesScreen(contentModifier) }
                         is Destination.AddTransaction -> NavEntry(destination) {

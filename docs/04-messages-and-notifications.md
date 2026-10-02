@@ -85,8 +85,8 @@ The user can change any field. The message becomes green when the transaction is
   when that overrides the original suggestion - so the same merchant suggests correctly next
   time. Merchant text under 3 characters is never learned, since a very short word is more likely
   to misfire against an unrelated future message than to help.
-- **User-editable keyword rules** (built 2026-10-01, grouped layout 2026-10-02): a page under
-  Settings → "Category rules", grouped by category - each one is a section showing its words as
+- **User-editable keyword rules** (built 2026-10-01, grouped layout 2026-10-02, moved to the side
+  panel 2026-10-02): a "Category rules" page in the side panel, grouped by category - each one is a section showing its words as
   removable chips plus a "+ add" chip, including a category with none yet. Tapping a chip reassigns
   its category; the keyword itself can't be edited in place - see "Editable keyword rules" in
   [06-backlog.md](06-backlog.md).

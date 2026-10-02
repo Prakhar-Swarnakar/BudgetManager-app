@@ -15,6 +15,7 @@ Navigation is split by how often each area is used.
 **Side panel** (opened from the menu icon, used a few times a month):
 
 - Monthly budget (category management - create, rename, reorder - lives here too; there is no separate Categories page)
+- Category rules (added post-v1, 2026-10-02 - moved here from a button inside Settings)
 - Settings (which includes Backup and restore)
 
 A round **Add** button on Home starts a manual transaction.
@@ -31,10 +32,11 @@ A round **Add** button on Home starts a manual transaction.
 | Trends: This month | Pie chart of the month's budget allocation and how much is used | `05-trends.png` |
 | Trends: Previous month | Budget used over 6 months, and this month so far against last month by category | `05b-trends-previous-month.png` |
 | Trends: Historic | Budget and spent bars for the last 6 months, with two summary tiles | `05c-trends-historic.png` |
-| Side panel | Menu with Monthly budget and Settings | `06-side-panel.png` |
+| Side panel | Menu with Monthly budget, Category rules, and Settings | `06-side-panel.png` |
 | Monthly budget | Every category with its amount for a month (₹0 if none), drag to reorder, a + button to add a new category. Category management (rename, change icon) lives here too - there is no separate Categories page | `07-monthly-budget.png` |
 | Budget: new category (+) | Sheet for creating a new category with its icon, name, and this month's amount | `07b-add-budget-line.png` |
 | Budget: edit category | The same sheet, opened by tapping a category, to rename it, change its icon, or change its amount | `07c-edit-budget-amount.png` |
+| Category rules | Keyword-to-category rules, grouped by category - added post-v1, 2026-10-02, moved here from Settings | - |
 | Settings | Permissions, alerts, trends range, and Backup and restore | `10-settings.png` |
 
 ## Page details

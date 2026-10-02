@@ -174,10 +174,10 @@ class AddTransactionViewModelTest {
         viewModel.load(messageId = messageId, transactionId = null)
         dispatcher.scheduler.advanceUntilIdle()
 
-        // Add to rule defaults checked whenever a message prefilled a merchant - preserves
-        // today's always-on behavior for the common case unless the user opts out.
-        assertTrue(viewModel.uiState.value.addToRule)
+        // Add to rule always starts unchecked - the user opts in deliberately.
+        assertFalse(viewModel.uiState.value.addToRule)
 
+        viewModel.onAddToRuleToggled(true)
         viewModel.onCategorySelected(2) // overrides the suggested category - the user's actual choice
         viewModel.onSave()
         dispatcher.scheduler.advanceUntilIdle()
@@ -188,7 +188,7 @@ class AddTransactionViewModelTest {
     }
 
     @Test
-    fun `unchecking Add to rule before saving a message-linked transaction learns nothing`() = runTest {
+    fun `leaving Add to rule unchecked on a message-linked transaction learns nothing`() = runTest {
         val (viewModel, messages, _, _, _, keywordRules) = setUpViewModel()
         val collector = viewModel.uiState.onEach { }.launchIn(this)
 
@@ -201,7 +201,6 @@ class AddTransactionViewModelTest {
         viewModel.load(messageId = messageId, transactionId = null)
         dispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.onAddToRuleToggled(false)
         viewModel.onSave()
         dispatcher.scheduler.advanceUntilIdle()
 

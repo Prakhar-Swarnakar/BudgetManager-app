@@ -70,17 +70,15 @@ class AddTransactionViewModel @Inject constructor(
                 }
                 messageId != null -> {
                     val message = messageRepository.getById(messageId) ?: return@launch
-                    val merchant = message.merchant.orEmpty()
                     internalState.update {
                         it.copy(
                             isLoading = false,
                             messageIdForAccept = messageId,
                             amountInput = message.parsedAmount?.let { amount -> formatForInput(amount.paise) } ?: "",
-                            merchant = merchant,
-                            // Defaults checked whenever there's something to learn, preserving
-                            // today's always-on behavior for the common case - the user can
-                            // still uncheck it before saving.
-                            addToRule = merchant.isNotBlank(),
+                            merchant = message.merchant.orEmpty(),
+                            // Always starts unchecked - the user opts in deliberately in every
+                            // mode, rather than this defaulting on for message-linked saves.
+                            addToRule = false,
                             date = message.receivedAt.atZone(ZoneId.systemDefault()).toLocalDate(),
                             selectedCategoryId = message.suggestedCategoryId,
                             suggestedCategoryId = message.suggestedCategoryId,
