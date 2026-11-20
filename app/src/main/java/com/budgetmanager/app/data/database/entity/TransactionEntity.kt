@@ -39,5 +39,15 @@ data class TransactionEntity(
     @ColumnInfo(name = "category_id") val categoryId: Long,
     val note: String?,
     @ColumnInfo(name = "source_message_id") val sourceMessageId: Long? = null,
-    val taxonomy: TaxonomyType? = null
+    val taxonomy: TaxonomyType? = null,
+    /** Sum of every friend's share on this transaction (0 when it's never been split). Fixed at
+     *  creation/edit time - never changes when a friend settles. Denormalized here so the
+     *  spent-for-budget queries stay a single cheap SUM rather than a join against
+     *  transaction_split. */
+    @ColumnInfo(name = "owed_total_paise", defaultValue = "0") val owedTotalPaise: Long = 0,
+    val title: String? = null,
+    /** Owed to You's "I've nudged about this" marker - transaction-level, not per friend, since
+     *  a single GPay/Splitwise request commonly covers the whole group expense at once. Never
+     *  touches settled state or the budget-counted amount. */
+    @ColumnInfo(defaultValue = "0") val reminded: Boolean = false
 )

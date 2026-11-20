@@ -101,7 +101,7 @@ class MonthlyBudgetViewModel @Inject constructor(
                 mode = BudgetSheetMode.Edit(categoryId),
                 name = category.name,
                 emoji = category.emoji,
-                amountInput = amount?.let { formatForInput(it.paise) } ?: ""
+                amountInput = amount?.let { Money.formatForInput(it.paise) } ?: ""
             )
         }
     }
@@ -161,11 +161,5 @@ class MonthlyBudgetViewModel @Inject constructor(
                 sheet.value = null
             }
         }
-    }
-
-    private fun formatForInput(paise: Long): String {
-        val rupees = paise / 100
-        val remainder = paise % 100
-        return if (remainder == 0L) rupees.toString() else "%d.%02d".format(rupees, remainder)
     }
 }

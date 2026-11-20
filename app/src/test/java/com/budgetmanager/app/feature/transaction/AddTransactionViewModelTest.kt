@@ -8,12 +8,15 @@ import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.data.repository.FakeAlertLogRepository
 import com.budgetmanager.app.data.repository.FakeCategoryRepository
+import com.budgetmanager.app.data.repository.FakeFriendRepository
 import com.budgetmanager.app.data.repository.FakeKeywordRuleRepository
 import com.budgetmanager.app.data.repository.FakeMessageRepository
 import com.budgetmanager.app.data.repository.FakeMonthlyBudgetRepository
 import com.budgetmanager.app.data.repository.FakeSettingsRepository
 import com.budgetmanager.app.data.repository.FakeTaxonomyKeywordRuleRepository
 import com.budgetmanager.app.data.repository.FakeTransactionRepository
+import com.budgetmanager.app.data.repository.FakeTransactionSplitRepository
+import com.budgetmanager.app.data.repository.TransactionSplitInput
 import com.budgetmanager.app.domain.EvaluateBudgetAlerts
 import com.budgetmanager.app.domain.FakeBudgetAlertNotifier
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +61,9 @@ class AddTransactionViewModelTest {
         val budgets: FakeMonthlyBudgetRepository,
         val notifier: FakeBudgetAlertNotifier,
         val keywordRules: FakeKeywordRuleRepository,
-        val taxonomyRules: FakeTaxonomyKeywordRuleRepository
+        val taxonomyRules: FakeTaxonomyKeywordRuleRepository,
+        val friends: FakeFriendRepository,
+        val splits: FakeTransactionSplitRepository
     )
 
     private fun setUpViewModel(): TestHarness {
@@ -71,13 +76,15 @@ class AddTransactionViewModelTest {
         val notifier = FakeBudgetAlertNotifier()
         val keywordRules = FakeKeywordRuleRepository()
         val taxonomyRules = FakeTaxonomyKeywordRuleRepository()
+        val friends = FakeFriendRepository()
+        val splits = FakeTransactionSplitRepository(friends, transactions, categories)
         val evaluateBudgetAlerts = EvaluateBudgetAlerts(
             budgets, transactions, FakeAlertLogRepository(), categories, FakeSettingsRepository(), notifier
         )
         val viewModel = AddTransactionViewModel(
-            transactions, messages, evaluateBudgetAlerts, keywordRules, taxonomyRules, categories
+            transactions, messages, evaluateBudgetAlerts, keywordRules, taxonomyRules, friends, splits, categories
         )
-        return TestHarness(viewModel, messages, transactions, budgets, notifier, keywordRules, taxonomyRules)
+        return TestHarness(viewModel, messages, transactions, budgets, notifier, keywordRules, taxonomyRules, friends, splits)
     }
 
     @Test
@@ -258,22 +265,27 @@ class AddTransactionViewModelTest {
     }
 
     @Test
-    fun `checking Add to rule on a manual transaction learns the merchant`() = runTest {
+    fun `a manual transaction has no SMS merchant, so checking Add to rule still learns nothing`() = runTest {
         val (viewModel, _, _, _, _, keywordRules) = setUpViewModel()
         val collector = viewModel.uiState.onEach { }.launchIn(this)
 
         viewModel.load(messageId = null, transactionId = null)
         dispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.onMerchantChanged("Swiggy")
+        assertNull(viewModel.uiState.value.smsMerchant)
+
+        // The UI disables this checkbox for a manual transaction - this simulates bypassing
+        // that, to prove the real guard is in onSave (smsMerchant == null), not just the
+        // checkbox's disabled state.
         viewModel.onAddToRuleToggled(true)
+        viewModel.onCategoryKeywordChanged("Swiggy")
         viewModel.onAmountChanged("250")
         viewModel.onCategorySelected(1)
         viewModel.onSave()
         dispatcher.scheduler.advanceUntilIdle()
 
-        val learned = keywordRules.getAll().single { it.keyword == "swiggy" }
-        assertEquals(1L, learned.categoryId)
+        assertTrue(viewModel.uiState.value.saved)
+        assertTrue(keywordRules.getAll().isEmpty())
         collector.cancel()
     }
 
@@ -297,19 +309,27 @@ class AddTransactionViewModelTest {
     }
 
     @Test
-    fun `clearing the merchant field also unchecks Add to rule`() = runTest {
-        val (viewModel, _, _) = setUpViewModel()
+    fun `editing Title never touches Add to rule or its keyword - they're seeded from the SMS merchant, not Title`() = runTest {
+        val (viewModel, messages, _) = setUpViewModel()
         val collector = viewModel.uiState.onEach { }.launchIn(this)
 
-        viewModel.load(messageId = null, transactionId = null)
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "Swiggy", suggestedCategoryId = 1, status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val messageId = messages.ingest(message)!!
+        viewModel.load(messageId = messageId, transactionId = null)
         dispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.onMerchantChanged("Swiggy")
         viewModel.onAddToRuleToggled(true)
+        // Renaming Title for readability must not change what the rule would learn from.
+        viewModel.onMerchantChanged("Dinner with the team")
         viewModel.onMerchantChanged("")
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.addToRule)
+        assertTrue(viewModel.uiState.value.addToRule)
+        assertEquals("Swiggy", viewModel.uiState.value.categoryKeyword)
         collector.cancel()
     }
 
@@ -334,6 +354,56 @@ class AddTransactionViewModelTest {
 
         assertEquals("Swiggy", viewModel.uiState.value.merchant)
         assertFalse(viewModel.uiState.value.addToRule)
+        // The SMS banner shows in edit mode too now, the same as the accept-a-message path.
+        assertEquals("Rs 500 debited", viewModel.uiState.value.smsBannerText)
+        collector.cancel()
+    }
+
+    @Test
+    fun `saving a renamed Title persists it on the transaction, and the linked message's own merchant is never touched`() = runTest {
+        val (viewModel, messages, transactions) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "Swiggy", suggestedCategoryId = 1, status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val messageId = messages.ingest(message)!!
+        viewModel.load(messageId = messageId, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onMerchantChanged("Dinner with the team")
+        viewModel.onCategorySelected(1)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val saved = transactions.getById(transactions.current.first().id)!!
+        assertEquals("Dinner with the team", saved.title)
+        assertEquals("Swiggy", messages.getById(messageId)!!.merchant)
+        collector.cancel()
+    }
+
+    @Test
+    fun `reopening a renamed transaction shows the saved title, not the SMS merchant`() = runTest {
+        val (viewModel, messages, transactions) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "Swiggy", suggestedCategoryId = 1, status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val fetchedMessage = messages.ingest(message)!!.let { messages.getById(it)!! }
+        val transactionId = transactions.saveFromMessage(
+            message = fetchedMessage, amount = Money.ofRupees(500), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = null, title = "Dinner with the team"
+        )
+
+        viewModel.load(messageId = null, transactionId = transactionId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Dinner with the team", viewModel.uiState.value.merchant)
         collector.cancel()
     }
 
@@ -446,23 +516,23 @@ class AddTransactionViewModelTest {
     }
 
     @Test
-    fun `checking Add to rule for taxonomy on a manual transaction learns the merchant`() = runTest {
+    fun `a manual transaction has no SMS merchant, so checking Add to rule for taxonomy still learns nothing`() = runTest {
         val (viewModel, _, _, _, _, _, taxonomyRules) = setUpViewModel()
         val collector = viewModel.uiState.onEach { }.launchIn(this)
 
         viewModel.load(messageId = null, transactionId = null)
         dispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.onMerchantChanged("Swiggy")
         viewModel.onTaxonomySelected(TaxonomyType.UPI)
         viewModel.onAddTaxonomyToRuleToggled(true)
+        viewModel.onTaxonomyKeywordChanged("Swiggy")
         viewModel.onAmountChanged("250")
         viewModel.onCategorySelected(1)
         viewModel.onSave()
         dispatcher.scheduler.advanceUntilIdle()
 
-        val learned = taxonomyRules.getAll().single { it.keyword == "swiggy" }
-        assertEquals(TaxonomyType.UPI, learned.taxonomy)
+        assertTrue(viewModel.uiState.value.saved)
+        assertTrue(taxonomyRules.getAll().isEmpty())
         collector.cancel()
     }
 
@@ -506,19 +576,26 @@ class AddTransactionViewModelTest {
     }
 
     @Test
-    fun `clearing the merchant field also unchecks Add to rule for taxonomy`() = runTest {
-        val (viewModel, _, _) = setUpViewModel()
+    fun `editing Title never touches Add to rule for taxonomy or its keyword`() = runTest {
+        val (viewModel, messages, _) = setUpViewModel()
         val collector = viewModel.uiState.onEach { }.launchIn(this)
 
-        viewModel.load(messageId = null, transactionId = null)
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "Swiggy", suggestedCategoryId = 1, status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val messageId = messages.ingest(message)!!
+        viewModel.load(messageId = messageId, transactionId = null)
         dispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.onMerchantChanged("Swiggy")
         viewModel.onAddTaxonomyToRuleToggled(true)
+        viewModel.onMerchantChanged("Dinner with the team")
         viewModel.onMerchantChanged("")
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.addTaxonomyToRule)
+        assertTrue(viewModel.uiState.value.addTaxonomyToRule)
+        assertEquals("Swiggy", viewModel.uiState.value.taxonomyKeyword)
         collector.cancel()
     }
 
@@ -558,6 +635,266 @@ class AddTransactionViewModelTest {
         val monthKey = MonthKey.of(date.year, date.monthValue)
         val saved = transactions.observeForCategoryAndMonth(monthKey, 1).first()
         assertEquals(TaxonomyType.CREDIT_CARD, saved.first().taxonomy)
+        collector.cancel()
+    }
+
+    @Test
+    fun `an equal split among friends computes your share live as entries are added`() = runTest {
+        val (viewModel, _, _, _, _, _, _, _, _) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onAmountChanged("300")
+        viewModel.onAddSplitFriend("Raj")
+        viewModel.onAddSplitFriend("Priya")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(Money.ofRupees(100), viewModel.uiState.value.yourShare)
+        assertNull(viewModel.uiState.value.splitError)
+        collector.cancel()
+    }
+
+    @Test
+    fun `saving a split transaction stores the owed total and creates friends and splits`() = runTest {
+        val (viewModel, _, transactions, _, _, _, _, friends, splits) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val date = viewModel.uiState.value.date
+        viewModel.onAmountChanged("300")
+        viewModel.onCategorySelected(1)
+        viewModel.onAddSplitFriend("Raj")
+        viewModel.onAddSplitFriend("Priya")
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.saved)
+        val monthKey = MonthKey.of(date.year, date.monthValue)
+        val saved = transactions.observeForCategoryAndMonth(monthKey, 1).first().first()
+        assertEquals(Money.ofRupees(200), saved.owedTotal)
+        assertEquals(2, friends.current.size)
+        assertEquals(2, splits.observeByTransaction(saved.id).first().size)
+        collector.cancel()
+    }
+
+    @Test
+    fun `custom amounts exceeding the total block saving with a split error`() = runTest {
+        val (viewModel, _, _, _, _, _, _, _, _) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onAmountChanged("100")
+        viewModel.onCategorySelected(1)
+        viewModel.onAddSplitFriend("Raj")
+        viewModel.onSplitFriendAmountChanged(0, "150")
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNotNull(viewModel.uiState.value.splitError)
+        assertFalse(viewModel.uiState.value.saved)
+        collector.cancel()
+    }
+
+    @Test
+    fun `editing a split transaction pre-fills its friends' amounts, split id, and settled status`() = runTest {
+        val (viewModel, _, transactions, _, _, _, _, friends, splits) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val transactionId = transactions.insert(
+            amount = Money.ofRupees(300), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Dinner", owedTotal = Money.ofRupees(200)
+        )
+        val rajId = friends.getOrCreate("Raj")
+        splits.replaceSplits(transactionId, listOf(TransactionSplitInput(rajId, Money.ofRupees(200))))
+        val splitId = splits.observeByTransaction(transactionId).first().first().id
+        splits.settle(splitId)
+
+        viewModel.load(messageId = null, transactionId = transactionId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.splitEntries.size)
+        val entry = viewModel.uiState.value.splitEntries.first()
+        assertEquals("Raj", entry.name)
+        assertEquals(splitId, entry.splitId)
+        assertTrue(entry.settled)
+        collector.cancel()
+    }
+
+    @Test
+    fun `a friend added this session has no split id and starts unsettled`() = runTest {
+        val (viewModel, _, _, _, _, _, _, _, _) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onAddSplitFriend("Raj")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val entry = viewModel.uiState.value.splitEntries.first()
+        assertNull(entry.splitId)
+        assertFalse(entry.settled)
+        collector.cancel()
+    }
+
+    @Test
+    fun `settled status survives an edit instead of being wiped by the wholesale split replace`() = runTest {
+        val (viewModel, _, transactions, _, _, _, _, friends, splits) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val transactionId = transactions.insert(
+            amount = Money.ofRupees(300), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Dinner", owedTotal = Money.ofRupees(200)
+        )
+        val rajId = friends.getOrCreate("Raj")
+        splits.replaceSplits(transactionId, listOf(TransactionSplitInput(rajId, Money.ofRupees(200))))
+        val originalSplitId = splits.observeByTransaction(transactionId).first().first().id
+        splits.settle(originalSplitId)
+
+        viewModel.load(messageId = null, transactionId = transactionId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Edit something unrelated to Raj's settled status (the note), then save - Raj himself
+        // is never touched via onSplitFriendSettledToggled.
+        viewModel.onNoteChanged("Dinner, updated")
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val afterEdit = splits.observeByTransaction(transactionId).first().first()
+        assertTrue(afterEdit.settled)
+        collector.cancel()
+    }
+
+    @Test
+    fun `toggling a friend unsettled during an edit persists as unsettled after save`() = runTest {
+        val (viewModel, _, transactions, _, _, _, _, friends, splits) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val transactionId = transactions.insert(
+            amount = Money.ofRupees(300), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Dinner", owedTotal = Money.ofRupees(200)
+        )
+        val rajId = friends.getOrCreate("Raj")
+        splits.replaceSplits(transactionId, listOf(TransactionSplitInput(rajId, Money.ofRupees(200))))
+        splits.settle(splits.observeByTransaction(transactionId).first().first().id)
+
+        viewModel.load(messageId = null, transactionId = transactionId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSplitFriendSettledToggled(0, false)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val afterEdit = splits.observeByTransaction(transactionId).first().first()
+        assertFalse(afterEdit.settled)
+        assertNull(afterEdit.settledAt)
+        collector.cancel()
+    }
+
+    @Test
+    fun `removing all friends while editing clears the splits on save`() = runTest {
+        val (viewModel, _, transactions, _, _, _, _, friends, splits) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val transactionId = transactions.insert(
+            amount = Money.ofRupees(300), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Dinner", owedTotal = Money.ofRupees(200)
+        )
+        val rajId = friends.getOrCreate("Raj")
+        splits.replaceSplits(transactionId, listOf(TransactionSplitInput(rajId, Money.ofRupees(200))))
+
+        viewModel.load(messageId = null, transactionId = transactionId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onRemoveSplitFriend(0)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(splits.observeByTransaction(transactionId).first().isEmpty())
+        assertEquals(Money(0), transactions.getById(transactionId)!!.owedTotal)
+        collector.cancel()
+    }
+
+    @Test
+    fun `the category keyword is seeded from the SMS merchant, not from Title, and survives unchecking then rechecking Add to rule`() = runTest {
+        val (viewModel, messages, _) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "Swiggy", suggestedCategoryId = 1, status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val messageId = messages.ingest(message)!!
+        viewModel.load(messageId = messageId, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Swiggy", viewModel.uiState.value.categoryKeyword)
+
+        viewModel.onAddToRuleToggled(true)
+        viewModel.onCategoryKeywordChanged("swiggy food")
+        viewModel.onAddToRuleToggled(false)
+        viewModel.onAddToRuleToggled(true)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("swiggy food", viewModel.uiState.value.categoryKeyword)
+        collector.cancel()
+    }
+
+    @Test
+    fun `saving with Add to rule checked and a blank keyword blocks with an inline error, nothing saved`() = runTest {
+        val (viewModel, messages, transactions) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "Swiggy", suggestedCategoryId = 1, status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val messageId = messages.ingest(message)!!
+        viewModel.load(messageId = messageId, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onCategorySelected(1)
+        viewModel.onAddToRuleToggled(true)
+        viewModel.onCategoryKeywordChanged("sw")
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.saved)
+        assertNotNull(viewModel.uiState.value.categoryKeywordError)
+        assertTrue(transactions.observeForCategoryAndMonth(MonthKey.current(), 1).first().isEmpty())
+        collector.cancel()
+    }
+
+    @Test
+    fun `editing a message-linked transaction seeds the keyword fields from the linked message, independent of Title`() = runTest {
+        val (viewModel, messages, transactions) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val message = SmsMessage(
+            id = 0, sender = "HDFCBK", body = "Rs 500 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k1", parsedAmount = Money.ofRupees(500),
+            merchant = "Swiggy", suggestedCategoryId = 1, status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+        val fetchedMessage = messages.ingest(message)!!.let { messages.getById(it)!! }
+        val transactionId = transactions.saveFromMessage(
+            message = fetchedMessage, amount = Money.ofRupees(500), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = null
+        )
+
+        viewModel.load(messageId = null, transactionId = transactionId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Swiggy", viewModel.uiState.value.categoryKeyword)
+        assertEquals("Swiggy", viewModel.uiState.value.taxonomyKeyword)
+        assertEquals("Swiggy", viewModel.uiState.value.smsMerchant)
         collector.cancel()
     }
 }

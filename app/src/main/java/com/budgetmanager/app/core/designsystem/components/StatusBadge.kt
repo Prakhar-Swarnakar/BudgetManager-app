@@ -10,8 +10,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.ui.theme.StatusColors
@@ -25,9 +28,17 @@ fun StatusBadge(status: MessageStatus, modifier: Modifier = Modifier) {
         MessageStatus.ACCEPTED -> Triple(Icons.Default.Check, "Accepted", StatusColors.accepted)
         MessageStatus.REJECTED -> Triple(Icons.Default.Close, "Rejected", StatusColors.overBudget)
     }
+    StatusBadge(icon, label, color, modifier)
+}
+
+/** The general form every status badge in the app is built from - an icon, a label, and the
+ *  colour both share, so a new status (e.g. Owed to You's Pending/Reminded) gets the same
+ *  icon+colour treatment as [MessageStatus] without needing its own enum here. */
+@Composable
+fun StatusBadge(icon: ImageVector, label: String, color: Color, modifier: Modifier = Modifier) {
     Row(modifier = modifier) {
         Icon(icon, contentDescription = null, tint = color)
-        androidx.compose.runtime.CompositionLocalProvider(LocalContentColor provides color) {
+        CompositionLocalProvider(LocalContentColor provides color) {
             Text(label, modifier = Modifier.padding(start = 4.dp))
         }
     }

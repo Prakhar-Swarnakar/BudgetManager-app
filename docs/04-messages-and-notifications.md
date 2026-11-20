@@ -2,11 +2,11 @@
 
 ## What counts as a message
 
-A message is created from an incoming bank SMS that looks like a **debit** (money spent). Other SMS such as OTPs, promotions, balance alerts, and credits are ignored in v1 (credit handling is proposed as a backlog item).
+A message is created from an incoming bank SMS that looks like either a **debit** (money spent) or, **(built 2026-10-03)**, a **credit** (money coming in). Other SMS such as OTPs, promotions, and balance alerts are ignored in v1.
 
-Because several banks are used, the app cannot rely on one fixed SMS format. Parsing should look for common patterns such as "debited", "spent", "paid", and "UPI", along with an amount and a merchant name.
+Because several banks are used, the app cannot rely on one fixed SMS format. Parsing should look for common patterns such as "debited", "spent", "paid", and "UPI" for a debit, along with an amount and a merchant name.
 
-**If the amount or merchant cannot be read:** a message that clearly looks like a spend (it has a debit word and a rupee amount) but cannot be fully parsed is still saved. It appears on the Messages page with its original text, and the missing fields are left blank for the user to fill in when accepting. A message with no debit word, or with an OTP, is never saved. OTP text is never stored.
+**If the amount or merchant cannot be read:** a message that clearly looks like a spend (it has a debit word and a rupee amount) but cannot be fully parsed is still saved. It appears on the Messages page with its original text, and the missing fields are left blank for the user to fill in when accepting. A message with no debit word and no credit word, or with an OTP, is never saved. OTP text is never stored. A debit-like message is always checked first - a credit check never runs on a message that already passed as a debit, which is what keeps a debit SMS whose payee clause says "...credited" from being misfiled (see "Credit detection" below).
 
 ## Message fields
 
@@ -14,9 +14,10 @@ Because several banks are used, the app cannot rely on one fixed SMS format. Par
 |---|---|
 | Sender | The SMS sender ID, such as a bank's short code |
 | Amount | Extracted from the SMS. Blank if it could not be read |
-| Merchant | Extracted from the SMS; used as the default note |
+| Merchant | Extracted from the SMS; used as the default note. Always empty for a credit message - it has no classification yet, so there's nothing to extract a merchant for |
 | Date and time | From the SMS |
 | Original text | Full SMS text, shown when the message is opened |
+| Direction | **(added 2026-10-03)** Debit or credit - shown as a down/up arrow next to the amount on every row |
 | Status | Not assigned, accepted, or rejected |
 | New flag | True until the user has opened the Messages page and left it. Drives the red circle on the tab and the bold text and blue dot on the row |
 | Unique key | Built from the SMS's own id, time, and text, so the same SMS is never saved twice |
@@ -52,10 +53,13 @@ Because several banks are used, the app cannot rely on one fixed SMS format. Par
 
 Confirmed and built in M3/M4 (2026-09-25). Only a **Not assigned** message can become Accepted or Rejected; there is no direct Accepted-to-Rejected move or reverse. Accepted and Rejected each only revert to Not assigned. This is stricter than the original plan below (row 7 in [07-open-questions.md](07-open-questions.md)) and replaces it, to keep the state machine symmetric and to stop an accepted message's transaction from ever being orphaned by a status change that bypasses deleting it.
 
+The table below is for a **debit** message. A **credit** message (built 2026-10-03) follows the same shape, except Not assigned's "Accept" side is a direct status flip instead of opening Add Transaction - there's no transaction to create, so Accepted just means "yes, this is real incoming money, keep it logged." Everything else (Reject with Undo, Accepted/Rejected reverting to Not assigned) is identical for both directions.
+
 | Row status | Swipe right (start-to-end) | Swipe left (end-to-start) |
 |---|---|---|
-| Not assigned | Opens Add Transaction, pre-filled. Becomes Accepted once saved | Reject. A short Undo bar appears |
-| Accepted | No effect | Reverts to Not assigned (deletes the linked transaction) |
+| Not assigned (debit) | Opens Add Transaction, pre-filled. Becomes Accepted once saved | Reject. A short Undo bar appears |
+| Not assigned (credit) | Directly becomes Accepted - no screen opens, no transaction is created | Reject. A short Undo bar appears |
+| Accepted | No effect | Reverts to Not assigned (a debit message's revert deletes its linked transaction; a credit message's revert is a direct status flip, since it never had one) |
 | Rejected | Reverts to Not assigned | No effect |
 
 The reveal strip under the row always matches what that swipe will really do: green check / red cross on a Not assigned row, a neutral grey "undo" icon on the one live direction for Accepted or Rejected, and nothing on a no-op direction.
@@ -80,11 +84,15 @@ The user can change any field. The message becomes green when the transaction is
   one that happens to also be a substring.
 - The suggestion is only a pre-fill. The user always sees it and can change it.
 - If nothing matches, no category is suggested.
-- **Learning from choices** (built 2026-10-01): saving an accepted message's transaction remembers
-  its merchant as a keyword mapped to whichever category the user actually picked - including
-  when that overrides the original suggestion - so the same merchant suggests correctly next
-  time. Merchant text under 3 characters is never learned, since a very short word is more likely
-  to misfire against an unrelated future message than to help.
+- **Learning from choices** (built 2026-10-01, keyword decoupled from Title 2026-10-04): checking
+  "Add to rule" on Add Transaction (Category and Payment method each have their own) reveals a
+  **Keyword** field, seeded once from the SMS's own parsed merchant - never from the **Title**
+  field above it, which is free to rename for readability without changing what gets learned.
+  Saving upserts that keyword mapped to whichever category (or payment method) the user actually
+  picked, including when that overrides the original suggestion. The checkbox is disabled
+  whenever there's no real SMS behind the transaction - a manual entry has nothing to learn from.
+  A keyword under 3 characters blocks Save with an inline error instead of silently skipping,
+  since checking the box is a deliberate choice.
 - **User-editable keyword rules** (built 2026-10-01, grouped layout 2026-10-02, moved to the side
   panel 2026-10-02): a "Category rules" page in the side panel, grouped by category - each one is a section showing its words as
   removable chips plus a "+ add" chip, including a category with none yet. Tapping a chip reassigns
@@ -98,13 +106,37 @@ A second, independent keyword-rule engine alongside category suggestion - same s
 (`taxonomy_keyword_rule`), so a word like "zomato" can suggest a category and a payment method
 at once, from two different rules. Suggested at the same ingest time as the category
 (`SmsReceiver`, `DefaultInboxScanner`), stored on the message as `suggestedTaxonomy`, and
-refreshed by "Run rule" the same way. The 8 values are fixed (UPI, Credit Card, Debit Card,
+refreshed by "Run rule" the same way. **Always matched against the full SMS body, never the
+merchant** (fixed 2026-10-04 - a real bug from when this was first built: taxonomy keywords are
+payment-method boilerplate words like "upi"/"neft"/"credit card" that live in the body, not in a
+merchant name, so matching against the merchant whenever one was parsed - the common case - meant
+a suggestion almost never appeared; category suggestion correctly keeps using the merchant, since
+merchant names are exactly what category keywords are built from). The 8 values are fixed (UPI, Credit Card, Debit Card,
 Credit Card via UPI, Bank Transfer, Wallet, Cash, Other), so its own "Taxonomy rules" page in the
 side panel has no create/rename step the way Category rules does - just adding or removing
 keywords under each already-existing value. **Shown on the row** (built 2026-10-02): the same
 slot/style as category, directly underneath it - an Accepted row's real transaction taxonomy, or
 a Not assigned row's keyword suggestion, same rule as category (Rejected never shows one). See
 "Payment method taxonomy" in [06-backlog.md](06-backlog.md).
+
+## Credit detection (built 2026-10-03)
+
+A generic first slice, deliberately **not** classified into any sub-type (Refund, Settlement,
+Income, Ignored are still backlog items - see "Credit handling" in
+[06-backlog.md](06-backlog.md)). `CreditClassifier` looks for an amount plus a credit-family word
+("credited", "received", "deposited"), the same shape as `SpendClassifier`'s debit check, and is
+only ever consulted after a message has already failed the debit check - this ordering is what
+prevents a debit SMS whose payee clause says "...credited" (a real, common wording) from being
+misfiled as incoming money. A credit message gets no merchant, category, or taxonomy - there's no
+type decided yet to suggest anything against - just an amount (where one can be read) and the raw
+SMS text. Accept/Reject on a credit message is a direct status toggle (see "Gestures" above), not
+a trip through Add Transaction: there is no category to pick, so there's nothing a form would
+collect. Accepting it never creates a transaction and never touches a category's budget.
+
+**Direction arrow** (built 2026-10-03): every row, both directions, shows a small up or down arrow
+next to the amount - green up for a credit, red down for a debit (`MessageRow.kt`, the same
+`Text`-glyph-plus-`StatusColors` idiom Trends' month-comparison arrows already use, not a Material
+icon).
 
 ## Notifications
 

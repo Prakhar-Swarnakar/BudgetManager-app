@@ -50,12 +50,22 @@ class SpendClassifierTest {
     }
 
     @Test
-    fun `a message with no amount is not spend-like`() {
+    fun `a message with neither an amount nor a debit word is not spend-like`() {
         assertFalse(SpendClassifier.isSpendLike("Your account statement is ready to view."))
     }
 
     @Test
     fun `a message with an amount but no debit word is not spend-like`() {
         assertFalse(SpendClassifier.isSpendLike("Recharge of INR 99.00 is successful for your mobile."))
+    }
+
+    @Test
+    fun `a debit word with no amount at all is still spend-like`() {
+        // The real gap found 2026-10-06: a genuine mutual fund SIP purchase confirmation that
+        // never states an amount inline, pointing to a separate statement instead - this was
+        // being silently dropped before the amount requirement was removed.
+        val body = "Systematic Investment Purchase - in your folio *****306 has been processed. " +
+            "SOA will reach you shortly. For queries contact your advisor -Test AMC"
+        assertTrue(SpendClassifier.isSpendLike(body))
     }
 }

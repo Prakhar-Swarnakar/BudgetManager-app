@@ -21,7 +21,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.budgetmanager.app.core.designsystem.components.ConfirmDialog
-import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 data class PermissionStatusUi(
@@ -44,6 +46,7 @@ fun SettingsContent(
     onTrendsMonthsShownChanged: (Int) -> Unit,
     onExportClick: () -> Unit,
     onImportClick: () -> Unit,
+    onValidateStatementClick: () -> Unit,
     onConfirmImport: () -> Unit,
     onCancelImport: () -> Unit,
     onDismissImportError: () -> Unit,
@@ -115,6 +118,20 @@ fun SettingsContent(
                 Text("Import backup")
             }
         }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+        Text("Data", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Compare a bank or card statement against what we caught - a check, not a second " +
+                "way to add transactions.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        OutlinedButton(onClick = onValidateStatementClick, modifier = Modifier.padding(top = 8.dp)) {
+            Text("Validate a statement")
+        }
     }
 
     state.pendingImport?.let { pending ->
@@ -152,8 +169,10 @@ private fun InfoDialog(title: String, message: String, onDismiss: () -> Unit) {
     )
 }
 
+private val exportTimestampFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
+
 private fun formatExportTimestamp(millis: Long): String =
-    SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault()).format(millis)
+    Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).format(exportTimestampFormatter)
 
 @Composable
 private fun PermissionRow(label: String, granted: Boolean, onFix: () -> Unit, hint: String? = null) {

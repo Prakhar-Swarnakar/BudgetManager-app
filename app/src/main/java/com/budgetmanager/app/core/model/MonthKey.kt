@@ -4,6 +4,8 @@ import java.time.Clock
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.format.TextStyle
+import java.util.Locale
 
 /**
  * A calendar month, such as "2026-09". A transaction belongs to the month of its date
@@ -22,6 +24,22 @@ value class MonthKey(val value: String) : Comparable<MonthKey> {
 
     fun previous(): MonthKey = toYearMonth().minusMonths(1).toMonthKey()
     fun next(): MonthKey = toYearMonth().plusMonths(1).toMonthKey()
+
+    /** The month spelled out for display, e.g. "September 2026" - used by the month selector and
+     *  anywhere a confirmation names the month it's about. */
+    fun label(): String {
+        val monthName = toYearMonth().month.getDisplayName(TextStyle.FULL, Locale.getDefault())
+        return "$monthName $year"
+    }
+
+    /** This month as a [start, end) pair of epoch millis in [zone] - for the queries that work in
+     *  raw timestamps rather than month keys (an SMS Provider date range, and the sms_message
+     *  table, whose received_at is a plain millis column). */
+    fun toMillisRange(zone: ZoneId): Pair<Long, Long> {
+        val start = toYearMonth().atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = toYearMonth().plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        return start to end
+    }
 
     private fun toYearMonth(): YearMonth = YearMonth.of(year, month)
 

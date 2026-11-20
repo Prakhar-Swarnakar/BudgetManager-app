@@ -54,4 +54,10 @@ object SmsParser {
             paymentMethod = genericPaymentMethodRegex.find(body)?.groupValues?.get(1)
         )
     }
+
+    /** Credit messages get no classification in v1 (06-backlog.md, "Credit handling") - no
+     *  merchant/payment-method extraction makes sense for money with no decided type yet.
+     *  Reuses the same generic amount pattern as [parse]'s fallback path. */
+    fun parseAmountOnly(body: String): Money? =
+        genericAmountRegex.find(body)?.groupValues?.get(1)?.let { Money.parseSmsAmount(it) }
 }

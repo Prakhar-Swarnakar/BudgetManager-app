@@ -71,6 +71,14 @@ dependencies {
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
 
+    // Statement validator: PDF text extraction (handles password-protected PDFs) and legacy
+    // binary .xls reading. Modern .xlsx is read with a small hand-rolled zip+XML reader instead
+    // of poi-ooxml, to avoid poi-ooxml's non-Android-friendly javax.xml.stream dependency chain.
+    // log4j-api is kept (not excluded) - POIDocument references LogManager at class-init time,
+    // so excluding it breaks POI outright rather than just trimming dead weight.
+    implementation(libs.pdfbox.android)
+    implementation(libs.apache.poi)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.androidx.compose.bom))

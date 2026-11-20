@@ -3,6 +3,7 @@ package com.budgetmanager.app.data.repository
 import androidx.room.withTransaction
 import com.budgetmanager.app.data.backup.AlertLogBackup
 import com.budgetmanager.app.data.backup.BackupBundle
+import com.budgetmanager.app.data.backup.CashTopUpBackup
 import com.budgetmanager.app.data.backup.CategoryBackup
 import com.budgetmanager.app.data.backup.KeywordRuleBackup
 import com.budgetmanager.app.data.backup.MonthlyBudgetBackup
@@ -10,12 +11,14 @@ import com.budgetmanager.app.data.backup.SmsMessageBackup
 import com.budgetmanager.app.data.backup.TransactionBackup
 import com.budgetmanager.app.data.database.AppDatabase
 import com.budgetmanager.app.data.database.dao.AlertLogDao
+import com.budgetmanager.app.data.database.dao.CashTopUpDao
 import com.budgetmanager.app.data.database.dao.CategoryDao
 import com.budgetmanager.app.data.database.dao.KeywordRuleDao
 import com.budgetmanager.app.data.database.dao.MonthlyBudgetDao
 import com.budgetmanager.app.data.database.dao.SmsMessageDao
 import com.budgetmanager.app.data.database.dao.TransactionDao
 import com.budgetmanager.app.data.database.entity.AlertLogEntity
+import com.budgetmanager.app.data.database.entity.CashTopUpEntity
 import com.budgetmanager.app.data.database.entity.CategoryEntity
 import com.budgetmanager.app.data.database.entity.KeywordRuleEntity
 import com.budgetmanager.app.data.database.entity.MonthlyBudgetEntity
@@ -30,7 +33,8 @@ class RoomBackupRepository @Inject constructor(
     private val transactionDao: TransactionDao,
     private val smsMessageDao: SmsMessageDao,
     private val alertLogDao: AlertLogDao,
-    private val keywordRuleDao: KeywordRuleDao
+    private val keywordRuleDao: KeywordRuleDao,
+    private val cashTopUpDao: CashTopUpDao
 ) : BackupRepository {
 
     override suspend fun buildBackup(): BackupBundle = BackupBundle(
@@ -41,7 +45,8 @@ class RoomBackupRepository @Inject constructor(
         transactions = transactionDao.getAllOnce().map { it.toBackup() },
         smsMessages = smsMessageDao.getAllOnce().map { it.toBackup() },
         alertLogs = alertLogDao.getAllOnce().map { it.toBackup() },
-        keywordRules = keywordRuleDao.getAll().map { it.toBackup() }
+        keywordRules = keywordRuleDao.getAll().map { it.toBackup() },
+        cashTopUps = cashTopUpDao.getAllOnce().map { CashTopUpBackup(it.id, it.amountPaise, it.occurredAt, it.note) }
     )
 
     override suspend fun restore(bundle: BackupBundle) {
@@ -49,6 +54,7 @@ class RoomBackupRepository @Inject constructor(
             // Children before parents, so a foreign key never briefly points at a row that's
             // already gone.
             alertLogDao.deleteAll()
+            cashTopUpDao.deleteAll()
             transactionDao.deleteAll()
             smsMessageDao.deleteAll()
             monthlyBudgetDao.deleteAll()
@@ -65,6 +71,7 @@ class RoomBackupRepository @Inject constructor(
             smsMessageDao.insertAll(bundle.smsMessages.map { it.toEntity() })
             transactionDao.insertAll(bundle.transactions.map { it.toEntity() })
             alertLogDao.insertAll(bundle.alertLogs.map { it.toEntity() })
+            cashTopUpDao.insertAll(bundle.cashTopUps.map { CashTopUpEntity(it.id, it.amountPaise, it.occurredAt, it.note) })
         }
     }
 }

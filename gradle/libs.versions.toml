@@ -16,6 +16,8 @@ datastorePreferences = "1.2.1"
 navigation3 = "1.2.0"
 kotlinxCoroutinesTest = "1.11.0"
 kotlinxSerialization = "1.7.3"
+pdfboxAndroid = "2.0.27.0"
+apachePoi = "5.2.5"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -45,6 +47,8 @@ androidx-navigation3-ui = { group = "androidx.navigation3", name = "navigation3-
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesTest" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfboxAndroid" }
+apache-poi = { group = "org.apache.poi", name = "poi", version.ref = "apachePoi" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

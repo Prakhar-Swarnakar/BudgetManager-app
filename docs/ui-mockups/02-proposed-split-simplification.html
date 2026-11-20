@@ -1,0 +1,328 @@
+<meta charset="UTF-8">
+<title>Budget Manager — proposed: Split with friends simplification</title>
+<style>
+  :root {
+    --bg: #F0F3F7;
+    --canvas-ink: #1C1B1F;
+    --canvas-ink-muted: #5B6472;
+    --phone-bg: #FFFBFE;
+    --phone-surface: #FFFFFF;
+    --phone-surface-alt: #F4F1F6;
+    --ink: #1C1B1F;
+    --ink-muted: #5B6472;
+    --ink-faint: #8C8894;
+    --accent: #2A78D6;
+    --accent-soft: #E6F0FC;
+    --warning: #B87400;
+    --warning-soft: #FCF0D9;
+    --danger: #C53632;
+    --danger-soft: #FBEAEA;
+    --success: #237A48;
+    --success-soft: #E6F4EC;
+    --border: #E7E4EA;
+    --frame-shadow: rgba(28, 27, 31, 0.14);
+    --canvas-grid: rgba(28, 27, 31, 0.05);
+    --proposed: #7A4FBF;
+    --proposed-soft: #F1EBFA;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101013; --canvas-ink: #E6E1E5; --canvas-ink-muted: #9B96A3;
+      --phone-bg: #1C1B1F; --phone-surface: #242329; --phone-surface-alt: #2B292F;
+      --ink: #E6E1E5; --ink-muted: #ACA7B2; --ink-faint: #7D7883;
+      --accent: #6FA3E8; --accent-soft: rgba(111,163,232,0.16);
+      --warning: #E3A63D; --warning-soft: rgba(227,166,61,0.14);
+      --danger: #E8706C; --danger-soft: rgba(232,112,108,0.14);
+      --success: #52B57E; --success-soft: rgba(82,181,126,0.14);
+      --border: #38353E; --frame-shadow: rgba(0,0,0,0.5); --canvas-grid: rgba(255,255,255,0.04);
+      --proposed: #B79AE0; --proposed-soft: rgba(183,154,224,0.16);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101013; --canvas-ink: #E6E1E5; --canvas-ink-muted: #9B96A3;
+    --phone-bg: #1C1B1F; --phone-surface: #242329; --phone-surface-alt: #2B292F;
+    --ink: #E6E1E5; --ink-muted: #ACA7B2; --ink-faint: #7D7883;
+    --accent: #6FA3E8; --accent-soft: rgba(111,163,232,0.16);
+    --warning: #E3A63D; --warning-soft: rgba(227,166,61,0.14);
+    --danger: #E8706C; --danger-soft: rgba(232,112,108,0.14);
+    --success: #52B57E; --success-soft: rgba(82,181,126,0.14);
+    --border: #38353E; --frame-shadow: rgba(0,0,0,0.5); --canvas-grid: rgba(255,255,255,0.04);
+    --proposed: #B79AE0; --proposed-soft: rgba(183,154,224,0.16);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    background-image: linear-gradient(var(--canvas-grid) 1px, transparent 1px), linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    color: var(--canvas-ink);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+    padding: 44px 28px 90px;
+  }
+
+  .page-head { max-width: 860px; margin: 0 auto 36px; }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--proposed); margin: 0 0 10px; }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 10px; text-wrap: balance; }
+  .page-head p { font-size: 14.5px; line-height: 1.6; color: var(--canvas-ink-muted); max-width: 72ch; margin: 0; }
+  .page-head ul { font-size: 13.5px; line-height: 1.7; color: var(--canvas-ink-muted); max-width: 70ch; margin: 14px 0 0; padding-left: 20px; }
+  .page-head li b { color: var(--canvas-ink); }
+
+  h2.group-heading {
+    max-width: 1400px;
+    margin: 0 auto 4px;
+    padding: 0 4px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--canvas-ink-muted);
+    border-top: 1px solid var(--canvas-grid);
+    padding-top: 28px;
+  }
+  h2.group-heading:first-of-type { border-top: 0; padding-top: 0; }
+  h2.group-heading .tag { font-size: 10.5px; font-weight: 700; text-transform: none; letter-spacing: normal; padding: 2px 8px; border-radius: 999px; margin-left: 10px; background: var(--proposed-soft); color: var(--proposed); vertical-align: 2px; }
+
+  .rail { display: flex; gap: 30px; align-items: flex-start; overflow-x: auto; padding: 10px 4px 26px; max-width: 1400px; margin: 0 auto; }
+  .stop { flex: 0 0 272px; }
+  .stop-title { font-size: 13.5px; font-weight: 700; color: var(--canvas-ink); margin: 0 0 8px 2px; }
+  .stop-caption { font-size: 11.5px; line-height: 1.5; color: var(--canvas-ink-muted); margin: 8px 2px 0; }
+  .stop-caption b { color: var(--canvas-ink); }
+
+  .phone { width: 272px; border-radius: 30px; padding: 9px; background: linear-gradient(165deg, #3a3a40, #19181c); box-shadow: 0 16px 34px var(--frame-shadow); }
+  .screen { background: var(--phone-bg); border-radius: 23px; overflow: hidden; display: flex; flex-direction: column; height: 560px; }
+
+  .statusbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px 4px; flex-shrink: 0; }
+  .statusbar time { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .statusbar .icons { display: flex; align-items: center; gap: 5px; }
+  .signal { display: flex; align-items: flex-end; gap: 2px; height: 8px; }
+  .signal span { width: 2.5px; background: var(--ink); border-radius: 1px; }
+  .signal span:nth-child(1){height:3px} .signal span:nth-child(2){height:5px} .signal span:nth-child(3){height:6.5px} .signal span:nth-child(4){height:8px}
+  .battery { width: 18px; height: 9px; border: 1.3px solid var(--ink); border-radius: 2.5px; padding: 1.3px; position: relative; }
+  .battery::after { content:""; position:absolute; right:-3.2px; top:2.2px; width:1.6px; height:3.6px; background:var(--ink); border-radius:0 1px 1px 0; }
+  .battery i { display:block; width:80%; height:100%; background:var(--ink); border-radius:1px; }
+
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 4px 18px 8px; flex-shrink: 0; }
+  .topbar .back { font-size: 17px; color: var(--ink); line-height: 1; }
+  .topbar h2 { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; flex: 1; }
+
+  .content { flex: 1; overflow-y: auto; padding: 4px 16px 16px; -webkit-mask-image: linear-gradient(to bottom, black 92%, transparent 100%); mask-image: linear-gradient(to bottom, black 92%, transparent 100%); }
+  .content::-webkit-scrollbar { width: 0; }
+
+  .muted { color: var(--ink-muted); }
+  .faint { color: var(--ink-faint); }
+
+  .field-label { font-size: 11px; font-weight: 700; color: var(--ink-muted); margin: 14px 2px 6px; }
+  .input { width: 100%; border: 1.3px solid var(--border); background: var(--phone-surface); border-radius: 12px; padding: 10px 12px; font-size: 13px; color: var(--ink); }
+  .dropdown { width: 100%; border: 1.3px solid var(--border); background: var(--phone-surface); border-radius: 12px; padding: 10px 12px; font-size: 13px; color: var(--ink); display: flex; justify-content: space-between; align-items: center; }
+  .checkbox-row { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; font-size: 11px; color: var(--ink-muted); line-height: 1.4; }
+  .checkbox-row .box { width: 15px; height: 15px; border-radius: 4px; border: 1.4px solid var(--ink-faint); flex-shrink: 0; margin-top: 1px; }
+  .switch-row { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+  .switch { width: 34px; height: 19px; border-radius: 99px; background: var(--border); position: relative; flex-shrink: 0; }
+  .switch.on { background: var(--accent); }
+  .switch i { position: absolute; width: 15px; height: 15px; border-radius: 50%; background: #fff; top: 2px; left: 2px; }
+  .switch.on i { left: 17px; }
+  .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+  .btn { flex: 1; text-align: center; padding: 11px; border-radius: 12px; font-size: 13px; font-weight: 700; }
+  .btn.outline { border: 1.4px solid var(--accent); color: var(--accent); }
+  .btn.filled { background: var(--accent); color: #fff; }
+  .btn.small { flex: 0 0 auto; padding: 7px 12px; font-size: 11.5px; }
+
+  .chip { display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .chip.neutral { background: var(--phone-surface-alt); color: var(--ink-muted); }
+  .chip.success { background: var(--success-soft); color: var(--success); }
+
+  /* split-with-friends rows, old and new */
+  .splitrow { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .splitrow .name { flex: 1; font-size: 13px; font-weight: 600; }
+  .splitrow .amtbox { width: 86px; border: 1.3px solid var(--border); background: var(--phone-surface); border-radius: 10px; padding: 8px 10px; font-size: 12.5px; }
+  .splitrow .amtbox.placeholder { color: var(--ink-faint); font-style: italic; }
+  .splitrow .amtbox.typed { color: var(--ink); font-weight: 600; }
+  .splitrow .x { font-size: 15px; color: var(--ink-faint); width: 20px; text-align: center; flex-shrink: 0; }
+  .splitrow .custom-group { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .splitrow .custom-group .box { width: 14px; height: 14px; border-radius: 3px; border: 1.4px solid var(--ink-faint); }
+  .splitrow .custom-group .box.checked { background: var(--accent); border-color: var(--accent); }
+  .splitrow .custom-group span.lbl { font-size: 10px; color: var(--ink-muted); }
+  .settled-chip { font-size: 10px; font-weight: 700; padding: 4px 9px; border-radius: 999px; border: 1.3px solid var(--border); color: var(--ink-muted); flex-shrink: 0; white-space: nowrap; }
+  .settled-chip.on { background: var(--success-soft); color: var(--success); border-color: transparent; }
+
+  .warn-banner { font-size: 11px; color: var(--danger); line-height: 1.5; margin-top: 10px; }
+
+  .friendchip { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--ink); margin: 6px 6px 0 0; }
+  .chiprow { display: flex; flex-wrap: wrap; margin-top: 2px; }
+</style>
+
+<div class="page-head">
+  <p class="eyebrow">Proposed — not yet built — 2026-11-15</p>
+  <h1>Split with friends — simplifying the per-friend amount control</h1>
+  <p>Today each friend row has a <b>Custom</b> checkbox that reveals a separate amount field only once checked. Proposed: drop the checkbox, always show one amount box per friend - empty shows a placeholder reading "Equal" rather than sitting blank, so the state is visible rather than something to infer. Typing a number makes that friend's share custom instead; nothing in the domain logic (<code>ComputeSplit</code>) changes, since a blank/placeholder box already means exactly what <code>customAmount = null</code> means today.</p>
+  <ul>
+    <li><b>Option A</b> - just the toggle removal. Smaller, no open design questions, ready to build now.</li>
+    <li><b>Option B</b> - the same, plus a per-friend <b>Settled</b> chip, surfacing <code>TransactionSplitRepository.settle()</code> which already exists but has no UI anywhere today. Needs a decision first: editing a split today wholesale-replaces every split on save, which would wipe settled state - shown here so you can see the shape of it before we decide how that interaction should work.</li>
+  </ul>
+</div>
+
+<h2 class="group-heading">Current state</h2>
+<div class="rail">
+
+  <div class="stop">
+    <p class="stop-title">Add transaction — Split with friends, today</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2></div>
+      <div class="content">
+        <div class="switch-row"><span style="font-size:12px; font-weight:600;">Split with friends</span><div class="switch on"><i></i></div></div>
+
+        <div class="splitrow">
+          <span class="name">Rahul</span>
+          <div class="custom-group"><span class="box"></span><span class="lbl">Custom</span></div>
+          <span class="x">✕</span>
+        </div>
+        <div class="splitrow">
+          <span class="name">Priya</span>
+          <span class="amtbox typed">₹500</span>
+          <div class="custom-group"><span class="box checked"></span><span class="lbl">Custom</span></div>
+          <span class="x">✕</span>
+        </div>
+
+        <div class="btn-row" style="margin-top:14px;">
+          <div class="input" style="flex:1; padding:10px 12px;">Friend's name</div>
+          <div class="btn filled small">Add</div>
+        </div>
+
+        <p class="field-label" style="margin-top:16px;">Your share: ₹400</p>
+      </div>
+    </div></div>
+    <p class="stop-caption">Rahul (equal share) shows no amount box at all unless Custom is checked - the only visible sign he's on an equal share is the <i>absence</i> of a box, next to Priya's who has one.</p>
+  </div>
+
+</div>
+
+<h2 class="group-heading">Option A <span class="tag">toggle removal only</span></h2>
+<div class="rail">
+
+  <div class="stop">
+    <p class="stop-title">Equal share, placeholder shown</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2></div>
+      <div class="content">
+        <div class="switch-row"><span style="font-size:12px; font-weight:600;">Split with friends</span><div class="switch on"><i></i></div></div>
+
+        <div class="splitrow">
+          <span class="x">✕</span>
+          <span class="name">Rahul</span>
+          <span class="amtbox placeholder">Equal</span>
+        </div>
+        <div class="splitrow">
+          <span class="x">✕</span>
+          <span class="name">Priya</span>
+          <span class="amtbox typed">₹500</span>
+        </div>
+
+        <div class="btn-row" style="margin-top:14px;">
+          <div class="input" style="flex:1; padding:10px 12px;">Friend's name</div>
+          <div class="btn filled small">Add</div>
+        </div>
+        <div class="chiprow"><span class="friendchip">+ Manan</span><span class="friendchip">+ Aungan</span></div>
+
+        <p class="field-label" style="margin-top:16px;">Your share: ₹400</p>
+      </div>
+    </div></div>
+    <p class="stop-caption">No checkbox, no "Custom" label. Rahul's box visibly reads "Equal" (a real placeholder, not a typed value) - Priya's shows her typed ₹500 in normal weight. One control per friend instead of two.</p>
+  </div>
+
+  <div class="stop">
+    <p class="stop-title">Typing over the placeholder</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2></div>
+      <div class="content">
+        <div class="switch-row"><span style="font-size:12px; font-weight:600;">Split with friends</span><div class="switch on"><i></i></div></div>
+
+        <div class="splitrow">
+          <span class="x">✕</span>
+          <span class="name">Rahul</span>
+          <span class="amtbox typed" style="border-color:var(--accent); color:var(--accent);">₹150|</span>
+        </div>
+        <div class="splitrow">
+          <span class="x">✕</span>
+          <span class="name">Priya</span>
+          <span class="amtbox typed">₹500</span>
+        </div>
+
+        <p class="field-label" style="margin-top:16px;">Your share: ₹250</p>
+      </div>
+    </div></div>
+    <p class="stop-caption">As soon as Rahul's box has real text, it's a custom share - "Your share" recomputes live, same as today. No separate state to flip first.</p>
+  </div>
+
+</div>
+
+<h2 class="group-heading">Option B <span class="tag">toggle removal + Settled</span></h2>
+<div class="rail">
+
+  <div class="stop">
+    <p class="stop-title">Each friend row gets a Settled chip</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2></div>
+      <div class="content">
+        <div class="switch-row"><span style="font-size:12px; font-weight:600;">Split with friends</span><div class="switch on"><i></i></div></div>
+
+        <div class="splitrow">
+          <span class="x">✕</span>
+          <span class="name">Rahul</span>
+          <span class="amtbox placeholder">Equal</span>
+          <span class="settled-chip">Pending</span>
+        </div>
+        <div class="splitrow">
+          <span class="x">✕</span>
+          <span class="name">Priya</span>
+          <span class="amtbox typed">₹500</span>
+          <span class="settled-chip on">✓ Settled</span>
+        </div>
+
+        <p class="field-label" style="margin-top:16px;">Your share: ₹400</p>
+      </div>
+    </div></div>
+    <p class="stop-caption">A tappable chip per friend - "Pending"/"Settled", same wording Owed to You already uses elsewhere. Priya's marked Settled here; tapping either chip toggles it.</p>
+  </div>
+
+  <div class="stop">
+    <p class="stop-title">Editing a split with a settled friend</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2></div>
+      <div class="content">
+        <div class="switch-row"><span style="font-size:12px; font-weight:600;">Split with friends</span><div class="switch on"><i></i></div></div>
+
+        <p class="warn-banner">One or more friends have already settled this split. Saving changes will reset everyone back to unsettled.</p>
+
+        <div class="splitrow">
+          <span class="x">✕</span>
+          <span class="name">Rahul</span>
+          <span class="amtbox placeholder">Equal</span>
+          <span class="settled-chip">Pending</span>
+        </div>
+        <div class="splitrow">
+          <span class="x">✕</span>
+          <span class="name">Priya</span>
+          <span class="amtbox typed">₹500</span>
+          <span class="settled-chip on">✓ Settled</span>
+        </div>
+
+        <p class="field-label" style="margin-top:16px;">Your share: ₹400</p>
+      </div>
+    </div></div>
+    <p class="stop-caption"><b>This is the open question, made visible</b>: the existing warning banner (already built, shown today when any split is settled) still fires. Unresolved: should Save still wipe every friend's Settled state as it does today, or should Settled survive an edit now that it's directly visible and editable right here? Needs your call before this half is built.</p>
+  </div>
+
+</div>
+
+<footer style="max-width:860px; margin:40px auto 0; font-size:11.5px; color:var(--canvas-ink-muted); line-height:1.6; border-top:1px solid var(--canvas-grid); padding-top:18px;">
+  Proposed mockup, matching the existing app's visual system. Nothing here is built yet. "Current state" reconstructs today's actual <code>AddTransactionContent.kt</code> split section (Custom <code>Switch</code> + conditional field) for direct comparison. See <code>docs/06-backlog.md</code>, "Simplify Add Transaction's split UI" for the written plan.
+</footer>

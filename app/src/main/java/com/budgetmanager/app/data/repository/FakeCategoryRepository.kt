@@ -8,6 +8,10 @@ import kotlinx.coroutines.flow.map
 class FakeCategoryRepository : CategoryRepository {
     private val state = MutableStateFlow<List<Category>>(emptyList())
 
+    /** Synchronous peek at the current list, for other fakes to join against (e.g.
+     *  FakeTransactionSplitRepository.observeOwedToYou) without a suspend call. */
+    val current: List<Category> get() = state.value
+
     override fun observeAll() = state.map { it.sortedBy { c -> c.sortOrder } }
     override fun observeActive() = state.map { list -> list.filter { !it.archived }.sortedBy { it.sortOrder } }
     override suspend fun getById(id: Long) = state.value.firstOrNull { it.id == id }

@@ -21,16 +21,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.budgetmanager.app.core.common.toDayTimeText
+import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.ui.theme.StatusColors
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
-private val timeFormatter = DateTimeFormatter.ofPattern("dd MMM, HH:mm")
-
-/** The full SMS text with Accept and Reject buttons, per 04-messages-and-notifications.md.
- *  [duplicateOf] is set when DetectPossibleDuplicates thinks this message might be the same real
- *  payment as another one still Not assigned - shown so the user can check before accepting both. */
+/** The full SMS text, with Accept and Reject buttons on a message that's still Not assigned,
+ *  per 04-messages-and-notifications.md. [duplicateOf] is set when DetectPossibleDuplicates
+ *  thinks this message might be the same real payment as another one still Not assigned - shown
+ *  so the user can check before accepting both. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageDetailSheet(
@@ -60,8 +59,13 @@ fun MessageDetailSheet(
                             )
                         }
                         Text(
-                            "${other.sender} · ${other.parsedAmount?.formatted()} · " +
-                                other.receivedAt.atZone(ZoneId.systemDefault()).format(timeFormatter),
+                            // The amount segment is dropped rather than printed as "null" when
+                            // the other message never stated one inline.
+                            listOfNotNull(
+                                other.sender,
+                                other.parsedAmount?.formatted(),
+                                other.receivedAt.toDayTimeText()
+                            ).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp)
@@ -70,10 +74,26 @@ fun MessageDetailSheet(
                 }
             }
 
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                OutlinedButton(onClick = onReject, modifier = Modifier.weight(1f)) { Text("Reject") }
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = onAccept, modifier = Modifier.weight(1f)) { Text("Accept") }
+            // Only Not assigned can still move either way - the ViewModel treats Accept and
+            // Reject on an already-decided message as no-ops, so offering live-looking buttons
+            // here just promised an action that would silently do nothing. Reverting an
+            // Accepted or Rejected message is the swipe on its row, as the reveal strip shows.
+            if (message.status == MessageStatus.NOT_ASSIGNED) {
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+                    OutlinedButton(onClick = onReject, modifier = Modifier.weight(1f)) { Text("Reject") }
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = onAccept, modifier = Modifier.weight(1f)) { Text("Accept") }
+                }
+            } else {
+                Text(
+                    when (message.status) {
+                        MessageStatus.ACCEPTED -> "Already accepted. Swipe the row to undo."
+                        else -> "Rejected. Swipe the row to put it back."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
             }
         }
     }

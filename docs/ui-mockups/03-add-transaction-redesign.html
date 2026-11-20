@@ -1,0 +1,431 @@
+<meta charset="UTF-8">
+<title>Budget Manager — proposed: Add/Edit Transaction redesign</title>
+<style>
+  :root {
+    --bg: #F0F3F7;
+    --canvas-ink: #1C1B1F;
+    --canvas-ink-muted: #5B6472;
+    --phone-bg: #FFFBFE;
+    --phone-surface: #FFFFFF;
+    --phone-surface-alt: #F4F1F6;
+    --ink: #1C1B1F;
+    --ink-muted: #5B6472;
+    --ink-faint: #8C8894;
+    --accent: #2A78D6;
+    --accent-soft: #E6F0FC;
+    --warning: #B87400;
+    --warning-soft: #FCF0D9;
+    --danger: #C53632;
+    --danger-soft: #FBEAEA;
+    --success: #237A48;
+    --success-soft: #E6F4EC;
+    --border: #E7E4EA;
+    --frame-shadow: rgba(28, 27, 31, 0.14);
+    --canvas-grid: rgba(28, 27, 31, 0.05);
+    --proposed: #7A4FBF;
+    --proposed-soft: #F1EBFA;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101013; --canvas-ink: #E6E1E5; --canvas-ink-muted: #9B96A3;
+      --phone-bg: #1C1B1F; --phone-surface: #242329; --phone-surface-alt: #2B292F;
+      --ink: #E6E1E5; --ink-muted: #ACA7B2; --ink-faint: #7D7883;
+      --accent: #6FA3E8; --accent-soft: rgba(111,163,232,0.16);
+      --warning: #E3A63D; --warning-soft: rgba(227,166,61,0.14);
+      --danger: #E8706C; --danger-soft: rgba(232,112,108,0.14);
+      --success: #52B57E; --success-soft: rgba(82,181,126,0.14);
+      --border: #38353E; --frame-shadow: rgba(0,0,0,0.5); --canvas-grid: rgba(255,255,255,0.04);
+      --proposed: #B79AE0; --proposed-soft: rgba(183,154,224,0.16);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101013; --canvas-ink: #E6E1E5; --canvas-ink-muted: #9B96A3;
+    --phone-bg: #1C1B1F; --phone-surface: #242329; --phone-surface-alt: #2B292F;
+    --ink: #E6E1E5; --ink-muted: #ACA7B2; --ink-faint: #7D7883;
+    --accent: #6FA3E8; --accent-soft: rgba(111,163,232,0.16);
+    --warning: #E3A63D; --warning-soft: rgba(227,166,61,0.14);
+    --danger: #E8706C; --danger-soft: rgba(232,112,108,0.14);
+    --success: #52B57E; --success-soft: rgba(82,181,126,0.14);
+    --border: #38353E; --frame-shadow: rgba(0,0,0,0.5); --canvas-grid: rgba(255,255,255,0.04);
+    --proposed: #B79AE0; --proposed-soft: rgba(183,154,224,0.16);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    background-image: linear-gradient(var(--canvas-grid) 1px, transparent 1px), linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    color: var(--canvas-ink);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+    padding: 44px 28px 90px;
+  }
+
+  .page-head { max-width: 860px; margin: 0 auto 36px; }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--proposed); margin: 0 0 10px; }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 10px; text-wrap: balance; }
+  .page-head p { font-size: 14.5px; line-height: 1.6; color: var(--canvas-ink-muted); max-width: 72ch; margin: 0; }
+  .page-head ul { font-size: 13.5px; line-height: 1.7; color: var(--canvas-ink-muted); max-width: 70ch; margin: 14px 0 0; padding-left: 20px; }
+  .page-head li b { color: var(--canvas-ink); }
+
+  h2.group-heading {
+    max-width: 1400px;
+    margin: 0 auto 4px;
+    padding: 0 4px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--canvas-ink-muted);
+    border-top: 1px solid var(--canvas-grid);
+    padding-top: 28px;
+  }
+  h2.group-heading:first-of-type { border-top: 0; padding-top: 0; }
+  h2.group-heading .tag { font-size: 10.5px; font-weight: 700; text-transform: none; letter-spacing: normal; padding: 2px 8px; border-radius: 999px; margin-left: 10px; background: var(--proposed-soft); color: var(--proposed); vertical-align: 2px; }
+  h2.group-heading p.sub { font-size: 12px; font-weight: 500; text-transform: none; letter-spacing: normal; color: var(--canvas-ink-muted); margin: 6px 0 0; max-width: 70ch; }
+
+  .rail { display: flex; gap: 30px; align-items: flex-start; overflow-x: auto; padding: 10px 4px 26px; max-width: 1400px; margin: 0 auto; }
+  .stop { flex: 0 0 272px; }
+  .stop-title { font-size: 13.5px; font-weight: 700; color: var(--canvas-ink); margin: 0 0 8px 2px; }
+  .stop-caption { font-size: 11.5px; line-height: 1.5; color: var(--canvas-ink-muted); margin: 8px 2px 0; }
+  .stop-caption b { color: var(--canvas-ink); }
+
+  .phone { width: 272px; border-radius: 30px; padding: 9px; background: linear-gradient(165deg, #3a3a40, #19181c); box-shadow: 0 16px 34px var(--frame-shadow); position: relative; }
+  .screen { background: var(--phone-bg); border-radius: 23px; overflow: hidden; display: flex; flex-direction: column; height: 560px; position: relative; }
+
+  .statusbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px 4px; flex-shrink: 0; }
+  .statusbar time { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .statusbar .icons { display: flex; align-items: center; gap: 5px; }
+  .signal { display: flex; align-items: flex-end; gap: 2px; height: 8px; }
+  .signal span { width: 2.5px; background: var(--ink); border-radius: 1px; }
+  .signal span:nth-child(1){height:3px} .signal span:nth-child(2){height:5px} .signal span:nth-child(3){height:6.5px} .signal span:nth-child(4){height:8px}
+  .battery { width: 18px; height: 9px; border: 1.3px solid var(--ink); border-radius: 2.5px; padding: 1.3px; position: relative; }
+  .battery::after { content:""; position:absolute; right:-3.2px; top:2.2px; width:1.6px; height:3.6px; background:var(--ink); border-radius:0 1px 1px 0; }
+  .battery i { display:block; width:80%; height:100%; background:var(--ink); border-radius:1px; }
+
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 4px 10px 8px 18px; flex-shrink: 0; }
+  .topbar .back { font-size: 17px; color: var(--ink); line-height: 1; }
+  .topbar h2 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -0.01em; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .topbar .save-action { font-size: 13px; font-weight: 700; color: var(--accent); padding: 6px 10px; flex-shrink: 0; }
+  .topbar .save-action.disabled { color: var(--ink-faint); }
+
+  .content { flex: 1; overflow-y: auto; padding: 4px 16px 16px; -webkit-mask-image: linear-gradient(to bottom, black 92%, transparent 100%); mask-image: linear-gradient(to bottom, black 92%, transparent 100%); }
+  .content::-webkit-scrollbar { width: 0; }
+
+  .muted { color: var(--ink-muted); }
+  .faint { color: var(--ink-faint); }
+
+  .sms-card { background: var(--phone-surface-alt); border-radius: 12px; padding: 10px 12px; font-size: 11px; line-height: 1.5; color: var(--ink-muted); margin-top: 10px; }
+
+  .date-label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--accent); margin: 10px 2px 0; }
+  .date-label .cal { font-size: 12px; }
+
+  .field-label { font-size: 11px; font-weight: 700; color: var(--ink-muted); margin: 14px 2px 6px; }
+  .input { width: 100%; border: 1.3px solid var(--border); background: var(--phone-surface); border-radius: 12px; padding: 10px 12px; font-size: 13px; color: var(--ink); }
+  .input.err { border-color: var(--danger); }
+  .row-2up { display: flex; gap: 8px; margin-top: 14px; }
+  .row-2up .col-title { flex: 1.5; }
+  .row-2up .col-amount { flex: 1; }
+  .amount-input { display: flex; align-items: center; }
+  .amount-input .rupee { font-size: 13px; color: var(--ink-muted); margin-right: 4px; }
+
+  .dropdown { width: 100%; border: 1.3px solid var(--border); background: var(--phone-surface); border-radius: 12px; padding: 10px 12px; font-size: 13px; color: var(--ink); display: flex; justify-content: space-between; align-items: center; }
+  .checkbox-row { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; font-size: 11px; color: var(--ink-muted); line-height: 1.4; }
+  .checkbox-row .box { width: 15px; height: 15px; border-radius: 4px; border: 1.4px solid var(--ink-faint); flex-shrink: 0; margin-top: 1px; }
+  .switch-row { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+  .switch { width: 34px; height: 19px; border-radius: 99px; background: var(--border); position: relative; flex-shrink: 0; }
+  .switch.on { background: var(--accent); }
+  .switch i { position: absolute; width: 15px; height: 15px; border-radius: 50%; background: #fff; top: 2px; left: 2px; }
+  .switch.on i { left: 17px; }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+  .btn { flex: 1; text-align: center; padding: 11px; border-radius: 12px; font-size: 13px; font-weight: 700; }
+  .btn.outline { border: 1.4px solid var(--accent); color: var(--accent); }
+  .btn.filled { background: var(--accent); color: #fff; }
+  .btn.small { flex: 0 0 auto; padding: 7px 12px; font-size: 11.5px; }
+
+  .disclosure { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; padding: 10px 2px; border-top: 1px solid var(--canvas-grid); }
+  .disclosure .label { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .disclosure .chev { font-size: 11px; color: var(--ink-faint); }
+
+  .chip { display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .chip.neutral { background: var(--phone-surface-alt); color: var(--ink-muted); }
+  .chip.success { background: var(--success-soft); color: var(--success); }
+
+  .warn-banner { font-size: 11px; color: var(--danger); line-height: 1.5; margin-top: 10px; background: var(--danger-soft); border-radius: 10px; padding: 9px 10px; }
+
+  .friendchip { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--ink); margin: 6px 6px 0 0; }
+  .chiprow { display: flex; flex-wrap: wrap; margin-top: 2px; }
+
+  .annot {
+    position: absolute; inset: 0; pointer-events: none;
+  }
+  .annot svg { width: 100%; height: 100%; }
+  .annot .arrow-note {
+    position: absolute; font-size: 10.5px; font-weight: 700; color: var(--danger);
+    background: var(--phone-bg); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--danger);
+  }
+
+  .dialog-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .dialog-card { background: var(--phone-surface); border-radius: 16px; padding: 16px; width: 100%; }
+  .dialog-card h3 { font-size: 14px; margin: 0 0 8px; }
+  .dialog-card p { font-size: 11.5px; line-height: 1.5; color: var(--ink-muted); margin: 0 0 14px; }
+  .dialog-card .btn-row { margin-top: 0; }
+  .dialog-card .btn { padding: 8px; font-size: 12px; }
+</style>
+
+<div class="page-head">
+  <p class="eyebrow">Proposed — not yet built — 2026-11-15</p>
+  <h1>Add/Edit Transaction — tightening the layout</h1>
+  <p>Today's screen stacks Title then Amount in separate rows, has a full boxed date field sitting mid-form after the Split section, and ends in a Cancel/Save button row at the very bottom of a long scrolling page - disconnected from the fields they act on. This mockup compares today's screen against a core redesign (the six changes already agreed), plus three optional add-ons shown separately so you can pick which, if any, to commission alongside it.</p>
+  <ul>
+    <li><b>Core redesign</b> - Title+Amount side by side, no bottom button row, Save moves into the top bar next to the header, the back arrow is the only way out (it already discards exactly like Cancel does today - no behaviour change there), and the boxed date field is replaced by a small tappable date line under the SMS text, opening the same calendar dialog as today. Ready to build as scoped.</li>
+    <li><b>Option 1</b> - collapse the "Add to rule" controls under Category/Payment method, since they only matter for a brand-new merchant.</li>
+    <li><b>Option 2</b> - auto-scroll to the first validation error when Save (now up top, away from the fields) fails.</li>
+    <li><b>Option 3</b> - a real "this will un-settle everyone" confirmation before saving an edited split transaction - <code>docs/06-backlog.md</code> says this already exists; it doesn't. Surfaced here since we're touching this exact Save path.</li>
+  </ul>
+</div>
+
+<h2 class="group-heading">Current state</h2>
+<div class="rail">
+
+  <div class="stop">
+    <p class="stop-title">Add transaction, today</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2></div>
+      <div class="content">
+        <div class="sms-card">"Rs 450.00 debited from a/c XX123 on 15-11-26 to ZOMATO. Avl bal Rs 12,340.50"</div>
+
+        <p class="field-label">Title</p>
+        <div class="input">Zomato</div>
+
+        <p class="field-label">Amount</p>
+        <div class="input">₹ 450.00</div>
+
+        <p class="field-label">Category</p>
+        <div class="dropdown"><span>Food &amp; Dining</span><span class="faint">▾</span></div>
+        <div class="checkbox-row"><span class="box"></span><span>Add to rule: always use this category for this keyword</span></div>
+
+        <p class="field-label">Payment method</p>
+        <div class="dropdown"><span>UPI</span><span class="faint">▾</span></div>
+
+        <div class="switch-row"><span style="font-size:12px; font-weight:600;">Split with friends</span><div class="switch"><i></i></div></div>
+
+        <p class="field-label">Date</p>
+        <div class="input">15 Nov 2026</div>
+
+        <p class="field-label">Note (optional)</p>
+        <div class="input faint">—</div>
+
+        <div class="btn-row">
+          <div class="btn outline">Cancel</div>
+          <div class="btn filled">Save</div>
+        </div>
+      </div>
+    </div></div>
+    <p class="stop-caption">Title and Amount each own a full row. Date is a boxed field sandwiched between Split and Note. Cancel/Save only appear after scrolling past every field - on a longer form (Split expanded, both rule checkboxes) they can sit a full screen below the fold.</p>
+  </div>
+
+</div>
+
+<h2 class="group-heading">Core redesign <span class="tag">the six agreed changes</span></h2>
+<div class="rail">
+
+  <div class="stop">
+    <p class="stop-title">Save lives in the header now</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2><span class="save-action">Save</span></div>
+      <div class="content">
+        <div class="sms-card">"Rs 450.00 debited from a/c XX123 on 15-11-26 to ZOMATO. Avl bal Rs 12,340.50"</div>
+        <p class="date-label"><span class="cal">📅</span> 15 Nov 2026 · tap to change</p>
+
+        <div class="row-2up">
+          <div class="col-title">
+            <p class="field-label" style="margin-top:0;">Title</p>
+            <div class="input">Zomato</div>
+          </div>
+          <div class="col-amount">
+            <p class="field-label" style="margin-top:0;">Amount</p>
+            <div class="input amount-input"><span class="rupee">₹</span>450.00</div>
+          </div>
+        </div>
+
+        <p class="field-label">Category</p>
+        <div class="dropdown"><span>Food &amp; Dining</span><span class="faint">▾</span></div>
+        <div class="checkbox-row"><span class="box"></span><span>Add to rule: always use this category for this keyword</span></div>
+
+        <p class="field-label">Payment method</p>
+        <div class="dropdown"><span>UPI</span><span class="faint">▾</span></div>
+
+        <div class="switch-row"><span style="font-size:12px; font-weight:600;">Split with friends</span><div class="switch"><i></i></div></div>
+
+        <p class="field-label">Note (optional)</p>
+        <div class="input faint">—</div>
+      </div>
+    </div></div>
+    <p class="stop-caption">Title and Amount share one row. The boxed date field is gone - a small tappable line sits right under the SMS text instead, opening the same calendar dialog as today. Save sits next to the title; no button row at the bottom at all. The back arrow (‹) is the only way out, and already discards exactly like Cancel does today - nothing behavioural changes there, just one less button to look at.</p>
+  </div>
+
+  <div class="stop">
+    <p class="stop-title">Tapping the date line</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2><span class="save-action">Save</span></div>
+      <div class="content">
+        <div class="sms-card">"Rs 450.00 debited from a/c XX123 on 15-11-26 to ZOMATO. Avl bal Rs 12,340.50"</div>
+        <p class="date-label"><span class="cal">📅</span> 15 Nov 2026 · tap to change</p>
+      </div>
+      <div class="dialog-overlay">
+        <div class="dialog-card">
+          <h3>Select date</h3>
+          <p>Same Material date picker already used today - only the trigger changed from a boxed field to this text line.</p>
+          <div class="btn-row">
+            <div class="btn outline">Cancel</div>
+            <div class="btn filled">OK</div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <p class="stop-caption">Same <code>DatePickerDialog</code> as today (<code>DateField.kt</code>) - only what triggers it changes, from a read-only boxed field to this text line.</p>
+  </div>
+
+  <div class="stop">
+    <p class="stop-title">Manually-added transaction (no SMS text)</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2><span class="save-action">Save</span></div>
+      <div class="content">
+        <div class="row-2up">
+          <div class="col-title">
+            <p class="field-label" style="margin-top:0;">Title</p>
+            <div class="input faint">—</div>
+          </div>
+          <div class="col-amount">
+            <p class="field-label" style="margin-top:0;">Amount</p>
+            <div class="input amount-input"><span class="rupee">₹</span><span class="faint">0.00</span></div>
+          </div>
+        </div>
+
+        <p class="field-label">Category</p>
+        <div class="dropdown"><span class="faint">Select a category</span><span class="faint">▾</span></div>
+
+        <p class="field-label">Payment method</p>
+        <div class="dropdown"><span class="faint">Select</span><span class="faint">▾</span></div>
+
+        <div class="switch-row"><span style="font-size:12px; font-weight:600;">Split with friends</span><div class="switch"><i></i></div></div>
+
+        <p class="field-label">Date</p>
+        <div class="input">15 Nov 2026</div>
+
+        <p class="field-label">Note (optional)</p>
+        <div class="input faint">—</div>
+      </div>
+    </div></div>
+    <p class="stop-caption"><b>Deliberately left as-is</b>: there's no SMS text to put the new date line under when a transaction is added manually (tapping "+" from Home) - your call was to leave this case alone for now rather than invent a new spot. It keeps today's boxed date field, unchanged, in its current position after Split.</p>
+  </div>
+
+</div>
+
+<h2 class="group-heading">Option 1 <span class="tag">collapsible rule-learning sections</span><p class="sub">Category and Payment method each carry an "Add to rule" checkbox + keyword field that only matters the first time a merchant is seen. Collapsing them by default shortens an already long page.</p></h2>
+<div class="rail">
+
+  <div class="stop">
+    <p class="stop-title">Collapsed by default</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2><span class="save-action">Save</span></div>
+      <div class="content">
+        <p class="field-label" style="margin-top:0;">Category</p>
+        <div class="dropdown"><span>Food &amp; Dining</span><span class="faint">▾</span></div>
+        <div class="disclosure"><span class="label">Add to rule</span><span class="chev">▾</span></div>
+
+        <p class="field-label">Payment method</p>
+        <div class="dropdown"><span>UPI</span><span class="faint">▾</span></div>
+        <div class="disclosure"><span class="label">Add to rule</span><span class="chev">▾</span></div>
+
+        <div class="switch-row"><span style="font-size:12px; font-weight:600;">Split with friends</span><div class="switch"><i></i></div></div>
+      </div>
+    </div></div>
+    <p class="stop-caption">Each dropdown now only shows a one-line "Add to rule" disclosure instead of the checkbox + keyword field every time - noticeably shorter when both are collapsed.</p>
+  </div>
+
+  <div class="stop">
+    <p class="stop-title">Expanded on tap</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2><span class="save-action">Save</span></div>
+      <div class="content">
+        <p class="field-label" style="margin-top:0;">Category</p>
+        <div class="dropdown"><span>Food &amp; Dining</span><span class="faint">▾</span></div>
+        <div class="disclosure"><span class="label">Add to rule</span><span class="chev">▴</span></div>
+        <div class="checkbox-row"><span class="box checked" style="background:var(--accent); border-color:var(--accent);"></span><span>Always use this category for this keyword</span></div>
+        <p class="field-label">Keyword</p>
+        <div class="input">zomato</div>
+      </div>
+    </div></div>
+    <p class="stop-caption">Tapping the disclosure reveals exactly what's visible unconditionally today - the checkbox and keyword field. Nothing about <code>RuleLearningSection</code>'s own logic changes, just whether it starts open or closed.</p>
+  </div>
+
+</div>
+
+<h2 class="group-heading">Option 2 <span class="tag">scroll to first error on Save</span><p class="sub">With Save in the header, a validation failure (missing category, bad amount) happens far from where the user is looking - this illustrates auto-scrolling down to the offending field instead of failing silently off-screen.</p></h2>
+<div class="rail">
+
+  <div class="stop">
+    <p class="stop-title">Save tapped, category missing</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Add transaction</h2><span class="save-action">Save</span></div>
+      <div class="content">
+        <p class="field-label" style="margin-top:0;">Category</p>
+        <div class="dropdown input err"><span class="faint">Select a category</span><span class="faint">▾</span></div>
+        <p style="font-size:11px; color:var(--danger); margin:4px 2px 0;">Pick a category before saving</p>
+
+        <p class="field-label">Payment method</p>
+        <div class="dropdown"><span>UPI</span><span class="faint">▾</span></div>
+      </div>
+      <div class="annot">
+        <div class="arrow-note" style="top: 46px; right: 14px;">⤴ auto-scrolled here</div>
+      </div>
+    </div></div>
+    <p class="stop-caption">Tapping the header Save button with no category selected scrolls the page down to put the error directly in view, with the existing inline error text, rather than leaving the user to discover it by scrolling manually.</p>
+  </div>
+
+</div>
+
+<h2 class="group-heading">Option 3 <span class="tag">real split-edit warning</span><p class="sub"><code>docs/06-backlog.md</code> claims a warning already shows before saving an edited split transaction with settled friends. It doesn't exist in the code today - this shows what building it for real would look like.</p></h2>
+<div class="rail">
+
+  <div class="stop">
+    <p class="stop-title">Saving an edit that would un-settle a friend</p>
+    <div class="phone"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">‹</span><h2>Edit transaction</h2><span class="save-action">Save changes</span></div>
+      <div class="content">
+        <div class="switch-row"><span style="font-size:12px; font-weight:600;">Split with friends</span><div class="switch on"><i></i></div></div>
+        <div class="warn-banner">Priya has already settled her ₹500 share. Saving this edit will mark her share Pending again.</div>
+      </div>
+      <div class="dialog-overlay">
+        <div class="dialog-card">
+          <h3>Save changes?</h3>
+          <p>Priya's settled ₹500 share will be reset to Pending, since every split is replaced when you save an edit.</p>
+          <div class="btn-row">
+            <div class="btn outline">Cancel</div>
+            <div class="btn filled">Save anyway</div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <p class="stop-caption">Real gap, not yet built: today, saving an edited split transaction silently wipes any settled state with no warning at all. This confirm dialog would fire only when at least one friend is already Settled.</p>
+  </div>
+
+</div>
+
+<footer style="max-width:860px; margin:40px auto 0; font-size:11.5px; color:var(--canvas-ink-muted); line-height:1.6; border-top:1px solid var(--canvas-grid); padding-top:18px;">
+  Proposed mockup, matching the existing app's visual system. Nothing here is built yet. "Current state" reconstructs today's real <code>AddTransactionContent.kt</code> layout (stacked Title/Amount, boxed <code>DateField</code>, bottom Cancel/Save row) for direct comparison. The core redesign is the six changes already agreed; Options 1-3 are separate add-ons to pick from independently.
+</footer>

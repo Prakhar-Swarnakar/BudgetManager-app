@@ -1,0 +1,294 @@
+<meta charset="UTF-8">
+<title>Budget Manager — proposed: Cash tracking</title>
+<style>
+  :root {
+    --bg: #F0F3F7;
+    --canvas-ink: #1C1B1F;
+    --canvas-ink-muted: #5B6472;
+    --phone-bg: #FFFBFE;
+    --phone-surface: #FFFFFF;
+    --phone-surface-alt: #F4F1F6;
+    --ink: #1C1B1F;the
+    --ink-muted: #5B6472;
+    --ink-faint: #8C8894;
+    --accent: #2A78D6;
+    --accent-soft: #E6F0FC;
+    --warning: #B87400;
+    --warning-soft: #FCF0D9;
+    --danger: #C53632;
+    --danger-soft: #FBEAEA;
+    --success: #237A48;
+    --success-soft: #E6F4EC;
+    --inprogress: #A9CBEE;
+    --border: #E7E4EA;
+    --frame-shadow: rgba(28, 27, 31, 0.14);
+    --canvas-grid: rgba(28, 27, 31, 0.05);
+    --proposed: #7A4FBF;
+    --proposed-soft: #F1EBFA;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101013; --canvas-ink: #E6E1E5; --canvas-ink-muted: #9B96A3;
+      --phone-bg: #1C1B1F; --phone-surface: #242329; --phone-surface-alt: #2B292F;
+      --ink: #E6E1E5; --ink-muted: #ACA7B2; --ink-faint: #7D7883;
+      --accent: #6FA3E8; --accent-soft: rgba(111,163,232,0.16);
+      --warning: #E3A63D; --warning-soft: rgba(227,166,61,0.14);
+      --danger: #E8706C; --danger-soft: rgba(232,112,108,0.14);
+      --success: #52B57E; --success-soft: rgba(82,181,126,0.14);
+      --inprogress: #3A587A;
+      --border: #38353E; --frame-shadow: rgba(0,0,0,0.5); --canvas-grid: rgba(255,255,255,0.04);
+      --proposed: #B79AE0; --proposed-soft: rgba(183,154,224,0.16);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101013; --canvas-ink: #E6E1E5; --canvas-ink-muted: #9B96A3;
+    --phone-bg: #1C1B1F; --phone-surface: #242329; --phone-surface-alt: #2B292F;
+    --ink: #E6E1E5; --ink-muted: #ACA7B2; --ink-faint: #7D7883;
+    --accent: #6FA3E8; --accent-soft: rgba(111,163,232,0.16);
+    --warning: #E3A63D; --warning-soft: rgba(227,166,61,0.14);
+    --danger: #E8706C; --danger-soft: rgba(232,112,108,0.14);
+    --success: #52B57E; --success-soft: rgba(82,181,126,0.14);
+    --inprogress: #3A587A;
+    --border: #38353E; --frame-shadow: rgba(0,0,0,0.5); --canvas-grid: rgba(255,255,255,0.04);
+    --proposed: #B79AE0; --proposed-soft: rgba(183,154,224,0.16);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    background-image: linear-gradient(var(--canvas-grid) 1px, transparent 1px), linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    color: var(--canvas-ink);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+    padding: 44px 28px 90px;
+  }
+
+  .page-head { max-width: 820px; margin: 0 auto 36px; }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--proposed); margin: 0 0 10px; }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 10px; text-wrap: balance; }
+  .page-head p { font-size: 14.5px; line-height: 1.6; color: var(--canvas-ink-muted); max-width: 70ch; margin: 0; }
+  .page-head ul { font-size: 13.5px; line-height: 1.7; color: var(--canvas-ink-muted); max-width: 68ch; margin: 14px 0 0; padding-left: 20px; }
+  .page-head li b { color: var(--canvas-ink); }
+
+  h2.group-heading {
+    max-width: 1400px;
+    margin: 0 auto 4px;
+    padding: 0 4px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--canvas-ink-muted);
+    border-top: 1px solid var(--canvas-grid);
+    padding-top: 28px;
+  }
+  h2.group-heading:first-of-type { border-top: 0; padding-top: 0; }
+
+  .rail { display: flex; gap: 30px; align-items: flex-start; overflow-x: auto; padding: 10px 4px 26px; max-width: 1400px; margin: 0 auto; }
+  .stop { flex: 0 0 272px; }
+  .stop-title { font-size: 13.5px; font-weight: 700; color: var(--canvas-ink); margin: 0 0 8px 2px; }
+  .stop-caption { font-size: 11.5px; line-height: 1.5; color: var(--canvas-ink-muted); margin: 8px 2px 0; }
+  .stop-caption b { color: var(--canvas-ink); }
+
+  .phone { width: 272px; border-radius: 30px; padding: 9px; background: linear-gradient(165deg, #3a3a40, #19181c); box-shadow: 0 16px 34px var(--frame-shadow); }
+  .screen { background: var(--phone-bg); border-radius: 23px; overflow: hidden; display: flex; flex-direction: column; height: 560px; }
+
+  .statusbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px 4px; flex-shrink: 0; }
+  .statusbar time { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .statusbar .icons { display: flex; align-items: center; gap: 5px; }
+  .signal { display: flex; align-items: flex-end; gap: 2px; height: 8px; }
+  .signal span { width: 2.5px; background: var(--ink); border-radius: 1px; }
+  .signal span:nth-child(1){height:3px} .signal span:nth-child(2){height:5px} .signal span:nth-child(3){height:6.5px} .signal span:nth-child(4){height:8px}
+  .battery { width: 18px; height: 9px; border: 1.3px solid var(--ink); border-radius: 2.5px; padding: 1.3px; position: relative; }
+  .battery::after { content:""; position:absolute; right:-3.2px; top:2.2px; width:1.6px; height:3.6px; background:var(--ink); border-radius:0 1px 1px 0; }
+  .battery i { display:block; width:80%; height:100%; background:var(--ink); border-radius:1px; }
+
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 4px 18px 8px; flex-shrink: 0; }
+  .topbar .back { font-size: 17px; color: var(--ink); line-height: 1; }
+  .topbar h2 { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; flex: 1; }
+  .topbar .meta { font-size: 11px; color: var(--ink-muted); margin-top: 1px; }
+
+  .content { flex: 1; overflow-y: auto; padding: 4px 16px 16px; -webkit-mask-image: linear-gradient(to bottom, black 92%, transparent 100%); mask-image: linear-gradient(to bottom, black 92%, transparent 100%); position: relative; }
+  .content::-webkit-scrollbar { width: 0; }
+  .content.no-fade { -webkit-mask-image: none; mask-image: none; }
+
+  .card { background: var(--phone-surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin: 8px 0 14px; }
+  .row-between { display: flex; justify-content: space-between; align-items: center; }
+  .divider { height: 1px; background: var(--border); margin: 10px 0; }
+  .muted { color: var(--ink-muted); }
+  .faint { color: var(--ink-faint); }
+
+  .chip { display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .chip.success { background: var(--success-soft); color: var(--success); }
+  .chip.danger { background: var(--danger-soft); color: var(--danger); }
+  .chip.neutral { background: var(--phone-surface-alt); color: var(--ink-muted); }
+  .chip.proposed { background: var(--proposed-soft); color: var(--proposed); }
+
+  .fab { position: absolute; right: 16px; bottom: 16px; width: 46px; height: 46px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 300; box-shadow: 0 6px 14px var(--frame-shadow); }
+  .screen-wrap { position: relative; }
+
+  .sidepanel-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+  .sidepanel-item.sel { background: var(--accent-soft); color: var(--accent); }
+  .sidepanel-item .ic { width: 20px; text-align: center; }
+  .sidepanel-item.new { outline: 1.5px dashed var(--proposed); outline-offset: -1.5px; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.3); border-radius: 23px; }
+
+  .field-label { font-size: 11px; font-weight: 700; color: var(--ink-muted); margin: 14px 2px 6px; }
+  .input { width: 100%; border: 1.3px solid var(--border); background: var(--phone-surface); border-radius: 12px; padding: 10px 12px; font-size: 13px; color: var(--ink); }
+  .btn-row { display: flex; gap: 8px; margin-top: 20px; }
+  .btn { flex: 1; text-align: center; padding: 11px; border-radius: 12px; font-size: 13px; font-weight: 700; }
+  .btn.outline { border: 1.4px solid var(--accent); color: var(--accent); }
+  .btn.filled { background: var(--accent); color: #fff; }
+
+  /* balance summary card */
+  .balance-card { background: var(--phone-surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin: 8px 0 14px; }
+  .balance-card .lbl { font-size: 11px; font-weight: 700; color: var(--ink-muted); text-transform: uppercase; letter-spacing: .03em; }
+  .balance-card .amt { font-size: 26px; font-weight: 800; margin-top: 4px; }
+  .balance-card .amt.warn { color: var(--danger); }
+  .balance-card .hint { font-size: 10.5px; color: var(--ink-muted); margin-top: 6px; line-height: 1.5; }
+  .balance-card .hint.warn { color: var(--danger); font-weight: 600; }
+
+  /* ledger rows - one shared shape for a top-up (in) and a cash spend (out) */
+  .ledgerrow { display: flex; align-items: center; gap: 10px; border-radius: 14px; padding: 11px 12px; margin-bottom: 7px; background: var(--phone-surface); border: 1px solid var(--border); }
+  .ledgerrow.topup { background: var(--success-soft); border-color: transparent; }
+  .ledgerrow .ic { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+  .ledgerrow .body { flex: 1; min-width: 0; }
+  .ledgerrow .title { font-size: 13px; font-weight: 700; }
+  .ledgerrow .sub { font-size: 10.5px; color: var(--ink-muted); margin-top: 1px; }
+  .ledgerrow .cat { font-size: 10px; color: var(--ink-muted); margin-top: 2px; }
+  .ledgerrow .right { text-align: right; flex-shrink: 0; }
+  .ledgerrow .amt { font-size: 13px; font-weight: 700; }
+  .ledgerrow .amt.in { color: var(--success); }
+  .ledgerrow .amt.out { color: var(--ink); }
+
+  .section-lbl { font-size: 11px; font-weight: 700; color: var(--ink-muted); text-transform: uppercase; letter-spacing: .03em; margin: 14px 2px 6px; }
+
+  footer { max-width: 820px; margin: 40px auto 0; font-size: 11.5px; color: var(--canvas-ink-muted); line-height: 1.6; border-top: 1px solid var(--canvas-grid); padding-top: 18px; }
+</style>
+
+<div class="page-head">
+  <p class="eyebrow">Built 2026-11-17 as the Wallet page (see 08-pages-and-navigation.md) — originally proposed 2026-11-15</p>
+  <h1>Cash tracking — mockup for review</h1>
+  <p>Know how much cash you're physically holding. You manually log cash coming in (an ATM withdrawal, a cash gift — a "top-up"); a cash spend already works today via Add Transaction's existing Payment method = Cash, no change needed there. The balance is never a number stored anywhere - it's derived live, same way every other total in this app already works.</p>
+  <ul>
+    <li><b>New side-panel page, not a 5th bottom tab</b> - sits with Monthly budget / Category rules / Taxonomy rules, reached from the menu, same as those.</li>
+    <li><b>Balance = sum of top-ups − sum of cash spends</b> (the full transaction amount, not the budget-counted share - if you pay a split bill in cash, the whole amount leaves your hand even though friends owe their part back some other way).</li>
+    <li><b>A negative balance is a signal, not a normal state</b> - it means a top-up wasn't logged, or something got mis-tagged as Cash. Shown in red with an explicit note, not treated like Home's "Saved" (which legitimately can go negative).</li>
+    <li><b>Open question for you</b>: should a cash spend row link to its category (tap → Category detail), same as every other amount/category row in the app? Mocked here as <i>yes</i> - costs nothing, keeps it traceable.</li>
+  </ul>
+</div>
+
+<h2 class="group-heading">Side panel</h2>
+<div class="rail">
+
+  <!-- SIDE PANEL WITH CASH ADDED -->
+  <div class="stop">
+    <p class="stop-title">Side panel — Cash added</p>
+    <div class="phone screen-wrap"><div class="screen">
+      <div class="scrim" style="left:76%;"></div>
+      <div style="position:absolute; left:0; top:0; bottom:0; width:76%; background:var(--phone-surface); padding:50px 10px 10px; box-shadow:4px 0 16px var(--frame-shadow);">
+        <div class="sidepanel-item"><span class="ic">💰</span>Monthly budget</div>
+        <div class="sidepanel-item new sel"><span class="ic">👛</span>Cash<span class="chip proposed" style="margin-left:auto;">New</span></div>
+        <div class="sidepanel-item"><span class="ic">🏷</span>Category rules</div>
+        <div class="sidepanel-item"><span class="ic">💳</span>Taxonomy rules</div>
+        <div class="sidepanel-item"><span class="ic">⚙</span>Settings</div>
+      </div>
+    </div></div>
+    <p class="stop-caption">Placed right after Monthly budget - both are "your money, overall" pages, before the rule-editing pages.</p>
+  </div>
+
+  <!-- CASH MAIN VIEW -->
+  <div class="stop">
+    <p class="stop-title">Cash — normal balance</p>
+    <div class="phone screen-wrap"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">☰</span><h2>Cash</h2></div>
+      <div class="content">
+        <div class="balance-card">
+          <div class="lbl">Cash on hand</div>
+          <div class="amt">₹1,240</div>
+        </div>
+
+        <div class="section-lbl">This month</div>
+        <div class="ledgerrow topup">
+          <span class="ic">↑</span>
+          <div class="body"><div class="title">ATM withdrawal</div><div class="sub">3 Nov, 11:20</div></div>
+          <div class="right"><div class="amt in">+₹2,000</div></div>
+        </div>
+        <div class="ledgerrow">
+          <span class="ic">🍔</span>
+          <div class="body"><div class="title">Street food</div><div class="sub">4 Nov, 13:05</div><div class="cat">🍔 Food &amp; Dining</div></div>
+          <div class="right"><div class="amt out">-₹150</div></div>
+        </div>
+        <div class="ledgerrow">
+          <span class="ic">🚗</span>
+          <div class="body"><div class="title">Auto fare</div><div class="sub">4 Nov, 09:40</div><div class="cat">🚗 Transport</div></div>
+          <div class="right"><div class="amt out">-₹110</div></div>
+        </div>
+        <div class="ledgerrow">
+          <span class="ic">🛒</span>
+          <div class="body"><div class="title">Vegetable vendor</div><div class="sub">2 Nov, 18:50</div><div class="cat">🛒 Groceries</div></div>
+          <div class="right"><div class="amt out">-₹500</div></div>
+        </div>
+      </div>
+      <div class="fab">+</div>
+    </div></div>
+    <p class="stop-caption">One combined ledger, newest first - a top-up (green, ↑) and a cash spend (its category's own look, tap → Category detail) side by side so the whole story of the wallet reads in one list. <b>+</b> opens Add cash.</p>
+  </div>
+
+  <!-- CASH NEGATIVE BALANCE -->
+  <div class="stop">
+    <p class="stop-title">Cash — unlogged top-up (negative)</p>
+    <div class="phone screen-wrap"><div class="screen">
+      <div class="statusbar"><time>9:41</time><div class="icons"><div class="signal"><span></span><span></span><span></span><span></span></div><div class="battery"><i></i></div></div></div>
+      <div class="topbar"><span class="back">☰</span><h2>Cash</h2></div>
+      <div class="content">
+        <div class="balance-card">
+          <div class="lbl">Cash on hand</div>
+          <div class="amt warn">-₹260</div>
+          <div class="hint warn">⚠ This usually means a top-up wasn't logged, or a non-cash spend got tagged as Cash by mistake.</div>
+        </div>
+
+        <div class="section-lbl">This month</div>
+        <div class="ledgerrow">
+          <span class="ic">🍔</span>
+          <div class="body"><div class="title">Street food</div><div class="sub">4 Nov, 13:05</div><div class="cat">🍔 Food &amp; Dining</div></div>
+          <div class="right"><div class="amt out">-₹150</div></div>
+        </div>
+        <div class="ledgerrow">
+          <span class="ic">🚗</span>
+          <div class="body"><div class="title">Auto fare</div><div class="sub">4 Nov, 09:40</div><div class="cat">🚗 Transport</div></div>
+          <div class="right"><div class="amt out">-₹110</div></div>
+        </div>
+      </div>
+      <div class="fab">+</div>
+    </div></div>
+    <p class="stop-caption">Deliberately styled as a warning, not a neutral number the way Home's "Saved" can go negative - physical cash can't actually go below zero, so this always means the data is wrong somewhere, not that you're "in debt."</p>
+  </div>
+
+  <!-- ADD CASH SHEET -->
+  <div class="stop">
+    <p class="stop-title">Add cash — sheet</p>
+    <div class="phone screen-wrap"><div class="screen">
+      <div class="scrim"></div>
+      <div style="position:absolute; left:0; right:0; bottom:0; background:var(--phone-surface); border-radius:20px 20px 0 0; padding:16px; box-shadow:0 -8px 20px var(--frame-shadow);">
+        <div style="width:34px; height:4px; background:var(--border); border-radius:4px; margin:0 auto 14px;"></div>
+        <b style="font-size:14px;">Add cash</b>
+        <div class="field-label" style="margin-left:0;">Amount</div><div class="input">₹2,000</div>
+        <div class="field-label" style="margin-left:0;">Date</div><div class="input">3 Nov 2026</div>
+        <div class="field-label" style="margin-left:0;">Note (optional)</div><div class="input faint">ATM withdrawal</div>
+        <div class="btn-row"><div class="btn outline">Cancel</div><div class="btn filled">Save</div></div>
+      </div>
+    </div></div>
+    <p class="stop-caption">Same three-field shape as every other quick-entry sheet in the app (e.g. Monthly budget's new-category sheet) - amount, date, optional note. No category or payment method fields - a top-up isn't a spend.</p>
+  </div>
+
+</div>
+
+<footer>
+  Proposed mockup, built to match the existing app's visual system (same CSS/component classes as <code>00-overview.html</code>, which reflects the real current app) - nothing here is built yet. Example amounts are illustrative. See <code>docs/06-backlog.md</code>, "Cash balance tracking" for the written plan this mockup follows, including the open question about whether a cash-spend row should link to Category detail (mocked here as yes).
+</footer>

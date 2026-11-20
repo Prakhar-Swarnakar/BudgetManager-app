@@ -4,20 +4,26 @@ import com.budgetmanager.app.data.repository.AlertLogRepository
 import com.budgetmanager.app.data.repository.BackupRepository
 import com.budgetmanager.app.data.repository.CategoryRepository
 import com.budgetmanager.app.data.repository.DataStoreSettingsRepository
+import com.budgetmanager.app.data.repository.CashRepository
+import com.budgetmanager.app.data.repository.FriendRepository
+import com.budgetmanager.app.data.repository.RoomCashRepository
 import com.budgetmanager.app.data.repository.KeywordRuleRepository
 import com.budgetmanager.app.data.repository.MessageRepository
 import com.budgetmanager.app.data.repository.MonthlyBudgetRepository
 import com.budgetmanager.app.data.repository.RoomAlertLogRepository
 import com.budgetmanager.app.data.repository.RoomBackupRepository
 import com.budgetmanager.app.data.repository.RoomCategoryRepository
+import com.budgetmanager.app.data.repository.RoomFriendRepository
 import com.budgetmanager.app.data.repository.RoomKeywordRuleRepository
 import com.budgetmanager.app.data.repository.RoomMessageRepository
 import com.budgetmanager.app.data.repository.RoomMonthlyBudgetRepository
 import com.budgetmanager.app.data.repository.RoomTransactionRepository
 import com.budgetmanager.app.data.repository.RoomTaxonomyKeywordRuleRepository
+import com.budgetmanager.app.data.repository.RoomTransactionSplitRepository
 import com.budgetmanager.app.data.repository.SettingsRepository
 import com.budgetmanager.app.data.repository.TaxonomyKeywordRuleRepository
 import com.budgetmanager.app.data.repository.TransactionRepository
+import com.budgetmanager.app.data.repository.TransactionSplitRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -65,4 +71,17 @@ abstract class RepositoryModule {
     abstract fun bindTaxonomyKeywordRuleRepository(
         impl: RoomTaxonomyKeywordRuleRepository
     ): TaxonomyKeywordRuleRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindFriendRepository(impl: RoomFriendRepository): FriendRepository
+
+    @Binds
+    abstract fun bindCashRepository(impl: RoomCashRepository): CashRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTransactionSplitRepository(
+        impl: RoomTransactionSplitRepository
+    ): TransactionSplitRepository
 }

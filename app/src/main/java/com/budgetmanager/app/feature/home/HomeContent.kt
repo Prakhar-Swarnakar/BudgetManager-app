@@ -16,12 +16,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.budgetmanager.app.core.designsystem.components.BudgetProgressBar
 import com.budgetmanager.app.core.designsystem.components.BudgetStatusLabel
@@ -62,12 +64,32 @@ fun HomeContent(
                         status = state.totalStatus,
                         modifier = Modifier.padding(top = 8.dp)
                     )
+                    HorizontalDivider(modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            "Income ${state.totalIncomeText}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            "Saved ${state.totalSavedText}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        "Owed to you ${state.totalOwedText}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
             }
 
             if (state.reviewCount > 0) {
                 Text(
-                    "${state.reviewCount} messages to review",
+                    "${state.reviewCount} message${if (state.reviewCount == 1) "" else "s"} to review",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                 )
@@ -117,12 +139,12 @@ private fun HomeCategoryCard(card: HomeCategoryCardUi, onClick: () -> Unit) {
                 Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
                     Text(card.name, style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "${card.spentText} spent",
+                        "${card.remainingText} left",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(card.remainingText, style = MaterialTheme.typography.titleMedium)
+                Text(card.spentText, style = MaterialTheme.typography.titleMedium)
             }
             BudgetProgressBar(
                 percentUsed = card.percentUsed,

@@ -21,7 +21,9 @@ data class BackupBundle(
     val transactions: List<TransactionBackup>,
     val smsMessages: List<SmsMessageBackup>,
     val alertLogs: List<AlertLogBackup>,
-    val keywordRules: List<KeywordRuleBackup>
+    val keywordRules: List<KeywordRuleBackup>,
+    /** Added with the Wallet page. Defaulted so a backup file written before it still imports. */
+    val cashTopUps: List<CashTopUpBackup> = emptyList()
 ) {
     companion object {
         /** Bump this, and only this, when BackupBundle's shape changes - never reuse a number. */
@@ -85,4 +87,12 @@ data class AlertLogBackup(
 data class KeywordRuleBackup(
     val keyword: String,
     val categoryId: Long
+)
+
+@Serializable
+data class CashTopUpBackup(
+    val id: Long,
+    val amountPaise: Long,
+    val occurredAt: Long,
+    val note: String?
 )

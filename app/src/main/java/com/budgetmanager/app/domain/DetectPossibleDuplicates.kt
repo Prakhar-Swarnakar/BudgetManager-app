@@ -20,20 +20,27 @@ object DetectPossibleDuplicates {
     /** Maps a flagged message's id to the id of the other message it looks like a duplicate of.
      *  When a message is close to more than one candidate, it points at the closest in time. */
     operator fun invoke(messages: List<SmsMessage>): Map<Long, Long> {
-        val candidates = messages.filter { it.status == MessageStatus.NOT_ASSIGNED && it.parsedAmount != null }
+        // Bucketed by amount first: a match requires the two amounts to be exactly equal, so
+        // messages of different amounts can never pair up and comparing across buckets is wasted
+        // work. Messages runs this over every message it has on each emission, which was
+        // quadratic in the whole Not assigned backlog rather than in one amount's worth of it.
+        val byAmount = messages
+            .filter { it.status == MessageStatus.NOT_ASSIGNED && it.parsedAmount != null }
+            .groupBy { it.parsedAmount }
         val bestMatch = mutableMapOf<Long, Pair<Long, Duration>>()
 
-        for (i in candidates.indices) {
-            for (j in i + 1 until candidates.size) {
-                val a = candidates[i]
-                val b = candidates[j]
-                if (a.sender == b.sender) continue
-                if (a.parsedAmount != b.parsedAmount) continue
-                val gap = Duration.between(a.receivedAt, b.receivedAt).abs()
-                if (gap > timeWindow) continue
+        for (candidates in byAmount.values) {
+            for (i in candidates.indices) {
+                for (j in i + 1 until candidates.size) {
+                    val a = candidates[i]
+                    val b = candidates[j]
+                    if (a.sender == b.sender) continue
+                    val gap = Duration.between(a.receivedAt, b.receivedAt).abs()
+                    if (gap > timeWindow) continue
 
-                if ((bestMatch[a.id]?.second ?: Duration.ofDays(1)) > gap) bestMatch[a.id] = b.id to gap
-                if ((bestMatch[b.id]?.second ?: Duration.ofDays(1)) > gap) bestMatch[b.id] = a.id to gap
+                    if ((bestMatch[a.id]?.second ?: Duration.ofDays(1)) > gap) bestMatch[a.id] = b.id to gap
+                    if ((bestMatch[b.id]?.second ?: Duration.ofDays(1)) > gap) bestMatch[b.id] = a.id to gap
+                }
             }
         }
 

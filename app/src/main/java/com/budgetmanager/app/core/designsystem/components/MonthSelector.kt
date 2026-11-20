@@ -14,9 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import com.budgetmanager.app.core.model.MonthKey
-import java.time.YearMonth
-import java.time.format.TextStyle
-import java.util.Locale
 
 /**
  * Previous/next arrows around a month label, e.g. "September 2026". Used on Monthly budget and
@@ -45,10 +42,4 @@ fun MonthSelector(
             Icon(Icons.Default.ChevronRight, contentDescription = "Next month")
         }
     }
-}
-
-private fun MonthKey.label(): String {
-    val yearMonth = YearMonth.of(year, month)
-    val monthName = yearMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
-    return "$monthName ${yearMonth.year}"
 }

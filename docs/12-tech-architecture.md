@@ -22,6 +22,7 @@ Every choice below started out marked **Assumed**, as my recommendations as arch
 | Money | Whole paise stored as `Long` | Avoids rounding errors (R25) | Decided |
 | Backup file | JSON via kotlinx.serialization, written with Android's file picker | Readable, versioned, and needs no storage permission | Assumed - not built until M9 |
 | Build | Gradle Kotlin DSL with a version catalog (`libs.versions.toml`) | One place for all library versions | Decided |
+| Statement validator file reading | `com.tom-roush:pdfbox-android` for PDF (text extraction, password handling); Apache POI's `poi` (HSSF) for legacy binary `.xls`; a hand-rolled zip+XML reader for `.xlsx`, not `poi-ooxml` | `poi-ooxml` needs `javax.xml.stream`/xmlbeans, which isn't Android-friendly; a real `.xls` sample confirmed it's genuine BIFF8, not the HTML-table trick some bank exporters use | Decided, built 2026-10-12 (see 06-backlog.md, "Credit card / bank statement import") |
 | Minimum Android version | API 26 (Android 8.0) | Covers nearly every current phone. Target is the latest API | Decided |
 
 **About Room 3.0:** Google announced Room 3.0 in March 2026 as an alpha with a different package name and Kotlin-only code generation. Room 2.x moves to maintenance mode. Decided (row in [07-open-questions.md](07-open-questions.md)): staying on Room 2.x (2.8.5) through all of v1, no revisit planned. DAO functions are already written in the style Room 3.0 requires (`suspend` functions or `Flow`), so a later move would stay small if it's ever wanted.
@@ -145,6 +146,7 @@ src/main/
     │   ├── SmsReceiver.kt         tiny entry point called by Android
     │   ├── SmsParser.kt           amount, merchant, debit or credit
     │   ├── BankRules.kt           per-bank patterns, one small block per bank
+    │   ├── CreditClassifier.kt    generic "is this incoming money" check (added v5, 2026-10-03)
     │   ├── CategorySuggester.kt   keyword rules
     │   └── InboxScanner.kt        catches up on messages missed while closed
     │
@@ -152,7 +154,11 @@ src/main/
         ├── home/                  HomeScreen, HomeViewModel, HomeUiState
         ├── categorydetail/        one category's transactions for a month (edit, delete)
         ├── messages/              list, filters, message detail sheet
-        ├── transaction/           add and edit transaction
+        ├── transaction/           add and edit transaction, including the split-with-friends step
+        ├── owedtoyou/             bottom-bar tab (added post-v1, 2026-10-02): one row per friend
+        │                          per split transaction, with a Settle action
+        ├── categoryrules/         keyword-to-category rules (side panel)
+        ├── taxonomyrules/         keyword-to-payment-method rules (side panel)
         ├── trends/                three tabs, chart components
         ├── budget/                monthly budget list, drag to reorder, category sheet (new
         │                          category and rename/change-icon/amount are one sheet) -
@@ -223,11 +229,13 @@ These come from the mockups. Where a component appears on several screens it is 
 | `CategoryChip` and `CategoryChipGrid` | Add transaction, filters | Selectable, with an optional "Suggested" label |
 | `MonthSelector` | Home, Monthly budget | Previous and next arrows |
 | `SummaryCard` | Home, Trends | Spent, budget, left, and a progress bar |
-| `StatusBadge` | Messages, Message detail | Icon and label, so colour is never the only signal |
-| `FilterChipRow` | Messages | Chips with counts |
+| `StatusBadge` | Messages, Message detail, Owed to you | Icon and label, so colour is never the only signal. A general `(icon, label, color)` overload added 2026-10-13 so a non-`MessageStatus` status (Owed to you's Pending/Reminded) gets the same treatment without its own enum here - the original `MessageStatus` overload now delegates to it |
+| `ActivityRow` | Messages, Owed to you | Added 2026-10-13, extracted from `MessageRow` once Owed to you needed the same shape (title, one-line subtitle, friend tags, a status badge, a trailing amount/category/taxonomy column) - built once inside `feature/messages`, moved to `core` once a second feature needed it, per this section's own "extracted when needed twice" rule. What differs per caller (title emphasis, the amount content, a leading "new" dot, a below-status warning) is slots, not flags. Swiping is not built in - each caller wraps it in `SwipeRow` externally |
+| `FilterChipRow` | Messages, Owed to you | Chips with counts, each dimension's counts independent of any other filter currently selected. Owed to you (2026-10-13) uses it for status (All/Pending/Reminded) and friend |
 | `SegmentedTabs` | Trends | Three-way tab control |
-| `SwipeRow` | Messages | Wraps Compose's swipe-to-dismiss with a configurable start and end `SwipeAction` (icon, colour, enabled) per row, so the reveal strip always matches what that swipe will really do. Varies by status: Accept/Reject on a Not assigned row, a neutral "undo" on Accepted/Rejected's one live direction. Was also used by Categories' swipe-to-archive until archiving was removed from v1 2026-09-25 |
+| `SwipeRow` | Messages, Owed to you | Wraps Compose's swipe-to-dismiss with a configurable start and end `SwipeAction` (icon, colour, enabled) per row, so the reveal strip always matches what that swipe will really do. Varies by status: Accept/Reject on a Not assigned row, a neutral "undo" on Accepted/Rejected's one live direction; Owed to you steps Pending ↔ Reminded (2026-10-13). Was also used by Categories' swipe-to-archive until archiving was removed from v1 2026-09-25. **Fixed 2026-10-13**: `confirmValueChange` is captured once by `rememberSwipeToDismissBoxState` at a row's first composition and doesn't pick up later changes to the passed-in actions/callbacks on its own - a real on-device bug, caught via Owed to You's reverse swipe silently doing nothing after a status flip. Now wrapped in `rememberUpdatedState`, confirmed with a 4-swipe round trip on-device. Likely the same root cause as the long-open "swiping a Rejected message doesn't revert" report (07-open-questions.md) - not independently re-confirmed on Messages yet |
 | `AmountField` | Add transaction, budget sheet | A rupee field that keeps whole numbers and shows Indian grouping |
+| `RuleLearningSection` | Add transaction (Category, Payment method) | Added 2026-10-04. Label + a selector slot (`CategoryDropdown`/`TaxonomyDropdown`, passed in as `content`) + "Add to rule" checkbox + a keyword field shown only while checked - the shape every rule-learning section shares, reused for Category and Payment method rather than merging their two differently-shaped dropdowns into one |
 | `FormSheet` | New category, edit budget amount | One bottom sheet used for both "edit an amount" and "new category with amount" |
 | `ConfirmDialog` | Backup restore, delete | Title, message, confirm, and cancel |
 | `EmptyState` | Any list | Icon, message, and an optional action |
@@ -249,11 +257,13 @@ All amounts are `Long` paise. Dates are stored as epoch milliseconds, with a mon
 |---|---|---|
 | `category` | id, name, emoji, sortOrder, archived | The `archived` column stays in the schema but is unused in v1 after archiving was removed 2026-09-25 (dropping it would need a migration, which wasn't worth it for a column that just always reads false) |
 | `monthly_budget` | id, monthKey, categoryId, amountPaise | Unique on (monthKey, categoryId). A category with no row shows ₹0 |
-| `transactions` | id, amountPaise, occurredAt, monthKey, categoryId, note, sourceMessageId (nullable), taxonomy (nullable, added v3) | `sourceMessageId` links back to the SMS when there is one. The table is named `transactions` because `transaction` is an SQL keyword |
-| `sms_message` | id, sender, body, receivedAt, smsProviderId, dedupeKey, parsedAmountPaise (nullable), merchant (nullable), suggestedCategoryId, suggestedTaxonomy (nullable, added v3), status, isNew | `status` is Not assigned, Accepted, or Rejected. `dedupeKey` is unique, which stops the same SMS being saved twice (R11). The amount and merchant are null when the text could not be parsed |
+| `transactions` | id, amountPaise, occurredAt, monthKey, categoryId, note, sourceMessageId (nullable), taxonomy (nullable, added v3), owedTotalPaise (added v4, default 0), title (nullable, added v6), reminded (added v7, default false) | `sourceMessageId` links back to the SMS when there is one. The table is named `transactions` because `transaction` is an SQL keyword. `owedTotalPaise` is the sum of every friend's share on a split transaction - subtracted from `amountPaise` only when computing spend-for-budget, never touched again once a split is created. `title` is what Add Transaction's Title field saves - null for anything saved before this column existed or left blank; callers fall back to the linked message's own merchant (never written to by a title edit), then `note`, then a placeholder. `reminded` is Owed to you's "I've nudged about this" marker - transaction-level, not per friend (06-backlog.md), toggled by a swipe, never touched by settling |
+| `sms_message` | id, sender, body, receivedAt, smsProviderId, dedupeKey, parsedAmountPaise (nullable), merchant (nullable), suggestedCategoryId, suggestedTaxonomy (nullable, added v3), status, isNew, direction (added v5) | `status` is Not assigned, Accepted, or Rejected. `dedupeKey` is unique, which stops the same SMS being saved twice (R11). The amount and merchant are null when the text could not be parsed; merchant is always null for a credit message. `direction` is `DEBIT` or `CREDIT` (`NOT NULL DEFAULT 'DEBIT'`) |
 | `alert_log` | monthKey, categoryId, type | Unique on all three. Makes each alert fire once per category per month (R21) |
 | `keyword_rule` | keyword, categoryId | Drives category suggestions. Has its own editable "Category rules" page in the side panel (built 2026-10-02) |
 | `taxonomy_keyword_rule` | keyword, taxonomy | Added v3 (2026-10-02). Drives payment-method suggestions - a separate table from `keyword_rule`, not a shared one, so the same keyword can map independently to a category and a taxonomy value. `taxonomy` stores a `TaxonomyType` enum constant, a fixed closed set (unlike `category`, there's no id/row for each value) |
+| `friend` | id, name (unique) | Added v4 (2026-10-02). A person you split expenses with - just a name, created inline the first time you type a new one into a split |
+| `transaction_split` | id, transactionId, friendId, amountOwedPaise, settled, settledAt (nullable) | Added v4 (2026-10-02). One friend's share of one transaction. FK CASCADE to both `transactions` and `friend` - deleting either removes the split. `amountOwedPaise` is fixed at creation (or edit) time and never recomputed by settling; settling only sets `settled`/`settledAt`, for the "Owed to you" page's own bookkeeping |
 
 **Seeded data.** When the database is first created, a Room callback inserts the nine starter categories (Rent, Groceries, Food & Dining, Transport, Bills & Utilities, Entertainment, Shopping, Health, Other) and their default keywords. Starter budgets are ₹0.
 

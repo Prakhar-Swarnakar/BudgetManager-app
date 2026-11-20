@@ -1,6 +1,9 @@
 package com.budgetmanager.app.data.repository
 
+import com.budgetmanager.app.core.model.MessageDirection
 import com.budgetmanager.app.core.model.MessageStatus
+import com.budgetmanager.app.core.model.Money
+import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.core.model.TaxonomyType
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +13,20 @@ interface MessageRepository {
     fun observeByStatus(status: MessageStatus): Flow<List<SmsMessage>>
     fun observeCountByStatus(status: MessageStatus): Flow<Int>
     fun observeNewCount(): Flow<Int>
+
+    /** The total parsed amount of every message with [status] and [direction] received in
+     *  [monthKey] - Home's "Income" line, as one aggregate rather than a whole-table read it
+     *  then sums itself. Messages with no parsed amount contribute nothing. */
+    fun observeAmountTotalForMonth(
+        monthKey: MonthKey,
+        status: MessageStatus,
+        direction: MessageDirection
+    ): Flow<Money>
     suspend fun getById(id: Long): SmsMessage?
+
+    /** [getById] for a batch, keyed by id - one query rather than one per id. An id with no
+     *  message (e.g. one whose message was cleared) simply has no entry. */
+    suspend fun getByIds(ids: Collection<Long>): Map<Long, SmsMessage>
 
     /** Saves a newly-received SMS, skipping it if its dedupeKey already exists (R11).
      *  Returns null when skipped as a duplicate. */

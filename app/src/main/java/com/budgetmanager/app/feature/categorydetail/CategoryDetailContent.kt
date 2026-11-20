@@ -38,6 +38,7 @@ fun CategoryDetailContent(
             monthKey = state.monthKey,
             onPrevious = onPreviousMonth,
             onNext = onNextMonth,
+            canGoNext = state.canGoNext,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
 

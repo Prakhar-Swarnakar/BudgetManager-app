@@ -41,6 +41,18 @@ class RoomTransactionRepository @Inject constructor(
         transactionDao.observeTaxonomyBySourceMessage()
             .map { rows -> rows.associate { it.messageId to it.taxonomy } }
 
+    override fun observeOwedTotalBySourceMessage(): Flow<Map<Long, Money>> =
+        transactionDao.observeOwedTotalBySourceMessage()
+            .map { rows -> rows.associate { it.messageId to Money(it.owedTotalPaise) } }
+
+    override fun observeTitleBySourceMessage(): Flow<Map<Long, String>> =
+        transactionDao.observeTitleBySourceMessage()
+            .map { rows -> rows.associate { it.messageId to it.title } }
+
+    override fun observeAmountBySourceMessage(): Flow<Map<Long, Money>> =
+        transactionDao.observeAmountBySourceMessage()
+            .map { rows -> rows.associate { it.messageId to Money(it.amountPaise) } }
+
     override suspend fun getById(id: Long): Transaction? = transactionDao.getById(id)?.toDomain()
 
     override suspend fun insert(
@@ -49,7 +61,9 @@ class RoomTransactionRepository @Inject constructor(
         monthKey: MonthKey,
         categoryId: Long,
         note: String?,
-        taxonomy: TaxonomyType?
+        taxonomy: TaxonomyType?,
+        owedTotal: Money,
+        title: String?
     ): Long = transactionDao.insert(
         TransactionEntity(
             amountPaise = amount.paise,
@@ -58,12 +72,18 @@ class RoomTransactionRepository @Inject constructor(
             categoryId = categoryId,
             note = note,
             sourceMessageId = null,
-            taxonomy = taxonomy
+            taxonomy = taxonomy,
+            owedTotalPaise = owedTotal.paise,
+            title = title
         )
     )
 
     override suspend fun update(transaction: Transaction) {
         transactionDao.update(transaction.toEntity())
+    }
+
+    override suspend fun setReminded(transactionId: Long, reminded: Boolean) {
+        transactionDao.setReminded(transactionId, reminded)
     }
 
     override suspend fun saveFromMessage(
@@ -73,7 +93,9 @@ class RoomTransactionRepository @Inject constructor(
         monthKey: MonthKey,
         categoryId: Long,
         note: String?,
-        taxonomy: TaxonomyType?
+        taxonomy: TaxonomyType?,
+        owedTotal: Money,
+        title: String?
     ): Long = database.withTransaction {
         // source_message_id is unique - if a transaction is already linked to this message
         // (e.g. accepted once, then its status got out of sync some other way), update that one
@@ -87,7 +109,9 @@ class RoomTransactionRepository @Inject constructor(
                     monthKey = monthKey.value,
                     categoryId = categoryId,
                     note = note,
-                    taxonomy = taxonomy
+                    taxonomy = taxonomy,
+                    owedTotalPaise = owedTotal.paise,
+                    title = title
                 )
             )
             existing.id
@@ -100,7 +124,9 @@ class RoomTransactionRepository @Inject constructor(
                     categoryId = categoryId,
                     note = note,
                     sourceMessageId = message.id,
-                    taxonomy = taxonomy
+                    taxonomy = taxonomy,
+                    owedTotalPaise = owedTotal.paise,
+                    title = title
                 )
             )
         }
@@ -135,7 +161,10 @@ private fun TransactionEntity.toDomain() = Transaction(
     categoryId = categoryId,
     note = note,
     sourceMessageId = sourceMessageId,
-    taxonomy = taxonomy
+    taxonomy = taxonomy,
+    owedTotal = Money(owedTotalPaise),
+    title = title,
+    reminded = reminded
 )
 
 private fun Transaction.toEntity() = TransactionEntity(
@@ -146,5 +175,8 @@ private fun Transaction.toEntity() = TransactionEntity(
     categoryId = categoryId,
     note = note,
     sourceMessageId = sourceMessageId,
-    taxonomy = taxonomy
+    taxonomy = taxonomy,
+    owedTotalPaise = owedTotal.paise,
+    title = title,
+    reminded = reminded
 )

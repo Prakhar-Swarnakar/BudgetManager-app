@@ -1,7 +1,9 @@
 package com.budgetmanager.app.data.repository
 
+import com.budgetmanager.app.core.model.MessageDirection
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
+import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.data.database.dao.SmsMessageDao
@@ -9,6 +11,7 @@ import com.budgetmanager.app.data.database.entity.SmsMessageEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
+import java.time.ZoneId
 import javax.inject.Inject
 
 class RoomMessageRepository @Inject constructor(
@@ -26,7 +29,21 @@ class RoomMessageRepository @Inject constructor(
 
     override fun observeNewCount(): Flow<Int> = smsMessageDao.observeNewCount()
 
+    override fun observeAmountTotalForMonth(
+        monthKey: MonthKey,
+        status: MessageStatus,
+        direction: MessageDirection
+    ): Flow<Money> {
+        val (since, untilExclusive) = monthKey.toMillisRange(ZoneId.systemDefault())
+        return smsMessageDao.observeAmountTotal(status, direction, since, untilExclusive).map { Money(it) }
+    }
+
     override suspend fun getById(id: Long): SmsMessage? = smsMessageDao.getById(id)?.toDomain()
+
+    override suspend fun getByIds(ids: Collection<Long>): Map<Long, SmsMessage> {
+        if (ids.isEmpty()) return emptyMap()
+        return smsMessageDao.getByIds(ids.distinct()).associate { it.id to it.toDomain() }
+    }
 
     override suspend fun ingest(message: SmsMessage): Long? {
         if (smsMessageDao.getByDedupeKey(message.dedupeKey) != null) return null
@@ -71,7 +88,8 @@ private fun SmsMessageEntity.toDomain() = SmsMessage(
     suggestedCategoryId = suggestedCategoryId,
     suggestedTaxonomy = suggestedTaxonomy,
     status = status,
-    isNew = isNew
+    isNew = isNew,
+    direction = direction
 )
 
 private fun SmsMessage.toEntity() = SmsMessageEntity(
@@ -87,5 +105,6 @@ private fun SmsMessage.toEntity() = SmsMessageEntity(
     suggestedCategoryId = suggestedCategoryId,
     suggestedTaxonomy = suggestedTaxonomy,
     status = status,
-    isNew = isNew
+    isNew = isNew,
+    direction = direction
 )

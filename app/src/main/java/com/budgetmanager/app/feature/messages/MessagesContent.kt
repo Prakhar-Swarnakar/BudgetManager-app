@@ -14,13 +14,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.MarkEmailRead
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.budgetmanager.app.core.designsystem.components.ConfirmDialog
@@ -33,9 +39,10 @@ import com.budgetmanager.app.core.designsystem.components.SwipeAction
 import com.budgetmanager.app.core.designsystem.components.SwipeRow
 import com.budgetmanager.app.core.designsystem.components.UndoSnackbarEffect
 import com.budgetmanager.app.core.designsystem.components.revertSwipeAction
+import com.budgetmanager.app.core.model.MessageDirection
 import com.budgetmanager.app.core.model.MessageStatus
-import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.feature.messages.components.MessageDetailSheet
+import com.budgetmanager.app.feature.messages.components.MessageFiltersSheet
 import com.budgetmanager.app.feature.messages.components.MessageRow
 import com.budgetmanager.app.ui.theme.StatusColors
 
@@ -43,6 +50,11 @@ import com.budgetmanager.app.ui.theme.StatusColors
 fun MessagesContent(
     state: MessagesUiState,
     onFilterSelected: (MessageFilter) -> Unit,
+    onDirectionFilterSelected: (MessageDirection?) -> Unit,
+    onCategoryFilterSelected: (CategoryFilter) -> Unit,
+    onTaxonomyFilterSelected: (TaxonomyFilter) -> Unit,
+    onFiltersClicked: () -> Unit,
+    onFiltersDismissed: () -> Unit,
     onSwipeStart: (Long) -> Unit,
     onSwipeEnd: (Long) -> Unit,
     onRowClick: (Long) -> Unit,
@@ -70,6 +82,13 @@ fun MessagesContent(
         onDismissed = onUndoDismissed
     )
 
+    // Any dimension narrowed past its default means an empty list is the filters' doing, not an
+    // empty month - the two cases need different wording, and status alone isn't enough to tell
+    // them apart now that Direction/Category/Taxonomy can each narrow it from the sheet.
+    val filtersActive = state.directionFilter != null ||
+        state.categoryFilter != CategoryFilter.Any ||
+        state.taxonomyFilter != TaxonomyFilter.Any
+
     Column(modifier = modifier.fillMaxSize()) {
         MonthSelector(
             monthKey = state.monthKey,
@@ -90,21 +109,33 @@ fun MessagesContent(
             OutlinedButton(onClick = onClearMonthClicked) { Text("Clear month") }
         }
 
-        FilterChipRow(
-            items = MessageFilter.entries.map { f -> FilterChipItem(f, f.label(), state.counts[f] ?: 0) },
-            selected = state.filter,
-            onSelect = onFilterSelected,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
+        // Status stays the one filter row always visible outside - Direction, Category, and
+        // Taxonomy all live behind the Filters icon pinned at the start of this same row, rather
+        // than owning a second row of their own (06-backlog.md, "Richer Messages filters", revised
+        // 2026-10-07 after the first cut had too many stacked rows). The badge shows whenever any
+        // of those three is narrowed past its default.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BadgedBox(badge = { if (filtersActive) Badge() }) {
+                IconButton(onClick = onFiltersClicked) {
+                    Icon(Icons.Default.FilterList, contentDescription = "Filters")
+                }
+            }
+            FilterChipRow(
+                items = MessageFilter.entries.map { f -> FilterChipItem(f, f.label(), state.counts[f] ?: 0) },
+                selected = state.filter,
+                onSelect = onFilterSelected,
+                modifier = Modifier.weight(1f)
+            )
+        }
 
         Box(modifier = Modifier.weight(1f)) {
             if (state.rows.isEmpty()) {
                 EmptyState(
                     icon = Icons.Default.MarkEmailRead,
-                    message = if (state.filter == MessageFilter.ALL) {
+                    message = if (state.filter == MessageFilter.ALL && !filtersActive) {
                         "No messages yet. They'll show up here as bank SMS arrive."
                     } else {
-                        "Nothing here for this filter."
+                        "Nothing here for these filters."
                     }
                 )
             } else {
@@ -159,12 +190,22 @@ fun MessagesContent(
             confirmLabel = "Clear"
         )
     }
-}
 
-private fun MonthKey.label(): String {
-    val yearMonth = java.time.YearMonth.of(year, month)
-    val monthName = yearMonth.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())
-    return "$monthName ${yearMonth.year}"
+    if (state.showFiltersSheet) {
+        MessageFiltersSheet(
+            directionFilter = state.directionFilter,
+            directionCounts = state.directionCounts,
+            categories = state.categories,
+            categoryFilter = state.categoryFilter,
+            categoryCounts = state.categoryCounts,
+            taxonomyFilter = state.taxonomyFilter,
+            taxonomyCounts = state.taxonomyCounts,
+            onDirectionSelected = onDirectionFilterSelected,
+            onCategorySelected = onCategoryFilterSelected,
+            onTaxonomySelected = onTaxonomyFilterSelected,
+            onDismiss = onFiltersDismissed
+        )
+    }
 }
 
 private fun MessageFilter.label(): String = when (this) {

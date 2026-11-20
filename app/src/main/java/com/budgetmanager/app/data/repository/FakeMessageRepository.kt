@@ -1,10 +1,14 @@
 package com.budgetmanager.app.data.repository
 
+import com.budgetmanager.app.core.model.MessageDirection
 import com.budgetmanager.app.core.model.MessageStatus
+import com.budgetmanager.app.core.model.Money
+import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.core.model.TaxonomyType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import java.time.ZoneId
 
 class FakeMessageRepository : MessageRepository {
     private val state = MutableStateFlow<List<SmsMessage>>(emptyList())
@@ -14,7 +18,27 @@ class FakeMessageRepository : MessageRepository {
     override fun observeByStatus(status: MessageStatus) = state.map { list -> list.filter { it.status == status } }
     override fun observeCountByStatus(status: MessageStatus) = state.map { list -> list.count { it.status == status } }
     override fun observeNewCount() = state.map { list -> list.count { it.isNew } }
+
+    override fun observeAmountTotalForMonth(
+        monthKey: MonthKey,
+        status: MessageStatus,
+        direction: MessageDirection
+    ) = state.map { list ->
+        val zone = ZoneId.systemDefault()
+        val total = list
+            .filter {
+                it.status == status && it.direction == direction &&
+                    MonthKey.from(it.receivedAt, zone) == monthKey
+            }
+            .sumOf { it.parsedAmount?.paise ?: 0L }
+        Money(total)
+    }
     override suspend fun getById(id: Long) = state.value.firstOrNull { it.id == id }
+
+    override suspend fun getByIds(ids: Collection<Long>): Map<Long, SmsMessage> {
+        val wanted = ids.toSet()
+        return state.value.filter { it.id in wanted }.associateBy { it.id }
+    }
 
     override suspend fun ingest(message: SmsMessage): Long? {
         if (state.value.any { it.dedupeKey == message.dedupeKey }) return null

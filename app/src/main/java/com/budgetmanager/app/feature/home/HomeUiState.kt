@@ -14,6 +14,18 @@ data class HomeUiState(
     val totalRemainingText: String = "₹0",
     val totalPercentUsed: Double? = null,
     val totalStatus: BudgetStatus = BudgetStatus.UNDER_BUDGET,
+    /** Sum of every Accepted credit message's amount this month - every accepted credit counts
+     *  for now, since there's no typed Refund/Settlement/Income distinction yet (06-backlog.md,
+     *  "Credit handling"); revisit if/when that's built. No budget concept applies here, purely
+     *  informational alongside [totalSpentText]. */
+    val totalIncomeText: String = "₹0",
+    /** [totalIncomeText] minus [totalSpentText] - can go negative (spent more than came in this
+     *  month), shown with Money.formatted()'s own "-" prefix rather than a different label. */
+    val totalSavedText: String = "₹0",
+    /** Friends' still-unsettled shares on transactions dated in this month - what's owed to you
+     *  from this month's spending. Informational only: never subtracted from [totalSavedText]
+     *  or any budget figure (a split's budget effect is already your share only). */
+    val totalOwedText: String = "₹0",
     /** Messages still Not assigned - the "N messages to review" line. Distinct from the "new"
      *  flag used for the Messages tab's red badge. */
     val reviewCount: Int = 0,

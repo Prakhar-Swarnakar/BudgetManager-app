@@ -26,12 +26,14 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.io.IOException
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
+    onValidateStatementClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -125,6 +127,7 @@ fun SettingsScreen(
         onTrendsMonthsShownChanged = viewModel::onTrendsMonthsShownChanged,
         onExportClick = { exportLauncher.launch(defaultBackupFileName()) },
         onImportClick = { importLauncher.launch(arrayOf("application/json")) },
+        onValidateStatementClick = onValidateStatementClick,
         onConfirmImport = viewModel::onConfirmImport,
         onCancelImport = viewModel::onCancelImport,
         onDismissImportError = viewModel::onDismissImportError,
@@ -134,8 +137,10 @@ fun SettingsScreen(
     )
 }
 
+private val backupFileDateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault())
+
 private fun defaultBackupFileName(): String {
-    val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(System.currentTimeMillis())
+    val date = LocalDate.now().format(backupFileDateFormatter)
     return "budget-manager-backup-$date.json"
 }
 

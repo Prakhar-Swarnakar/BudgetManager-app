@@ -24,19 +24,42 @@ interface TransactionRepository {
     /** Same idea as [observeCategoryIdsBySourceMessage], for the separate taxonomy value. */
     fun observeTaxonomyBySourceMessage(): Flow<Map<Long, TaxonomyType>>
 
+    /** Which Accepted messages are linked to a split transaction, keyed by message id, with how
+     *  much of it is owed back to friends - a message whose transaction was never split has no
+     *  entry here at all (never ₹0). */
+    fun observeOwedTotalBySourceMessage(): Flow<Map<Long, Money>>
+
+    /** Which Accepted messages are linked to a transaction with its own saved title, keyed by
+     *  message id - lets the Messages list show your renamed title instead of the SMS's own
+     *  merchant. A transaction with no title saved yet has no entry here. */
+    fun observeTitleBySourceMessage(): Flow<Map<Long, String>>
+
+    /** Which Accepted messages are linked to a transaction, keyed by message id, with that
+     *  transaction's real saved amount - used as a fallback once a message with no parsed amount
+     *  of its own (06-backlog.md, "Richer inclusion gate") gets accepted with a real amount. */
+    fun observeAmountBySourceMessage(): Flow<Map<Long, Money>>
+
     suspend fun getById(id: Long): Transaction?
 
-    /** A manual transaction - no linked message. */
+    /** A manual transaction - no linked message. [owedTotal] is the sum of any friends' shares -
+     *  see [Transaction]'s doc comment for how it affects the budget-counted amount. [title] is
+     *  Add Transaction's "Title" field, saved as-is (null if left blank). */
     suspend fun insert(
         amount: Money,
         occurredAt: Instant,
         monthKey: MonthKey,
         categoryId: Long,
         note: String?,
-        taxonomy: TaxonomyType? = null
+        taxonomy: TaxonomyType? = null,
+        owedTotal: Money = Money(0),
+        title: String? = null
     ): Long
 
     suspend fun update(transaction: Transaction)
+
+    /** Owed to You's "I've nudged about this" toggle - transaction-level, see [Transaction]'s
+     *  doc comment. Never touches settled state or the budget-counted amount. */
+    suspend fun setReminded(transactionId: Long, reminded: Boolean)
 
     /**
      * Inserts the transaction and marks [message] Accepted, in one database transaction - either
@@ -50,7 +73,9 @@ interface TransactionRepository {
         monthKey: MonthKey,
         categoryId: Long,
         note: String?,
-        taxonomy: TaxonomyType? = null
+        taxonomy: TaxonomyType? = null,
+        owedTotal: Money = Money(0),
+        title: String? = null
     ): Long
 
     /**

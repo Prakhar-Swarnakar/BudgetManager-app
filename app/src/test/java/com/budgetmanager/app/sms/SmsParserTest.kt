@@ -86,4 +86,15 @@ class SmsParserTest {
         assertEquals(Money.ofRupees(99), parsed.amount)
         assertNull(parsed.merchant)
     }
+
+    @Test
+    fun `parseAmountOnly reads the amount off a credit SMS`() {
+        val body = "Rs 5,000.00 credited to a/c XX1234 on 24-09-26. Avl bal Rs 12,345.00."
+        assertEquals(Money.ofRupees(5000), SmsParser.parseAmountOnly(body))
+    }
+
+    @Test
+    fun `parseAmountOnly returns null when the SMS has no recognisable amount`() {
+        assertNull(SmsParser.parseAmountOnly("Your account statement is ready to view."))
+    }
 }

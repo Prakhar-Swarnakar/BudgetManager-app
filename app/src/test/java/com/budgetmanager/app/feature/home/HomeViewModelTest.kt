@@ -1,7 +1,11 @@
 package com.budgetmanager.app.feature.home
 
 import com.budgetmanager.app.core.model.Category
+import com.budgetmanager.app.core.model.Friend
+import com.budgetmanager.app.core.model.TransactionSplit
+import com.budgetmanager.app.data.repository.FakeFriendRepository
 import com.budgetmanager.app.core.model.BudgetStatus
+import com.budgetmanager.app.core.model.MessageDirection
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.MonthKey
@@ -10,6 +14,7 @@ import com.budgetmanager.app.data.repository.FakeCategoryRepository
 import com.budgetmanager.app.data.repository.FakeMessageRepository
 import com.budgetmanager.app.data.repository.FakeMonthlyBudgetRepository
 import com.budgetmanager.app.data.repository.FakeTransactionRepository
+import com.budgetmanager.app.data.repository.FakeTransactionSplitRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.launchIn
@@ -45,8 +50,9 @@ class HomeViewModelTest {
         categories: FakeCategoryRepository = FakeCategoryRepository(),
         budgets: FakeMonthlyBudgetRepository = FakeMonthlyBudgetRepository(),
         transactions: FakeTransactionRepository = FakeTransactionRepository(),
-        messages: FakeMessageRepository = FakeMessageRepository()
-    ) = HomeViewModel(categories, budgets, transactions, messages)
+        messages: FakeMessageRepository = FakeMessageRepository(),
+        splits: FakeTransactionSplitRepository = FakeTransactionSplitRepository()
+    ) = HomeViewModel(categories, budgets, transactions, messages, splits)
 
     @Test
     fun `a category under budget shows its percent used and remaining`() = runTest {
@@ -122,6 +128,61 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `income is the sum of Accepted credit messages this month, and saved is income minus spend`() = runTest {
+        val categories = FakeCategoryRepository().apply {
+            seed(listOf(Category(1, "Food", "🍔", 0, archived = false)))
+        }
+        val transactions = FakeTransactionRepository()
+        val messages = FakeMessageRepository()
+        val viewModel = viewModel(categories = categories, transactions = transactions, messages = messages)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val month = viewModel.uiState.value.monthKey
+        transactions.insert(Money.ofRupees(500), Instant.now(), month, categoryId = 1, note = null)
+        val acceptedCreditId = messages.ingest(
+            testMessage("k1").copy(direction = MessageDirection.CREDIT, parsedAmount = Money.ofRupees(2000))
+        )!!
+        messages.updateStatus(acceptedCreditId, MessageStatus.ACCEPTED)
+        // Not assigned and Rejected credits, and an Accepted debit, must never count as income.
+        messages.ingest(testMessage("k2").copy(direction = MessageDirection.CREDIT, parsedAmount = Money.ofRupees(9000)))
+        val rejectedCreditId = messages.ingest(
+            testMessage("k3").copy(direction = MessageDirection.CREDIT, parsedAmount = Money.ofRupees(9000))
+        )!!
+        messages.updateStatus(rejectedCreditId, MessageStatus.REJECTED)
+        val acceptedDebitId = messages.ingest(testMessage("k4"))!!
+        messages.updateStatus(acceptedDebitId, MessageStatus.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("₹2,000", viewModel.uiState.value.totalIncomeText)
+        assertEquals("₹1,500", viewModel.uiState.value.totalSavedText)
+        collector.cancel()
+    }
+
+    @Test
+    fun `saved goes negative when spend exceeds income, shown with the usual minus sign`() = runTest {
+        val categories = FakeCategoryRepository().apply {
+            seed(listOf(Category(1, "Food", "🍔", 0, archived = false)))
+        }
+        val transactions = FakeTransactionRepository()
+        val messages = FakeMessageRepository()
+        val viewModel = viewModel(categories = categories, transactions = transactions, messages = messages)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val month = viewModel.uiState.value.monthKey
+        transactions.insert(Money.ofRupees(5000), Instant.now(), month, categoryId = 1, note = null)
+        val acceptedCreditId = messages.ingest(
+            testMessage("k1").copy(direction = MessageDirection.CREDIT, parsedAmount = Money.ofRupees(2000))
+        )!!
+        messages.updateStatus(acceptedCreditId, MessageStatus.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("-₹3,000", viewModel.uiState.value.totalSavedText)
+        collector.cancel()
+    }
+
+    @Test
     fun `the review count is the Not assigned message count`() = runTest {
         val messages = FakeMessageRepository()
         val viewModel = viewModel(messages = messages)
@@ -164,6 +225,38 @@ class HomeViewModelTest {
 
         assertEquals(currentMonth.previous(), viewModel.uiState.value.monthKey)
         assertTrue(viewModel.uiState.value.canGoNext)
+        collector.cancel()
+    }
+
+    @Test
+    fun `owed to you sums only still-pending shares on transactions dated in the viewed month`() = runTest {
+        val categories = FakeCategoryRepository().apply {
+            seed(listOf(Category(1, "Food", "🍔", 0, archived = false)))
+        }
+        val friends = FakeFriendRepository().apply { seed(listOf(Friend(1, "Raj"), Friend(2, "Priya"))) }
+        val transactions = FakeTransactionRepository()
+        val splits = FakeTransactionSplitRepository(friends, transactions, categories)
+        val viewModel = viewModel(categories = categories, transactions = transactions, splits = splits)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val month = viewModel.uiState.value.monthKey
+        val thisMonth = month.toMillisRange(java.time.ZoneId.systemDefault()).first.let(Instant::ofEpochMilli)
+            .plusSeconds(3600)
+        val lastMonth = month.previous().toMillisRange(java.time.ZoneId.systemDefault()).first
+            .let(Instant::ofEpochMilli).plusSeconds(3600)
+        val dinner = transactions.insert(Money.ofRupees(900), thisMonth, month, 1, null)
+        val oldDinner = transactions.insert(Money.ofRupees(600), lastMonth, month.previous(), 1, null)
+        splits.seed(
+            listOf(
+                TransactionSplit(1, dinner, 1, Money.ofRupees(300), settled = false, settledAt = null),
+                TransactionSplit(2, dinner, 2, Money.ofRupees(200), settled = true, settledAt = Instant.now()),
+                TransactionSplit(3, oldDinner, 1, Money.ofRupees(250), settled = false, settledAt = null)
+            )
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("₹300", viewModel.uiState.value.totalOwedText)
         collector.cancel()
     }
 

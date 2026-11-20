@@ -39,7 +39,8 @@ class RoomBackupRepositoryTest {
         ).build()
         repository = RoomBackupRepository(
             database, database.categoryDao(), database.monthlyBudgetDao(), database.transactionDao(),
-            database.smsMessageDao(), database.alertLogDao(), database.keywordRuleDao()
+            database.smsMessageDao(), database.alertLogDao(), database.keywordRuleDao(),
+            database.cashTopUpDao()
         )
     }
 

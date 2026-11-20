@@ -29,6 +29,11 @@ fun MessagesScreen(
     MessagesContent(
         state = state,
         onFilterSelected = viewModel::onFilterSelected,
+        onDirectionFilterSelected = viewModel::onDirectionFilterSelected,
+        onCategoryFilterSelected = viewModel::onCategoryFilterSelected,
+        onTaxonomyFilterSelected = viewModel::onTaxonomyFilterSelected,
+        onFiltersClicked = viewModel::onFiltersClicked,
+        onFiltersDismissed = viewModel::onFiltersDismissed,
         onSwipeStart = viewModel::onSwipeStart,
         onSwipeEnd = viewModel::onSwipeEnd,
         onRowClick = viewModel::onRowClick,

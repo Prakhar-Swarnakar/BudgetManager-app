@@ -9,10 +9,6 @@ package com.budgetmanager.app.sms
  */
 object SpendClassifier {
 
-    private val amountRegex = Regex(
-        """(?:\brs\.?|\binr|₹)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?""",
-        RegexOption.IGNORE_CASE
-    )
     private val debitRegex = Regex(
         """\b(debited|spent|withdrawn|purchase|paid)\b""",
         RegexOption.IGNORE_CASE
@@ -25,9 +21,17 @@ object SpendClassifier {
     // Policybazaar due-payment messages.
     private val futureTenseRegex = Regex("""\bwill be debited\b""", RegexOption.IGNORE_CASE)
 
-    /** A message needs a debit word and an amount to be kept. OTPs are never stored (R13, R14). */
+    /**
+     * A message needs a debit word to be kept. The amount is no longer required - it's still
+     * parsed and shown whenever SmsParser finds one, but its absence no longer excludes the
+     * message. A real gap found 2026-10-07: a genuine mutual fund purchase confirmation
+     * ("Systematic Investment Purchase...has been processed") never states an amount inline,
+     * pointing to a separate statement instead - requiring an amount was silently dropping real
+     * transactions like it, with no trace anywhere in the app. The keyword check alone already
+     * correctly identified that message as transaction-shaped ("Purchase" matched); it was
+     * specifically the amount requirement doing the harm. OTPs are never stored (R13, R14).
+     */
     fun isSpendLike(body: String): Boolean {
-        if (!amountRegex.containsMatchIn(body)) return false
         if (!debitRegex.containsMatchIn(body)) return false
         if (futureTenseRegex.containsMatchIn(body)) return false
         // A message that mentions OTP but also says "debited" is a real debit alert

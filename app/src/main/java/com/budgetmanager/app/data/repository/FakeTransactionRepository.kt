@@ -6,6 +6,8 @@ import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.core.model.Transaction
 import com.budgetmanager.app.core.model.TaxonomyType
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 
@@ -17,6 +19,15 @@ class FakeTransactionRepository(
     private val state = MutableStateFlow<List<Transaction>>(emptyList())
     private var nextId = 1L
 
+    /** Synchronous peek at the current list, for other fakes to join against (e.g.
+     *  FakeTransactionSplitRepository.observeOwedToYou) without a suspend call. */
+    val current: List<Transaction> get() = state.value
+
+    /** The reactive form of [current] - needed by [FakeTransactionSplitRepository.observeOwedToYou]
+     *  to re-emit on a transaction-only change (e.g. the reminded flag), which never touches the
+     *  splits list itself and so wouldn't otherwise trigger a new emission. */
+    val currentFlow: StateFlow<List<Transaction>> get() = state.asStateFlow()
+
     override fun observeForCategoryAndMonth(monthKey: MonthKey, categoryId: Long) =
         state.map { list ->
             list.filter { it.monthKey == monthKey && it.categoryId == categoryId }
@@ -26,7 +37,7 @@ class FakeTransactionRepository(
     override fun observeSpentForCategoryAndMonth(monthKey: MonthKey, categoryId: Long) =
         state.map { list ->
             val total = list.filter { it.monthKey == monthKey && it.categoryId == categoryId }
-                .sumOf { it.amount.paise }
+                .sumOf { it.amount.paise - it.owedTotal.paise }
             Money(total)
         }
 
@@ -34,7 +45,7 @@ class FakeTransactionRepository(
         state.map { list ->
             list.filter { it.monthKey == monthKey }
                 .groupBy { it.categoryId }
-                .mapValues { (_, transactions) -> Money(transactions.sumOf { it.amount.paise }) }
+                .mapValues { (_, transactions) -> Money(transactions.sumOf { it.amount.paise - it.owedTotal.paise }) }
         }
 
     override fun observeCategoryIdsBySourceMessage() =
@@ -53,6 +64,32 @@ class FakeTransactionRepository(
             }.toMap()
         }
 
+    override fun observeOwedTotalBySourceMessage() =
+        state.map { list ->
+            list.mapNotNull { transaction ->
+                val messageId = transaction.sourceMessageId ?: return@mapNotNull null
+                if (transaction.owedTotal.paise <= 0) return@mapNotNull null
+                messageId to transaction.owedTotal
+            }.toMap()
+        }
+
+    override fun observeTitleBySourceMessage() =
+        state.map { list ->
+            list.mapNotNull { transaction ->
+                val messageId = transaction.sourceMessageId ?: return@mapNotNull null
+                val title = transaction.title?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                messageId to title
+            }.toMap()
+        }
+
+    override fun observeAmountBySourceMessage() =
+        state.map { list ->
+            list.mapNotNull { transaction ->
+                val messageId = transaction.sourceMessageId ?: return@mapNotNull null
+                messageId to transaction.amount
+            }.toMap()
+        }
+
     override suspend fun getById(id: Long) = state.value.firstOrNull { it.id == id }
 
     override suspend fun insert(
@@ -61,15 +98,22 @@ class FakeTransactionRepository(
         monthKey: MonthKey,
         categoryId: Long,
         note: String?,
-        taxonomy: TaxonomyType?
+        taxonomy: TaxonomyType?,
+        owedTotal: Money,
+        title: String?
     ): Long {
         val id = nextId++
-        state.value = state.value + Transaction(id, amount, occurredAt, monthKey, categoryId, note, null, taxonomy)
+        state.value = state.value +
+            Transaction(id, amount, occurredAt, monthKey, categoryId, note, null, taxonomy, owedTotal, title)
         return id
     }
 
     override suspend fun update(transaction: Transaction) {
         state.value = state.value.map { if (it.id == transaction.id) transaction else it }
+    }
+
+    override suspend fun setReminded(transactionId: Long, reminded: Boolean) {
+        state.value = state.value.map { if (it.id == transactionId) it.copy(reminded = reminded) else it }
     }
 
     override suspend fun saveFromMessage(
@@ -79,13 +123,16 @@ class FakeTransactionRepository(
         monthKey: MonthKey,
         categoryId: Long,
         note: String?,
-        taxonomy: TaxonomyType?
+        taxonomy: TaxonomyType?,
+        owedTotal: Money,
+        title: String?
     ): Long {
         // Mirrors RoomTransactionRepository: update in place if a transaction is already linked
         // to this message, rather than adding a second one for the same sourceMessageId.
         val existing = state.value.firstOrNull { it.sourceMessageId == message.id }
         val id = existing?.id ?: nextId++
-        val transaction = Transaction(id, amount, occurredAt, monthKey, categoryId, note, message.id, taxonomy)
+        val transaction =
+            Transaction(id, amount, occurredAt, monthKey, categoryId, note, message.id, taxonomy, owedTotal, title)
         state.value = if (existing != null) {
             state.value.map { if (it.id == id) transaction else it }
         } else {

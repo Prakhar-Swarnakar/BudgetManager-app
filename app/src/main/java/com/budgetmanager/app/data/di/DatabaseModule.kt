@@ -7,12 +7,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.budgetmanager.app.data.database.AppDatabase
 import com.budgetmanager.app.data.database.StarterData
 import com.budgetmanager.app.data.database.dao.AlertLogDao
+import com.budgetmanager.app.data.database.dao.CashTopUpDao
 import com.budgetmanager.app.data.database.dao.CategoryDao
+import com.budgetmanager.app.data.database.dao.FriendDao
 import com.budgetmanager.app.data.database.dao.KeywordRuleDao
 import com.budgetmanager.app.data.database.dao.MonthlyBudgetDao
 import com.budgetmanager.app.data.database.dao.SmsMessageDao
 import com.budgetmanager.app.data.database.dao.TaxonomyKeywordRuleDao
 import com.budgetmanager.app.data.database.dao.TransactionDao
+import com.budgetmanager.app.data.database.dao.TransactionSplitDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -39,7 +42,15 @@ object DatabaseModule {
         databaseProvider: Provider<AppDatabase>
     ): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2,
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5,
+                AppDatabase.MIGRATION_5_6,
+                AppDatabase.MIGRATION_6_7,
+                AppDatabase.MIGRATION_7_8
+            )
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
@@ -71,4 +82,14 @@ object DatabaseModule {
     @Provides
     fun provideTaxonomyKeywordRuleDao(database: AppDatabase): TaxonomyKeywordRuleDao =
         database.taxonomyKeywordRuleDao()
+
+    @Provides
+    fun provideFriendDao(database: AppDatabase): FriendDao = database.friendDao()
+
+    @Provides
+    fun provideTransactionSplitDao(database: AppDatabase): TransactionSplitDao =
+        database.transactionSplitDao()
+
+    @Provides
+    fun provideCashTopUpDao(database: AppDatabase): CashTopUpDao = database.cashTopUpDao()
 }

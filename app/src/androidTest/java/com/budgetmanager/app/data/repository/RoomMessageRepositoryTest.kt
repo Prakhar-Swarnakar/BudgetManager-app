@@ -3,6 +3,7 @@ package com.budgetmanager.app.data.repository
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.budgetmanager.app.core.model.MessageDirection
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.SmsMessage
@@ -74,5 +75,37 @@ class RoomMessageRepositoryTest {
         val stored = repository.getById(id)!!
 
         assertNull(stored.paymentMethod)
+    }
+
+    @Test
+    fun direction_roundTripsThroughRoom() = runTest {
+        val message = SmsMessage(
+            id = 0, sender = "BANK", body = "Rs 100 credited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k3", parsedAmount = Money.ofRupees(100),
+            merchant = null, suggestedCategoryId = null,
+            status = MessageStatus.NOT_ASSIGNED, isNew = true, direction = MessageDirection.CREDIT
+        )
+
+        val id = repository.ingest(message)!!
+        val stored = repository.getById(id)!!
+
+        assertEquals(MessageDirection.CREDIT, stored.direction)
+    }
+
+    @Test
+    fun direction_defaultsToDebitWhenNotSet() = runTest {
+        // Proves MIGRATION_4_5's DEFAULT 'DEBIT' assumption holds for newly inserted rows too,
+        // not just rows that existed before the migration.
+        val message = SmsMessage(
+            id = 0, sender = "BANK", body = "Rs 100 debited", receivedAt = Instant.now(),
+            smsProviderId = null, dedupeKey = "k4", parsedAmount = Money.ofRupees(100),
+            merchant = "Test Merchant", suggestedCategoryId = null,
+            status = MessageStatus.NOT_ASSIGNED, isNew = true
+        )
+
+        val id = repository.ingest(message)!!
+        val stored = repository.getById(id)!!
+
+        assertEquals(MessageDirection.DEBIT, stored.direction)
     }
 }

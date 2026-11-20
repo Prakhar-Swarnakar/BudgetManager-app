@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.budgetmanager.app.navigation.Destination
 
 @Composable
 fun AddTransactionScreen(
@@ -13,16 +14,22 @@ fun AddTransactionScreen(
     transactionId: Long?,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
-    // A distinct key per (messageId, transactionId): without it, every navigation to this
-    // screen would share one Hilt-cached ViewModel instance (there's no per-NavEntry
-    // ViewModelStore scoping wired up for Navigation 3 here), so accepting message B after
-    // message A would still show A's already-loaded state.
-    viewModel: AddTransactionViewModel = hiltViewModel(key = "AddTransaction:$messageId:$transactionId")
+    prefillAmountPaise: Long? = null,
+    prefillTitle: String? = null,
+    prefillDateEpochDay: Long? = null,
+    prefillBannerText: String? = null,
+    // Keyed the same way the top-bar Save button's own hiltViewModel() call in AppNavigation is
+    // (see Destination.AddTransaction.viewModelKey()), so both resolve the same cached instance.
+    viewModel: AddTransactionViewModel = hiltViewModel(
+        key = Destination.AddTransaction(
+            messageId, transactionId, prefillAmountPaise, prefillTitle, prefillDateEpochDay, prefillBannerText
+        ).viewModelKey()
+    )
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(messageId, transactionId) {
-        viewModel.load(messageId, transactionId)
+        viewModel.load(messageId, transactionId, prefillAmountPaise, prefillTitle, prefillDateEpochDay, prefillBannerText)
     }
 
     LaunchedEffect(state.saved) {
@@ -37,13 +44,18 @@ fun AddTransactionScreen(
         onAmountChanged = viewModel::onAmountChanged,
         onMerchantChanged = viewModel::onMerchantChanged,
         onAddToRuleToggled = viewModel::onAddToRuleToggled,
+        onCategoryKeywordChanged = viewModel::onCategoryKeywordChanged,
         onTaxonomySelected = viewModel::onTaxonomySelected,
         onAddTaxonomyToRuleToggled = viewModel::onAddTaxonomyToRuleToggled,
+        onTaxonomyKeywordChanged = viewModel::onTaxonomyKeywordChanged,
         onNoteChanged = viewModel::onNoteChanged,
         onDateChanged = viewModel::onDateChanged,
         onCategorySelected = viewModel::onCategorySelected,
-        onSave = viewModel::onSave,
-        onCancel = onDone,
+        onSplitToggled = viewModel::onSplitToggled,
+        onAddSplitFriend = viewModel::onAddSplitFriend,
+        onRemoveSplitFriend = viewModel::onRemoveSplitFriend,
+        onSplitFriendSettledToggled = viewModel::onSplitFriendSettledToggled,
+        onSplitFriendAmountChanged = viewModel::onSplitFriendAmountChanged,
         modifier = modifier
     )
 }

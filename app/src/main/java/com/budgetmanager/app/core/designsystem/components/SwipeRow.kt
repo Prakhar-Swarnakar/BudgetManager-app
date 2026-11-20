@@ -15,6 +15,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,16 +48,35 @@ fun SwipeRow(
     endAction: SwipeAction = SwipeAction(Icons.Default.Close, StatusColors.overBudget),
     content: @Composable () -> Unit
 ) {
-    // Always veto the dismiss (return false): the row must never actually settle in the
-    // "dismissed" position, since accepting/rejecting changes the row's status rather than
-    // removing it from the list. Returning false makes the box auto-snap back to Settled on
-    // its own; a manual reset() call here was racy and could leave the full-strength swipe
-    // background stuck on screen instead of the (correctly tinted) row content.
+    // rememberSwipeToDismissBoxState only runs its factory once per row (this composable is
+    // called fresh per list item, keyed by a stable id) - confirmValueChange is captured into
+    // the remembered SwipeToDismissBoxState at that first call and is *not* re-captured on later
+    // recompositions just because this function was called again with new lambda/action values.
+    // A row whose own state later flips (e.g. Owed to You's Pending -> Reminded, or Messages'
+    // Accepted/Rejected swapping which direction is "undo") would keep reading the stale values
+    // from its first composition forever, so a swipe that should now do something different
+    // either does the old thing or silently does nothing - confirmed as a real on-device bug via
+    // Owed to You's reverse swipe never reaching the ViewModel after a forward swipe, and almost
+    // certainly the same root cause as the still-open "swiping a Rejected message doesn't revert"
+    // report in 07-open-questions.md. rememberUpdatedState is exactly Compose's answer to this -
+    // the lambda closure stays the same object, but reads through to whatever was passed in on
+    // the most recent composition. Always veto the dismiss (return false): the row must never
+    // actually settle in the "dismissed" position, since accepting/rejecting changes the row's
+    // status rather than removing it from the list. Returning false makes the box auto-snap back
+    // to Settled on its own; a manual reset() call here was racy and could leave the
+    // full-strength swipe background stuck on screen instead of the (correctly tinted) row
+    // content.
+    val currentOnSwipeStart = rememberUpdatedState(onSwipeStart)
+    val currentOnSwipeEnd = rememberUpdatedState(onSwipeEnd)
+    val currentStartAction = rememberUpdatedState(startAction)
+    val currentEndAction = rememberUpdatedState(endAction)
     val state = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> if (startAction.enabled) onSwipeStart()
-                SwipeToDismissBoxValue.EndToStart -> if (endAction.enabled) onSwipeEnd()
+                SwipeToDismissBoxValue.StartToEnd ->
+                    if (currentStartAction.value.enabled) currentOnSwipeStart.value()
+                SwipeToDismissBoxValue.EndToStart ->
+                    if (currentEndAction.value.enabled) currentOnSwipeEnd.value()
                 SwipeToDismissBoxValue.Settled -> Unit
             }
             false

@@ -2,6 +2,7 @@ package com.budgetmanager.app.feature.messages
 
 import com.budgetmanager.app.core.model.Category
 import com.budgetmanager.app.core.model.KeywordRule
+import com.budgetmanager.app.core.model.MessageDirection
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.SmsMessage
@@ -251,6 +252,111 @@ class MessagesViewModelTest {
         assertEquals(MessageStatus.ACCEPTED, row.status)
         assertEquals("🍔", row.categoryEmoji)
         assertEquals("Food & Dining", row.categoryName)
+        collector.cancel()
+    }
+
+    @Test
+    fun `an Accepted row shows the transaction's saved title instead of the message's own merchant, which stays untouched`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+
+        val id = repo.ingest(testMessage("k1"))!! // merchant = "Test Store"
+        val message = repo.getById(id)!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        transactions.saveFromMessage(
+            message = message, amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test", title = "Lunch with the team"
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertEquals("Lunch with the team", row.merchantOrBody)
+        assertEquals("Test Store", repo.getById(id)!!.merchant)
+        collector.cancel()
+    }
+
+    @Test
+    fun `a Not assigned row for a message with no parsed amount shows no amount, not a crash`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        // Mirrors the real gap found 2026-10-07: a genuine transaction SMS ("Systematic
+        // Investment Purchase...has been processed") that never states an amount inline.
+        val id = repo.ingest(testMessage("k1").copy(parsedAmount = null))!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertNull(row.amountText)
+        collector.cancel()
+    }
+
+    @Test
+    fun `once accepted, a message with no parsed amount shows the real transaction amount instead of nothing`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+
+        val id = repo.ingest(testMessage("k1").copy(parsedAmount = null))!!
+        val message = repo.getById(id)!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        // The amount was never in the SMS, so it has to be typed in manually when accepting -
+        // the row should pick that real saved amount up afterward, not stay blank forever.
+        transactions.saveFromMessage(
+            message = message, amount = Money.ofRupees(3000), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test"
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertEquals(Money.ofRupees(3000).formatted(), row.amountText)
+        collector.cancel()
+    }
+
+    @Test
+    fun `an Accepted row linked to a split transaction shows your share, with the full amount struck through`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+
+        val id = repo.ingest(testMessage("k1").copy(parsedAmount = Money.ofRupees(900)))!!
+        val message = repo.getById(id)!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        transactions.saveFromMessage(
+            message = message, amount = Money.ofRupees(900), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test", owedTotal = Money.ofRupees(550)
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertEquals(Money.ofRupees(350).formatted(), row.amountText)
+        assertEquals(Money.ofRupees(900).formatted(), row.splitTotalText)
+        collector.cancel()
+    }
+
+    @Test
+    fun `an Accepted row for a non-split transaction never shows a struck-through total`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+
+        val id = repo.ingest(testMessage("k1"))!!
+        val message = repo.getById(id)!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        transactions.saveFromMessage(
+            message = message, amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test"
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertEquals(Money.ofRupees(100).formatted(), row.amountText)
+        assertNull(row.splitTotalText)
         collector.cancel()
     }
 
@@ -512,13 +618,18 @@ class MessagesViewModelTest {
     fun `onRunRule also refreshes taxonomy suggestions, same Not assigned and viewed month scoping`() = runTest {
         val repo = FakeMessageRepository()
         val taxonomyRules = FakeTaxonomyKeywordRuleRepository().apply {
-            seed(listOf(TaxonomyRule("test store", TaxonomyType.UPI)))
+            seed(listOf(TaxonomyRule("upi", TaxonomyType.UPI)))
         }
         val viewModel = viewModel(repo, taxonomySuggester = TaxonomySuggester(taxonomyRules))
         val collector = viewModel.uiState.onEach { }.launchIn(this)
         val currentMonth = viewModel.uiState.value.monthKey
 
-        val notAssignedId = repo.ingest(testMessage("k1").copy(receivedAt = instantIn(currentMonth)))!!
+        // Taxonomy keywords ("upi") live in the body, not the merchant - this message keeps a
+        // real, non-null merchant ("Test Store") precisely to prove the suggestion still matches
+        // via the body even when a merchant was successfully parsed (the real bug being fixed).
+        val notAssignedId = repo.ingest(
+            testMessage("k1").copy(receivedAt = instantIn(currentMonth), body = "Rs 100 debited via UPI")
+        )!!
         val acceptedId = repo.ingest(testMessage("k2").copy(receivedAt = instantIn(currentMonth)))!!
         repo.updateStatus(acceptedId, MessageStatus.ACCEPTED)
         dispatcher.scheduler.advanceUntilIdle()
@@ -575,6 +686,207 @@ class MessagesViewModelTest {
         assertNull(repo.getById(acceptedId))
         assertEquals(otherMonthId, repo.getById(otherMonthId)!!.id)
         assertEquals(false, viewModel.uiState.value.showClearMonthConfirm)
+        collector.cancel()
+    }
+
+    @Test
+    fun `swipe start on a Not assigned credit message directly accepts it, no navigation requested`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val id = repo.ingest(testMessage("k1").copy(direction = MessageDirection.CREDIT))!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSwipeStart(id)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(MessageStatus.ACCEPTED, repo.getById(id)!!.status)
+        assertNull(viewModel.uiState.value.navigateToAddTransactionForMessageId)
+        collector.cancel()
+    }
+
+    @Test
+    fun `swipe end on an Accepted credit message reverts directly to Not assigned, with no transaction involved`() = runTest {
+        // Regression test: before branching on direction, onSwipeEnd's ACCEPTED case
+        // unconditionally called transactionRepository.deleteBySourceMessage(id), which is a
+        // silent no-op for a credit message (it never had a transaction) - that would have
+        // permanently stranded it as ACCEPTED with no live swipe direction left to undo it.
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val id = repo.ingest(testMessage("k1").copy(direction = MessageDirection.CREDIT))!!
+        repo.updateStatus(id, MessageStatus.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSwipeEnd(id)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(MessageStatus.NOT_ASSIGNED, repo.getById(id)!!.status)
+        collector.cancel()
+    }
+
+    @Test
+    fun `onAcceptFromDetail on a Not assigned credit message directly accepts it, no navigation requested`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val id = repo.ingest(testMessage("k1").copy(direction = MessageDirection.CREDIT))!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onAcceptFromDetail(id)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(MessageStatus.ACCEPTED, repo.getById(id)!!.status)
+        assertNull(viewModel.uiState.value.navigateToAddTransactionForMessageId)
+        collector.cancel()
+    }
+
+    @Test
+    fun `onRunRule never suggests a category or taxonomy for a credit message, even when its body would otherwise keyword-match`() = runTest {
+        val repo = FakeMessageRepository()
+        val keywordRules = FakeKeywordRuleRepository().apply {
+            seed(listOf(KeywordRule(keyword = "rs 100 debited", categoryId = 1)))
+        }
+        val viewModel = viewModel(repo, categorySuggester = CategorySuggester(keywordRules))
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val currentMonth = viewModel.uiState.value.monthKey
+
+        // A credit message has no merchant, so onRunRule would otherwise keyword-match its raw
+        // body - this seeded rule matches testMessage()'s own body text ("Rs 100 debited") on
+        // purpose, to prove the credit message is filtered out before that lookup ever runs.
+        val creditId = repo.ingest(
+            testMessage("k1").copy(receivedAt = instantIn(currentMonth), direction = MessageDirection.CREDIT)
+        )!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onRunRule()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(repo.getById(creditId)!!.suggestedCategoryId)
+        collector.cancel()
+    }
+
+    @Test
+    fun `direction filter narrows rows and its counts are independent of the status filter`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val debitId = repo.ingest(testMessage("k1"))!!
+        val creditId = repo.ingest(testMessage("k2").copy(direction = MessageDirection.CREDIT))!!
+        repo.updateStatus(creditId, MessageStatus.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Direction counts are independent of the currently selected status filter - both are
+        // still visible even though only Accepted is selected right now.
+        viewModel.onFilterSelected(MessageFilter.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(2, viewModel.uiState.value.directionCounts[null])
+        assertEquals(1, viewModel.uiState.value.directionCounts[MessageDirection.DEBIT])
+        assertEquals(1, viewModel.uiState.value.directionCounts[MessageDirection.CREDIT])
+
+        viewModel.onDirectionFilterSelected(MessageDirection.CREDIT)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(creditId, viewModel.uiState.value.rows.single().id)
+
+        // Stacks (AND) with status, rather than replacing it - a Not assigned debit message
+        // never shows once both Accepted and Incoming are selected.
+        viewModel.onDirectionFilterSelected(MessageDirection.DEBIT)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.rows.isEmpty())
+        collector.cancel()
+    }
+
+    @Test
+    fun `category filter None finds messages with no category assigned or suggested, Specific finds just that category`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val categorizedId = repo.ingest(testMessage("k1"))!!
+        transactions.saveFromMessage(
+            message = repo.getById(categorizedId)!!, amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test"
+        )
+        val uncategorizedId = repo.ingest(testMessage("k2"))!! // no suggestion, no transaction
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.categoryCounts[CategoryFilter.None])
+        assertEquals(1, viewModel.uiState.value.categoryCounts[CategoryFilter.Specific(1)])
+
+        viewModel.onCategoryFilterSelected(CategoryFilter.None)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(uncategorizedId, viewModel.uiState.value.rows.single().id)
+
+        viewModel.onCategoryFilterSelected(CategoryFilter.Specific(1))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(categorizedId, viewModel.uiState.value.rows.single().id)
+        collector.cancel()
+    }
+
+    @Test
+    fun `taxonomy filter None finds messages with no taxonomy assigned or suggested, Specific finds just that one`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val upiId = repo.ingest(testMessage("k1"))!!
+        transactions.saveFromMessage(
+            message = repo.getById(upiId)!!, amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test", taxonomy = TaxonomyType.UPI
+        )
+        val noTaxonomyId = repo.ingest(testMessage("k2"))!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.taxonomyCounts[TaxonomyFilter.None])
+        assertEquals(1, viewModel.uiState.value.taxonomyCounts[TaxonomyFilter.Specific(TaxonomyType.UPI)])
+
+        viewModel.onTaxonomyFilterSelected(TaxonomyFilter.Specific(TaxonomyType.UPI))
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(upiId, viewModel.uiState.value.rows.single().id)
+
+        viewModel.onTaxonomyFilterSelected(TaxonomyFilter.None)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(noTaxonomyId, viewModel.uiState.value.rows.single().id)
+        collector.cancel()
+    }
+
+    @Test
+    fun `onFiltersClicked opens the sheet, onFiltersDismissed closes it`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        assertEquals(false, viewModel.uiState.value.showFiltersSheet)
+
+        viewModel.onFiltersClicked()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.showFiltersSheet)
+
+        viewModel.onFiltersDismissed()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(false, viewModel.uiState.value.showFiltersSheet)
+        collector.cancel()
+    }
+
+    @Test
+    fun `a row's direction matches its message's direction`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        val debitId = repo.ingest(testMessage("k1"))!!
+        val creditId = repo.ingest(testMessage("k2").copy(direction = MessageDirection.CREDIT))!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val rows = viewModel.uiState.value.rows.associateBy { it.id }
+        assertEquals(MessageDirection.DEBIT, rows[debitId]!!.direction)
+        assertEquals(MessageDirection.CREDIT, rows[creditId]!!.direction)
         collector.cancel()
     }
 }

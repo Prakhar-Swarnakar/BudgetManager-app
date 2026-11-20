@@ -48,6 +48,16 @@ value class Money(val paise: Long) : Comparable<Money> {
         /** Parses an amount extracted from bank SMS text, such as "1,250.00" or "500". */
         fun parseSmsAmount(raw: String): Money? = parseRupeeInput(raw.replace(",", ""))
 
+        /** Formats paise as a plain rupee string for a text field's initial value, e.g. "250" or
+         *  "250.50" - never a "₹" sign or Indian grouping (contrast [formatted]). The one place
+         *  this conversion happens; used wherever a saved amount needs to pre-fill an editable
+         *  field. */
+        fun formatForInput(paise: Long): String {
+            val rupees = paise / 100
+            val remainder = paise % 100
+            return if (remainder == 0L) rupees.toString() else "%d.%02d".format(rupees, remainder)
+        }
+
         private val RUPEE_INPUT_REGEX = Regex("""(\d+)(?:\.(\d{1,2}))?""")
 
         private fun formatPaise(paise: Long): String {

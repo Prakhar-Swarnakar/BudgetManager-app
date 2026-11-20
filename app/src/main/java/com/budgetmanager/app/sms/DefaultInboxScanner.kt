@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.Telephony
 import androidx.core.content.ContextCompat
+import com.budgetmanager.app.core.model.MessageDirection
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.data.datastore.SettingsDataStore
@@ -90,24 +91,48 @@ class DefaultInboxScanner @Inject constructor(
                     val sender = cursor.getString(addressIndex) ?: "unknown"
                     latestSeen = maxOf(latestSeen, date)
 
-                    if (!SpendClassifier.isSpendLike(body)) continue
-
-                    val parsed = SmsParser.parse(body)
-                    val message = SmsMessage(
-                        id = 0,
-                        sender = sender,
-                        body = body,
-                        receivedAt = Instant.ofEpochMilli(date),
-                        smsProviderId = null,
-                        dedupeKey = DedupeKey.build(date, body),
-                        parsedAmount = parsed.amount,
-                        merchant = parsed.merchant,
-                        paymentMethod = parsed.paymentMethod,
-                        suggestedCategoryId = categorySuggester.suggest(parsed.merchant ?: body),
-                        suggestedTaxonomy = taxonomySuggester.suggest(parsed.merchant ?: body),
-                        status = MessageStatus.NOT_ASSIGNED,
-                        isNew = true
-                    )
+                    val message = if (SpendClassifier.isSpendLike(body)) {
+                        val parsed = SmsParser.parse(body)
+                        SmsMessage(
+                            id = 0,
+                            sender = sender,
+                            body = body,
+                            receivedAt = Instant.ofEpochMilli(date),
+                            smsProviderId = null,
+                            dedupeKey = DedupeKey.build(date, body),
+                            parsedAmount = parsed.amount,
+                            merchant = parsed.merchant,
+                            paymentMethod = parsed.paymentMethod,
+                            suggestedCategoryId = categorySuggester.suggest(parsed.merchant ?: body),
+                            // Taxonomy keywords live in the SMS body's boilerplate, never in a
+                            // merchant name - always check the full body, not merchant-or-body.
+                            suggestedTaxonomy = taxonomySuggester.suggest(body),
+                            status = MessageStatus.NOT_ASSIGNED,
+                            isNew = true,
+                            direction = MessageDirection.DEBIT
+                        )
+                    } else if (CreditClassifier.isCreditLike(body)) {
+                        // No merchant/payment-method/category/taxonomy in v1 - nothing to
+                        // suggest against yet (06-backlog.md, "Credit handling").
+                        SmsMessage(
+                            id = 0,
+                            sender = sender,
+                            body = body,
+                            receivedAt = Instant.ofEpochMilli(date),
+                            smsProviderId = null,
+                            dedupeKey = DedupeKey.build(date, body),
+                            parsedAmount = SmsParser.parseAmountOnly(body),
+                            merchant = null,
+                            paymentMethod = null,
+                            suggestedCategoryId = null,
+                            suggestedTaxonomy = null,
+                            status = MessageStatus.NOT_ASSIGNED,
+                            isNew = true,
+                            direction = MessageDirection.CREDIT
+                        )
+                    } else {
+                        continue
+                    }
                     if (messageRepository.ingest(message) != null) insertedCount++
                 }
             }

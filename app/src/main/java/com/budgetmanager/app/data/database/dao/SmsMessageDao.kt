@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
+import com.budgetmanager.app.core.model.MessageDirection
 import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.TaxonomyType
 import com.budgetmanager.app.data.database.entity.SmsMessageEntity
@@ -23,12 +24,34 @@ interface SmsMessageDao {
     @Query("SELECT COUNT(*) FROM sms_message WHERE is_new = 1")
     fun observeNewCount(): Flow<Int>
 
+    /** Home's "Income" line: the total of every Accepted credit message received in
+     *  [sinceMillis, untilMillisExclusive). One aggregate rather than Home observing the whole
+     *  table and summing a month's worth of it in memory. A message with no parsed amount of its
+     *  own contributes nothing, same as the in-memory version it replaced. */
+    @Query(
+        "SELECT COALESCE(SUM(parsed_amount_paise), 0) FROM sms_message " +
+            "WHERE status = :status AND direction = :direction " +
+            "AND received_at >= :sinceMillis AND received_at < :untilMillisExclusive"
+    )
+    fun observeAmountTotal(
+        status: MessageStatus,
+        direction: MessageDirection,
+        sinceMillis: Long,
+        untilMillisExclusive: Long
+    ): Flow<Long>
+
     /** Every message, for backup export. */
     @Query("SELECT * FROM sms_message")
     suspend fun getAllOnce(): List<SmsMessageEntity>
 
     @Query("SELECT * FROM sms_message WHERE id = :id")
     suspend fun getById(id: Long): SmsMessageEntity?
+
+    /** The messages behind a batch of transactions, in one query - Category detail needs each
+     *  SMS-linked transaction's merchant and real received time, and used to fetch them one
+     *  getById at a time while building its list. */
+    @Query("SELECT * FROM sms_message WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<Long>): List<SmsMessageEntity>
 
     @Query("SELECT * FROM sms_message WHERE dedupe_key = :dedupeKey LIMIT 1")
     suspend fun getByDedupeKey(dedupeKey: String): SmsMessageEntity?
