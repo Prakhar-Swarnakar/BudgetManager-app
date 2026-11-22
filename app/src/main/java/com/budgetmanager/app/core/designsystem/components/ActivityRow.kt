@@ -2,7 +2,6 @@ package com.budgetmanager.app.core.designsystem.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,16 +18,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
 /**
- * The shared shape behind [com.budgetmanager.app.feature.messages.components.MessageRow] and
- * [com.budgetmanager.app.feature.owedtoyou.components.OwedToYouRow] - built once for Messages,
- * moved here once Owed to You needed the same layout (title, a one-line subtitle, a status
- * badge, a trailing amount/category/taxonomy column), per this app's own extraction rule in
- * 12-tech-architecture.md ("extracted when needed twice"). What differs between the two call
- * sites is handled through slots rather than flags: [title] and [amount] are composables so each
- * caller controls their own emphasis (Messages bolds a new row's title; Owed to You never does),
- * [leadingIndicator] is Messages' small "new" dot, and [belowStatus] is Messages' possible-
- * duplicate warning. Swiping is *not* built in here - both callers wrap this in [SwipeRow]
- * externally, same as Messages already did before this was extracted.
+ * The row behind [com.budgetmanager.app.feature.owedtoyou.components.OwedToYouRow] (title, a
+ * one-line subtitle, tags, a status badge, a trailing amount/category/taxonomy column). It was
+ * shared with Messages until Messages got its own avatar-and-badge row layout, so the slots only
+ * Messages used (new-row dot, duplicate warning, tinted background) are gone. Swiping is *not*
+ * built in here - the caller wraps this in [SwipeRow].
  */
 @Composable
 fun ActivityRow(
@@ -43,21 +37,15 @@ fun ActivityRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     tags: List<String> = emptyList(),
-    taxonomyLabel: String? = null,
-    backgroundColor: Color = MaterialTheme.colorScheme.surface,
-    leadingIndicator: @Composable (() -> Unit)? = null,
-    belowStatus: @Composable (() -> Unit)? = null
+    taxonomyLabel: String? = null
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(backgroundColor)
+            .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
-        leadingIndicator?.let {
-            Box(modifier = Modifier.padding(top = 6.dp, end = 8.dp)) { it() }
-        }
         Column(modifier = Modifier.weight(1f)) {
             title()
             Text(
@@ -69,9 +57,6 @@ fun ActivityRow(
                 TagRow(tags, modifier = Modifier.padding(top = 4.dp))
             }
             StatusBadge(statusIcon, statusLabel, statusColor, modifier = Modifier.padding(top = 4.dp))
-            belowStatus?.let {
-                Box(modifier = Modifier.padding(top = 4.dp)) { it() }
-            }
         }
         Column(horizontalAlignment = Alignment.End) {
             amount()

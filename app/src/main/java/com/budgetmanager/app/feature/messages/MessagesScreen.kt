@@ -40,6 +40,7 @@ fun MessagesScreen(
         onDetailDismissed = viewModel::onDetailDismissed,
         onAcceptFromDetail = viewModel::onAcceptFromDetail,
         onRejectFromDetail = viewModel::onRejectFromDetail,
+        onUndoFromDetail = viewModel::onUndoFromDetail,
         onUndoReject = viewModel::onUndoReject,
         onUndoDismissed = viewModel::onUndoDismissed,
         onPreviousMonth = viewModel::onPreviousMonth,
@@ -49,6 +50,8 @@ fun MessagesScreen(
         onClearMonthClicked = viewModel::onClearMonthClicked,
         onClearMonthConfirmed = viewModel::onClearMonthConfirmed,
         onClearMonthDismissed = viewModel::onClearMonthDismissed,
+        onUndoConfirmConfirmed = viewModel::onUndoConfirmConfirmed,
+        onUndoConfirmDismissed = viewModel::onUndoConfirmDismissed,
         modifier = modifier
     )
 }

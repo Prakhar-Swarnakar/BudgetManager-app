@@ -12,3 +12,9 @@ private val dayTimeFormatter = DateTimeFormatter.ofPattern("dd MMM, HH:mm")
 /** e.g. "07 Oct, 14:32", in the given zone (the phone's own zone in real use). */
 fun Instant.toDayTimeText(zone: ZoneId = ZoneId.systemDefault()): String =
     atZone(zone).format(dayTimeFormatter)
+
+private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+/** e.g. "14:32" - for rows that already sit under a day header. */
+fun Instant.toTimeText(zone: ZoneId = ZoneId.systemDefault()): String =
+    atZone(zone).format(timeFormatter)

@@ -1,0 +1,537 @@
+<title>Messages review queue</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400;8..144,500;8..144,600;8..144,700&display=swap">
+<style>
+  /* Layout: design-review canvas. A horizontal stage of phones (current, then proposed states), then strips of row-level states (swipe, duplicates, empty), then the change list. Phone UI is plain Material 3 per PRODUCT.md. */
+  :root {
+    --bg:#EEF1F5; --canvas-ink:#1C1B1F; --canvas-ink-muted:#59606C; --card:#FFFFFF; --card-line:#E2E0E6;
+    --proposed:#2A63B8; --current:#8A8590; --frame-shadow:rgba(28,27,31,.16);
+    --pbg:#FCFAFD; --surface:#FFFFFF; --s1:#F4F1F6; --s2:#EEEAF1; --s3:#E5E0E8;
+    --ink:#1C1B1F; --ink2:#49454F; --ink3:#6F6A76; --line:#E5E1E8; --outline:#79747E;
+    --primary:#2A63B8; --on-primary:#FFFFFF; --primary-c:#D6E6FA; --on-primary-c:#0B2F57;
+    --ok:#1E7A45; --on-ok:#FFFFFF; --ok-c:#D9F1E1; --bad:#B3261E; --on-bad:#FFFFFF; --bad-c:#FADCD9;
+    --undo:#5F5B66; --on-undo:#FFFFFF; --undo-c:#E5E0E8;
+    --warn:#855300; --warn-c:#FCEBC7;
+    --inv:#313033; --on-inv:#F4EFF4; --inv-primary:#A8C8F5;
+    --scrim:rgba(20,18,24,.38);
+    --font:"Roboto Flex", Roboto, "Segoe UI", system-ui, sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#111114; --canvas-ink:#E6E1E5; --canvas-ink-muted:#A39EAA; --card:#211F25; --card-line:#36333B;
+      --proposed:#9DC1F2; --current:#938F99; --frame-shadow:rgba(0,0,0,.55);
+      --pbg:#1A191D; --surface:#211F25; --s1:#26242A; --s2:#2C2A31; --s3:#38353E;
+      --ink:#E6E1E5; --ink2:#CAC4D0; --ink3:#A29DA8; --line:#36333B; --outline:#938F99;
+      --primary:#9DC1F2; --on-primary:#0B2F57; --primary-c:#254A75; --on-primary-c:#D6E6FA;
+      --ok:#7DD49B; --on-ok:#0F2D1A; --ok-c:#1F3D2A; --bad:#F2B8B5; --on-bad:#4A100C; --bad-c:#4D1F1C;
+      --undo:#AEA9B4; --on-undo:#1C1B1F; --undo-c:#3A3740;
+      --warn:#F0C26A; --warn-c:#45331A;
+      --inv:#E6E1E5; --on-inv:#313033; --inv-primary:#2A63B8;
+      --scrim:rgba(0,0,0,.55); color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#111114; --canvas-ink:#E6E1E5; --canvas-ink-muted:#A39EAA; --card:#211F25; --card-line:#36333B;
+    --proposed:#9DC1F2; --current:#938F99; --frame-shadow:rgba(0,0,0,.55);
+    --pbg:#1A191D; --surface:#211F25; --s1:#26242A; --s2:#2C2A31; --s3:#38353E;
+    --ink:#E6E1E5; --ink2:#CAC4D0; --ink3:#A29DA8; --line:#36333B; --outline:#938F99;
+    --primary:#9DC1F2; --on-primary:#0B2F57; --primary-c:#254A75; --on-primary-c:#D6E6FA;
+    --ok:#7DD49B; --on-ok:#0F2D1A; --ok-c:#1F3D2A; --bad:#F2B8B5; --on-bad:#4A100C; --bad-c:#4D1F1C;
+    --undo:#AEA9B4; --on-undo:#1C1B1F; --undo-c:#3A3740;
+    --warn:#F0C26A; --warn-c:#45331A;
+    --inv:#E6E1E5; --on-inv:#313033; --inv-primary:#2A63B8;
+    --scrim:rgba(0,0,0,.55); color-scheme: dark;
+  }
+  * { box-sizing:border-box; }
+  ::selection { background:var(--primary-c); color:var(--on-primary-c); }
+  body { margin:0; background:var(--bg); color:var(--canvas-ink); font-family:var(--font); font-variant-numeric:tabular-nums;
+    padding-block:40px 80px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); }
+  .wrap { max-width:1760px; margin:0 auto; }
+  .head { max-width:780px; margin:0 0 28px; }
+  h1.title { font-size:32px; font-weight:600; letter-spacing:-.02em; margin:0 0 10px; text-wrap:balance; }
+  .head p { font-size:15px; line-height:1.6; color:var(--canvas-ink-muted); margin:0; max-width:72ch; }
+  h2.sec { font-size:20px; font-weight:600; margin:44px 0 6px; letter-spacing:-.01em; }
+  p.secp { font-size:14px; line-height:1.55; color:var(--canvas-ink-muted); margin:0 0 16px; max-width:80ch; }
+
+  .stage { display:flex; gap:32px; overflow-x:auto; padding:4px 4px 24px; scrollbar-color:var(--s3) transparent; }
+  .col { flex:none; display:flex; flex-direction:column; gap:12px; }
+  .cap { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; max-width:414px; }
+  .tag { font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:6px; }
+  .tag.cur { color:var(--current); border:1px solid var(--current); }
+  .tag.pro { color:var(--on-primary); background:var(--proposed); }
+  .cap b { font-size:15px; font-weight:600; }
+  .cap span.d { font-size:13px; color:var(--canvas-ink-muted); }
+
+  /* ---------- Phone ---------- */
+  .phone { width:414px; border-radius:42px; padding:12px; background:linear-gradient(165deg,#3a3a40,#19181c); box-shadow:0 14px 30px var(--frame-shadow); }
+  .screen { width:390px; height:844px; background:var(--pbg); border-radius:32px; overflow:hidden; position:relative; font:14px/1.43 var(--font); color:var(--ink); display:flex; flex-direction:column; }
+  .ic { width:24px; height:24px; fill:currentColor; flex:none; }
+  .ic.s { width:18px; height:18px; } .ic.xs { width:16px; height:16px; }
+  .status { height:28px; flex:none; display:flex; justify-content:space-between; align-items:center; padding:0 22px; font-size:13px; font-weight:500; }
+  .appbar { height:64px; flex:none; display:flex; align-items:center; gap:4px; padding:0 4px; }
+  .appbar h2 { font-size:22px; font-weight:400; margin:0 0 0 4px; flex:1; }
+  .ib { width:48px; height:48px; display:grid; place-items:center; border-radius:24px; color:var(--ink2); position:relative; }
+  .ib .dot { position:absolute; top:11px; right:11px; width:8px; height:8px; border-radius:4px; background:var(--primary); border:2px solid var(--pbg); }
+  .month { height:48px; flex:none; display:flex; align-items:center; justify-content:space-between; padding:0 4px; }
+  .month b { font-size:16px; font-weight:500; }
+  .faint { color:var(--ink3); opacity:.5; }
+  .body { flex:1; overflow:hidden; position:relative; }
+  .nav { height:80px; flex:none; background:var(--s1); display:flex; justify-content:space-around; padding-top:12px; }
+  .nav>div { display:flex; flex-direction:column; align-items:center; gap:4px; font-size:12px; font-weight:500; color:var(--ink2); width:80px; }
+  .nav .pill { width:64px; height:32px; border-radius:16px; display:grid; place-items:center; position:relative; }
+  .nav .on .pill { background:var(--primary-c); color:var(--on-primary-c); } .nav .on { color:var(--ink); }
+  .nav .pill .n { position:absolute; top:-2px; left:38px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--bad); color:var(--on-bad); font-size:11px; line-height:16px; text-align:center; font-weight:600; }
+
+  /* ---------- Current (recreated as-is) ---------- */
+  .btnrow { display:flex; gap:8px; padding:0 8px 4px; overflow:hidden; flex:none; }
+  .obtn { height:40px; padding:0 18px; border-radius:20px; border:1px solid var(--outline); color:var(--primary); font-size:14px; font-weight:500; display:flex; align-items:center; white-space:nowrap; }
+  .chiprow { display:flex; align-items:center; gap:8px; padding-right:8px; flex:none; overflow:hidden; }
+  .chip { height:32px; padding:0 12px; border-radius:8px; border:1px solid var(--outline); font-size:14px; font-weight:500; color:var(--ink2); display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .chip.sel { background:var(--primary-c); color:var(--on-primary-c); border-color:transparent; }
+  .chip .c { opacity:.75; font-weight:400; }
+  .crow { display:flex; padding:16px; gap:8px; border-bottom:1px solid var(--line); }
+  .crow.acc { background:color-mix(in srgb, var(--ok) 12%, var(--pbg)); }
+  .crow.rej { background:color-mix(in srgb, var(--bad) 12%, var(--pbg)); }
+  .crow .m { flex:1; min-width:0; }
+  .crow .t { font-size:16px; } .crow .t.new { font-weight:700; }
+  .crow .sub { font-size:12px; color:var(--ink2); }
+  .badge { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:500; margin-top:4px; }
+  .crow .r { text-align:right; }
+  .crow .a { font-size:16px; font-weight:700; white-space:nowrap; }
+  .crow .a .up { color:var(--ok); } .crow .a .dn { color:var(--bad); }
+  .crow .a s { font-size:12px; font-weight:400; color:var(--ink3); }
+  .crow .k { font-size:12px; color:var(--ink2); margin-top:2px; white-space:nowrap; }
+  .newdot { width:8px; height:8px; border-radius:4px; background:var(--primary); margin-top:7px; flex:none; }
+
+  /* ---------- Proposed list ---------- */
+  .tabs { display:flex; gap:8px; padding:0 16px 8px; flex:none; overflow:hidden; }
+  .afilters { display:flex; gap:8px; padding:0 16px 8px; flex:none; }
+  .fchip { height:32px; padding:0 8px 0 12px; border-radius:8px; background:var(--s2); color:var(--ink2); font-size:13px; font-weight:500; display:flex; align-items:center; gap:6px; }
+  .day { background:var(--pbg); display:flex; justify-content:space-between; padding:14px 16px 6px; font-size:13px; font-weight:600; color:var(--ink2); }
+  .day.stuck { position:sticky; top:0; z-index:1; }
+  .day span:last-child { font-weight:400; color:var(--ink3); }
+  .sw { position:relative; overflow:hidden; }
+  .sw + .sw { border-top:1px solid var(--line); }
+  .item { display:grid; grid-template-columns:40px 1fr auto; column-gap:14px; padding:12px 16px; background:var(--pbg); position:relative; }
+  .av { width:40px; height:40px; border-radius:20px; background:var(--s2); display:grid; place-items:center; font-size:19px; position:relative; color:var(--ink2); font-weight:600; }
+  .av .st { position:absolute; right:-3px; bottom:-3px; width:18px; height:18px; border-radius:9px; display:grid; place-items:center; border:2px solid var(--pbg); }
+  .av .st.ok { background:var(--ok); color:var(--on-ok); } .av .st.bad { background:var(--bad); color:var(--on-bad); }
+  .av .st .ic { width:12px; height:12px; }
+  .it-main { min-width:0; }
+  .it-t { font-size:16px; line-height:22px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px; }
+  .it-t.new { font-weight:600; }
+  .it-t .nd { width:8px; height:8px; border-radius:4px; background:var(--primary); flex:none; }
+  .it-s { font-size:13px; color:var(--ink2); line-height:18px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .it-meta { font-size:12.5px; color:var(--ink2); line-height:17px; margin-top:3px; display:flex; align-items:center; gap:4px; white-space:nowrap; }
+  .it-meta .ic { color:var(--ink3); }
+  .stl { font-weight:600; } .stl.ok { color:var(--ok); } .stl.bad { color:var(--bad); }
+  .avd { display:inline-flex; align-items:center; height:18px; padding:0 6px; border-radius:4px; border:1px solid var(--warn); color:var(--warn); font-size:11.5px; font-weight:600; }
+  .tile .demo .snack { position:static; margin:0; }
+  .a11y { font-size:13px; line-height:1.5; color:var(--ink2); margin:0; padding-left:18px; }
+  .a11y b { color:var(--ink); }
+  .dlg { background:var(--s2); border-radius:28px; padding:24px 24px 16px; }
+  .dlg h5 { margin:0 0 12px; font-size:20px; font-weight:400; }
+  .dlg p { margin:0; font-size:14px; line-height:20px; color:var(--ink2); }
+  .dlg .row { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; font-size:14px; font-weight:500; }
+  .dlg .row span { padding:10px 12px; color:var(--primary); }
+  .dlg .row span.d { color:var(--bad); }
+  .amt { text-align:right; font-size:16px; line-height:22px; font-weight:500; white-space:nowrap; }
+  .amt.cr { color:var(--ok); }
+  .amt.muted { color:var(--ink3); }
+  .amt s { display:block; font-size:12.5px; line-height:17px; font-weight:400; color:var(--ink3); }
+  .amt .share { display:block; font-size:11.5px; line-height:15px; font-weight:400; color:var(--ink2); }
+  .amt .na { font-size:13px; color:var(--ink3); font-weight:400; }
+  .dup { grid-column:2 / 4; margin-top:8px; display:flex; gap:8px; align-items:flex-start; padding:6px 10px; border-radius:8px; background:var(--warn-c); color:var(--warn); font-size:12.5px; line-height:17px; }
+  .dup b { font-weight:600; }
+
+  /* Swipe reveal: row slides 104px, the action sits underneath and waits for a tap */
+  .sw.open-l .item { transform:translateX(104px); box-shadow:-1px 0 0 var(--line); }
+  .sw.open-r .item { transform:translateX(-104px); box-shadow:1px 0 0 var(--line); }
+  .act { position:absolute; top:0; bottom:0; width:104px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:13px; font-weight:600; }
+  .act.l { left:0; } .act.r { right:0; }
+  .act.ok { background:var(--ok); color:var(--on-ok); }
+  .act.bad { background:var(--bad); color:var(--on-bad); }
+  .act.undo { background:var(--undo); color:var(--on-undo); }
+  .timer { position:absolute; left:0; right:0; bottom:0; height:3px; background:color-mix(in srgb, currentColor 35%, transparent); }
+  .timer i { display:block; height:100%; width:62%; background:currentColor; }
+  .act.r .timer i { margin-left:auto; }
+
+  .snack { position:absolute; left:8px; right:8px; bottom:8px; z-index:2; min-height:48px; border-radius:4px; background:var(--inv); color:var(--on-inv); display:flex; align-items:center; justify-content:space-between; padding:0 8px 0 16px; font-size:14px; box-shadow:0 3px 6px rgba(0,0,0,.2); }
+  .snack b { color:var(--inv-primary); font-weight:600; padding:0 8px; }
+
+  /* Menu */
+  .menu { position:absolute; top:92px; right:8px; width:250px; background:var(--s2); border-radius:6px; padding:8px 0; box-shadow:0 4px 10px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.12); z-index:5; }
+  .menu div { height:48px; display:flex; align-items:center; gap:12px; padding:0 12px; font-size:14px; }
+  .menu div .ic { color:var(--ink2); }
+  .menu hr { border:0; border-top:1px solid var(--line); margin:8px 0; }
+  .menu .danger, .menu .danger .ic { color:var(--bad); }
+
+  /* Sheet */
+  .scrim { position:absolute; inset:0; background:var(--scrim); z-index:3; }
+  .sheet { position:absolute; left:0; right:0; bottom:0; z-index:4; background:var(--s1); border-radius:28px 28px 0 0; padding:0 16px 20px; }
+  .handle { width:32px; height:4px; border-radius:2px; background:var(--outline); opacity:.5; margin:16px auto 14px; }
+  .sh-head { display:flex; align-items:center; gap:14px; }
+  .sh-head .av { width:48px; height:48px; border-radius:24px; background:var(--s3); font-size:22px; }
+  .sh-head h3 { margin:0; font-size:20px; font-weight:500; flex:1; min-width:0; }
+  .sh-head h3 small { display:block; font-size:13px; font-weight:400; color:var(--ink2); }
+  .sh-amt { font-size:26px; font-weight:500; letter-spacing:-.01em; text-align:right; white-space:nowrap; }
+  .sh-amt s { display:block; font-size:13px; font-weight:400; color:var(--ink3); letter-spacing:0; }
+  .sh-amt .share { display:block; font-size:12px; font-weight:400; color:var(--ink2); letter-spacing:0; }
+  .stchip { display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 8px 0 6px; border-radius:6px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .stchip .ic { width:14px; height:14px; }
+  .stchip.todo { background:var(--s3); color:var(--ink2); }
+  .stchip.ok { background:var(--ok-c); color:var(--ok); }
+  .stchip.bad { background:var(--bad-c); color:var(--bad); }
+  .cmp { margin-top:14px; border-radius:12px; background:var(--warn-c); color:var(--warn); padding:12px; }
+  .cmp.calm { background:var(--s2); color:var(--ink2); }
+  .cmp .h { display:flex; gap:8px; align-items:flex-start; font-size:14px; font-weight:600; line-height:19px; }
+  .cmp .p { font-size:12.5px; line-height:17px; margin:4px 0 0 26px; font-weight:400; }
+  .cmp .grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+  .pv { background:var(--surface); color:var(--ink); border-radius:8px; padding:8px 10px; font-size:12.5px; line-height:17px; display:flex; flex-direction:column; gap:2px; }
+  .pv b { font-size:13px; font-weight:600; }
+  .pv span { color:var(--ink2); }
+  .pv .stchip { margin-top:4px; align-self:flex-start; }
+  .pv.me { outline:2px solid currentColor; outline-offset:-2px; }
+  .cmp .pv.me { outline-color:var(--warn); }
+  .fields { margin-top:14px; background:var(--surface); border-radius:12px; }
+  .fld { display:flex; align-items:center; gap:12px; min-height:46px; padding:0 12px 0 14px; font-size:14px; }
+  .fld + .fld { border-top:1px solid var(--line); }
+  .fld .l { width:112px; color:var(--ink2); flex:none; }
+  .fld .v { flex:1; }
+  .fld .v em { font-style:normal; font-size:12px; color:var(--ink3); margin-left:6px; }
+  .fld .ic { color:var(--ink3); }
+  .raw { margin-top:14px; font-size:13px; line-height:19px; color:var(--ink2); }
+  .raw .lbl { font-size:12px; font-weight:600; color:var(--ink3); margin-bottom:4px; }
+  .raw p { margin:0; background:var(--surface); border-radius:12px; padding:10px 12px; }
+  .sh-acts { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:16px; }
+  .b { height:48px; border-radius:24px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:500; font-size:14px; white-space:nowrap; }
+  .b.ok { background:var(--ok); color:var(--on-ok); }
+  .b.bad { background:var(--bad); color:var(--on-bad); }
+  .b.ok-o { border:1px solid var(--ok); color:var(--ok); }
+  .b.bad-o { border:1px solid var(--bad); color:var(--bad); }
+  .b.undo { background:var(--undo-c); color:var(--ink); }
+  .b.pri { background:var(--primary); color:var(--on-primary); }
+
+  /* ---------- Strips ---------- */
+  .strip { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 390px), 1fr)); gap:20px; max-width:1660px; }
+  .tile { background:var(--card); border:1px solid var(--card-line); border-radius:14px; overflow:hidden; }
+  .tile .lab { padding:12px 16px 10px; font-size:13.5px; line-height:1.45; color:var(--canvas-ink-muted); }
+  .tile .lab b { display:block; color:var(--canvas-ink); font-size:14.5px; margin-bottom:2px; }
+  .tile .demo { background:var(--pbg); color:var(--ink); border-top:1px solid var(--card-line); font:14px/1.43 var(--font); }
+  .tile .demo.pad { padding:14px 16px 16px; }
+  .mini-acts { display:flex; gap:8px; margin-top:12px; }
+  .mini-acts .b { height:40px; padding:0 16px; font-size:13.5px; flex:1; }
+  .caught { padding:14px; border-radius:12px; background:var(--ok-c); display:flex; gap:12px; align-items:center; }
+  .caught .tick { width:36px; height:36px; border-radius:18px; background:var(--ok); color:var(--on-ok); display:grid; place-items:center; flex:none; }
+  .caught b { display:block; font-size:15px; font-weight:600; }
+  .caught span { font-size:13px; color:var(--ink2); }
+  .empty { text-align:center; padding:18px 8px 6px; }
+  .empty .ic { width:40px; height:40px; color:var(--ink3); }
+  .empty b { display:block; font-size:15px; font-weight:600; margin-top:6px; }
+  .empty span { display:block; font-size:13px; color:var(--ink2); margin-top:2px; }
+  .empty .b { display:inline-flex; height:40px; padding:0 18px; margin-top:12px; border:1px solid var(--outline); color:var(--primary); }
+
+  /* ---------- Notes ---------- */
+  .notes { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap:20px; max-width:1300px; }
+  .group { background:var(--card); border:1px solid var(--card-line); border-radius:14px; padding:20px 22px 8px; }
+  .group h3.gh { font-size:18px; font-weight:600; margin:0 0 4px; }
+  .group > p { font-size:13.5px; color:var(--canvas-ink-muted); margin:0 0 12px; line-height:1.5; }
+  .chg { padding:12px 0 14px; border-top:1px solid var(--card-line); }
+  .chg h4 { font-size:15px; font-weight:600; margin:0 0 4px; }
+  .chg p { font-size:13.5px; line-height:1.55; color:var(--canvas-ink-muted); margin:0; }
+  .chg code { font-size:12px; background:var(--s2); color:var(--ink2); padding:1px 5px; border-radius:4px; font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; }
+  .open { display:inline-block; font-size:11px; font-weight:600; color:var(--warn); background:var(--warn-c); border-radius:4px; padding:1px 6px; margin-left:6px; vertical-align:2px; }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
+  <symbol id="i-label" viewBox="0 0 24 24"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></symbol>
+  <symbol id="i-delete" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m19 9 1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></symbol>
+  <symbol id="i-mailread" viewBox="0 0 24 24"><path d="M18 9 16.59 7.59 12 12.17 9.41 9.59 8 11l4 4zM21.99 8c0-.72-.37-1.35-.94-1.7L12 1 2.95 6.3C2.38 6.65 2 7.28 2 8v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2l-.01-10z"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="m3.5 18.49 6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></symbol>
+</svg>
+
+<div class="wrap">
+  <header class="head">
+    <h1 class="title">Messages, rebuilt around the review queue</h1>
+    <p>Third pass, with your answers applied and the gaps found in the code added at the end. The screen opens on To review. Swiping no longer decides anything: it slides the row open to show one button, and the row stays open until you tap it, tap elsewhere or wait it out. Confirm is green, Reject is red, Undo is grey everywhere. Split spends show your share with the full amount struck through. All amounts, names and account numbers are made up.</p>
+  </header>
+
+  <div class="stage">
+
+    <!-- ============ CURRENT ============ -->
+    <div class="col">
+      <div class="cap"><span class="tag cur">Current</span><b>Messages today</b></div>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>9:41</span><span>5G ▮</span></div>
+        <div class="appbar"><span class="ib"><svg class="ic"><use href="#i-menu"/></svg></span><h2>Messages</h2></div>
+        <div class="month"><span class="ib"><svg class="ic"><use href="#i-left"/></svg></span><b>November 2026</b><span class="ib faint"><svg class="ic"><use href="#i-right"/></svg></span></div>
+        <div class="btnrow"><span class="obtn">Fetch SMS</span><span class="obtn">Run rule</span><span class="obtn">Clear month</span></div>
+        <div class="chiprow"><span class="ib"><svg class="ic"><use href="#i-filter"/></svg></span><span class="chip sel"><svg class="ic xs"><use href="#i-check"/></svg>All <span class="c">23</span></span><span class="chip">Not assigned <span class="c">5</span></span><span class="chip">Accepted <span class="c">16</span></span></div>
+        <div class="body">
+          <div class="crow"><span class="newdot"></span><div class="m"><div class="t new">Swiggy</div><div class="sub">UPI · Today 1:42 pm</div><div class="badge" style="color:var(--ink2)"><svg class="ic xs"><use href="#i-clock"/></svg>Not assigned</div></div><div class="r"><div class="a">₹486 <span class="dn">↓</span></div><div class="k">🍔 Food &amp; Dining</div><div class="k">UPI</div></div></div>
+          <div class="crow"><span class="newdot"></span><div class="m"><div class="t new">Blinkit</div><div class="sub">UPI · Today 12:08 pm</div><div class="badge" style="color:var(--ink2)"><svg class="ic xs"><use href="#i-clock"/></svg>Not assigned</div><div class="badge" style="color:var(--warn)"><svg class="ic xs"><use href="#i-warn"/></svg>Possible duplicate</div></div><div class="r"><div class="a">₹1,212 <span class="dn">↓</span></div><div class="k">🛒 Groceries</div></div></div>
+          <div class="crow acc"><div class="m"><div class="t">Uber</div><div class="sub">Credit card · Today 9:15 am</div><div class="badge" style="color:var(--ok)"><svg class="ic xs"><use href="#i-check"/></svg>Accepted</div></div><div class="r"><div class="a">₹238 <span class="dn">↓</span></div><div class="k">🚗 Transport</div><div class="k">Credit card</div></div></div>
+          <div class="crow"><div class="m"><div class="t">Rs 12,000.00 credited to a/c XX4421 by NEFT…</div><div class="sub">Yesterday 6:30 pm</div><div class="badge" style="color:var(--ink2)"><svg class="ic xs"><use href="#i-clock"/></svg>Not assigned</div></div><div class="r"><div class="a">₹12,000 <span class="up">↑</span></div></div></div>
+          <div class="crow acc"><div class="m"><div class="t">Dinner at Toit</div><div class="sub">Credit card · Yesterday 10:48 pm</div><div class="badge" style="color:var(--ok)"><svg class="ic xs"><use href="#i-check"/></svg>Accepted</div></div><div class="r"><div class="a">₹1,100 <s>₹3,300</s> <span class="dn">↓</span></div><div class="k">🍔 Food &amp; Dining</div></div></div>
+          <div class="crow rej"><div class="m"><div class="t">OTP for txn of Rs 899</div><div class="sub">Yesterday 4:02 pm</div><div class="badge" style="color:var(--bad)"><svg class="ic xs"><use href="#i-close"/></svg>Rejected</div></div><div class="r"><div class="a">₹899 <span class="dn">↓</span></div></div></div>
+        </div>
+        <nav class="nav"><div><span class="pill"><svg class="ic"><use href="#i-home"/></svg></span>Home</div><div class="on"><span class="pill"><svg class="ic"><use href="#i-mail"/></svg></span>Messages</div><div><span class="pill"><svg class="ic"><use href="#i-trend"/></svg></span>Trends</div><div><span class="pill"><svg class="ic"><use href="#i-people"/></svg></span>Owed to you</div></nav>
+      </div></div>
+    </div>
+
+    <!-- ============ PROPOSED: TO REVIEW + SWIPE ============ -->
+    <div class="col">
+      <div class="cap"><span class="tag pro">Proposed</span><b>To review</b><span class="d">Swiggy swiped right, waiting for a tap</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>9:41</span><span>5G ▮</span></div>
+        <div class="appbar"><span class="ib"><svg class="ic"><use href="#i-menu"/></svg></span><h2>Messages</h2><span class="ib"><svg class="ic"><use href="#i-filter"/></svg></span><span class="ib"><svg class="ic"><use href="#i-more"/></svg></span></div>
+        <div class="month"><span class="ib"><svg class="ic"><use href="#i-left"/></svg></span><b>November 2026</b><span class="ib faint"><svg class="ic"><use href="#i-right"/></svg></span></div>
+        <div class="tabs"><span class="chip sel"><svg class="ic xs"><use href="#i-check"/></svg>To review <span class="c">5</span></span><span class="chip">Confirmed <span class="c">16</span></span><span class="chip">Rejected <span class="c">2</span></span><span class="chip">All <span class="c">23</span></span></div>
+        <div class="body">
+          <div class="day stuck"><span>Today</span><span>3 to review</span></div>
+          <div class="sw open-l">
+            <div class="act l ok"><svg class="ic"><use href="#i-check"/></svg>Confirm<span class="timer"><i></i></span></div>
+            <div class="item"><span class="av">🍔</span><div class="it-main"><div class="it-t new"><span class="nd" aria-label="New"></span>Swiggy</div><div class="it-s">UPI · 1:42 pm</div><div class="it-meta"><svg class="ic xs"><use href="#i-sparkle"/></svg>Food &amp; Dining</div></div><div class="amt">−₹486</div></div>
+          </div>
+          <div class="sw">
+            <div class="item"><span class="av">🛒</span><div class="it-main"><div class="it-t new"><span class="nd" aria-label="New"></span>Blinkit</div><div class="it-s">UPI · 12:08 pm</div><div class="it-meta"><svg class="ic xs"><use href="#i-sparkle"/></svg>Groceries</div></div><div class="amt">−₹1,212</div>
+              <div class="dup"><svg class="ic s"><use href="#i-warn"/></svg><span><b>Possible duplicate</b> of Paytm, 12:06 pm, Confirmed</span></div></div>
+          </div>
+          <div class="sw">
+            <div class="item"><span class="av">🚕</span><div class="it-main"><div class="it-t new"><span class="nd" aria-label="New"></span>Ola</div><div class="it-s">Credit card · 8:02 am</div><div class="it-meta"><svg class="ic xs"><use href="#i-sparkle"/></svg>Transport</div></div><div class="amt">−₹312</div></div>
+          </div>
+          <div class="day"><span>Yesterday</span><span>2 to review</span></div>
+          <div class="sw">
+            <div class="item"><span class="av">₹</span><div class="it-main"><div class="it-t">NEFT from R Sharma</div><div class="it-s">Bank transfer · 6:30 pm</div><div class="it-meta">Money in, no form needed</div></div><div class="amt cr">+₹12,000</div></div>
+          </div>
+          <div class="sw">
+            <div class="item"><span class="av">?</span><div class="it-main"><div class="it-t">A/c XX4421 debited via UPI</div><div class="it-s">UPI · 2:14 pm</div><div class="it-meta">No category suggestion</div></div><div class="amt"><span class="na">No amount</span></div></div>
+          </div>
+          <div class="snack"><span>Rejected Zomato</span><b>Undo</b></div>
+        </div>
+        <nav class="nav"><div><span class="pill"><svg class="ic"><use href="#i-home"/></svg></span>Home</div><div class="on"><span class="pill"><svg class="ic"><use href="#i-mail"/></svg><span class="n">5</span></span>Messages</div><div><span class="pill"><svg class="ic"><use href="#i-trend"/></svg></span>Trends</div><div><span class="pill"><svg class="ic"><use href="#i-people"/></svg></span>Owed to you</div></nav>
+      </div></div>
+    </div>
+
+    <!-- ============ PROPOSED: DUPLICATE SHEET ============ -->
+    <div class="col">
+      <div class="cap"><span class="tag pro">Proposed</span><b>Detail sheet, possible duplicate</b><span class="d">the other one is already confirmed</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>9:41</span><span>5G ▮</span></div>
+        <div class="appbar"><span class="ib"><svg class="ic"><use href="#i-menu"/></svg></span><h2>Messages</h2><span class="ib"><svg class="ic"><use href="#i-filter"/></svg></span><span class="ib"><svg class="ic"><use href="#i-more"/></svg></span></div>
+        <div class="month"><span class="ib"><svg class="ic"><use href="#i-left"/></svg></span><b>November 2026</b><span class="ib faint"><svg class="ic"><use href="#i-right"/></svg></span></div>
+        <div class="body"></div>
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="handle"></div>
+          <div class="sh-head"><span class="av">🛒</span><h3>Blinkit<small>Today, 12:08 pm · AX-HDFCBK</small></h3><span class="sh-amt">−₹1,212</span></div>
+          <div class="cmp">
+            <div class="h"><svg class="ic s"><use href="#i-warn"/></svg>Looks like the same payment as one you already confirmed</div>
+            <div class="p">Confirming this one too would count ₹1,212 twice.</div>
+            <div class="grid">
+              <div class="pv me"><b>This message</b><span>AX-HDFCBK · 12:08 pm</span><span>₹1,212 · UPI</span><span class="stchip todo"><svg class="ic"><use href="#i-clock"/></svg>To review</span></div>
+              <div class="pv"><b>Paytm</b><span>VM-PAYTMB · 12:06 pm</span><span>₹1,212 · UPI</span><span class="stchip ok"><svg class="ic"><use href="#i-check"/></svg>Confirmed</span></div>
+            </div>
+          </div>
+          <div class="fields">
+            <div class="fld"><span class="l">Category</span><span class="v">🛒 Groceries<em>suggested</em></span></div>
+            <div class="fld"><span class="l">Payment method</span><span class="v">UPI<em>suggested</em></span></div>
+          </div>
+          <div class="raw"><div class="lbl">Original SMS</div><p>Rs.1212.00 debited from A/c XX4421 on 21-11-26 to VPA blinkit.payu@hdfcbank (UPI Ref 4321 8876 1290).</p></div>
+          <div class="sh-acts"><span class="b ok-o"><svg class="ic s"><use href="#i-check"/></svg>Confirm anyway</span><span class="b bad"><svg class="ic s"><use href="#i-close"/></svg>Reject as duplicate</span></div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ============ PROPOSED: CONFIRMED TAB ============ -->
+    <div class="col">
+      <div class="cap"><span class="tag pro">Proposed</span><b>Confirmed, with filters</b><span class="d">Uber swiped left to Undo</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>9:41</span><span>5G ▮</span></div>
+        <div class="appbar"><span class="ib"><svg class="ic"><use href="#i-menu"/></svg></span><h2>Messages</h2><span class="ib"><svg class="ic"><use href="#i-filter"/></svg><span class="dot"></span></span><span class="ib"><svg class="ic"><use href="#i-more"/></svg></span></div>
+        <div class="month"><span class="ib"><svg class="ic"><use href="#i-left"/></svg></span><b>November 2026</b><span class="ib faint"><svg class="ic"><use href="#i-right"/></svg></span></div>
+        <div class="tabs"><span class="chip">To review <span class="c">5</span></span><span class="chip sel"><svg class="ic xs"><use href="#i-check"/></svg>Confirmed <span class="c">16</span></span><span class="chip">Rejected <span class="c">2</span></span><span class="chip">All <span class="c">23</span></span></div>
+        <div class="afilters"><span class="fchip">Money out<svg class="ic xs"><use href="#i-close"/></svg></span><span class="fchip">Credit card<svg class="ic xs"><use href="#i-close"/></svg></span></div>
+        <div class="body">
+          <div class="day stuck"><span>Today</span><span>₹238 out</span></div>
+          <div class="sw open-r">
+            <div class="act r undo"><svg class="ic"><use href="#i-undo"/></svg>Undo<span class="timer"><i></i></span></div>
+            <div class="item"><span class="av">🚗<span class="st ok"><svg class="ic"><use href="#i-check"/></svg></span></span><div class="it-main"><div class="it-t">Uber</div><div class="it-s">Credit card · 9:15 am</div><div class="it-meta">Transport</div></div><div class="amt">−₹238</div></div>
+          </div>
+          <div class="day"><span>Yesterday</span><span>₹1,100 out</span></div>
+          <div class="sw">
+            <div class="item"><span class="av">🍔<span class="st ok"><svg class="ic"><use href="#i-check"/></svg></span></span><div class="it-main"><div class="it-t">Dinner at Toit</div><div class="it-s">Credit card · 10:48 pm</div><div class="it-meta"><svg class="ic xs"><use href="#i-people"/></svg>Split with 2 friends · Food &amp; Dining</div></div><div class="amt">−₹1,100<s>₹3,300</s></div></div>
+          </div>
+          <div class="day"><span>Thu 19 Nov</span><span>₹2,640 out</span></div>
+          <div class="sw">
+            <div class="item"><span class="av">🛍️<span class="st ok"><svg class="ic"><use href="#i-check"/></svg></span></span><div class="it-main"><div class="it-t">Decathlon</div><div class="it-s">Credit card · 7:20 pm</div><div class="it-meta">Shopping · <span class="avd">Avoidable</span></div></div><div class="amt">−₹2,640</div></div>
+          </div>
+          <div class="day"><span>Mon 16 Nov</span><span>₹1,250 out</span></div>
+          <div class="sw">
+            <div class="item"><span class="av">🎬<span class="st ok"><svg class="ic"><use href="#i-check"/></svg></span></span><div class="it-main"><div class="it-t">BookMyShow</div><div class="it-s">Credit card · 9:02 pm</div><div class="it-meta"><svg class="ic xs"><use href="#i-people"/></svg>Split with 1 friend · Entertainment</div></div><div class="amt">−₹625<s>₹1,250</s></div></div>
+          </div>
+          <div class="sw">
+            <div class="item"><span class="av">💡<span class="st ok"><svg class="ic"><use href="#i-check"/></svg></span></span><div class="it-main"><div class="it-t">BESCOM bill</div><div class="it-s">Credit card · 11:30 am</div><div class="it-meta">Bills &amp; Utilities</div></div><div class="amt">−₹1,480</div></div>
+          </div>
+        </div>
+        <nav class="nav"><div><span class="pill"><svg class="ic"><use href="#i-home"/></svg></span>Home</div><div class="on"><span class="pill"><svg class="ic"><use href="#i-mail"/></svg><span class="n">5</span></span>Messages</div><div><span class="pill"><svg class="ic"><use href="#i-trend"/></svg></span>Trends</div><div><span class="pill"><svg class="ic"><use href="#i-people"/></svg></span>Owed to you</div></nav>
+      </div></div>
+    </div>
+
+    <!-- ============ PROPOSED: CONFIRMED SPLIT SHEET ============ -->
+    <div class="col">
+      <div class="cap"><span class="tag pro">Proposed</span><b>Detail sheet, confirmed split</b><span class="d">tapped Dinner at Toit</span></div>
+      <div class="phone"><div class="screen">
+        <div class="status"><span>9:41</span><span>5G ▮</span></div>
+        <div class="appbar"><span class="ib"><svg class="ic"><use href="#i-menu"/></svg></span><h2>Messages</h2><span class="ib"><svg class="ic"><use href="#i-filter"/></svg></span><span class="ib"><svg class="ic"><use href="#i-more"/></svg></span></div>
+        <div class="month"><span class="ib"><svg class="ic"><use href="#i-left"/></svg></span><b>November 2026</b><span class="ib faint"><svg class="ic"><use href="#i-right"/></svg></span></div>
+        <div class="body"></div>
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="handle"></div>
+          <div class="sh-head"><span class="av">🍔<span class="st ok"><svg class="ic"><use href="#i-check"/></svg></span></span><h3>Dinner at Toit<small>Yesterday, 10:48 pm · AD-ICICIC</small></h3><span class="sh-amt">−₹1,100<s>₹3,300</s><span class="share">your share</span></span></div>
+          <div style="margin-top:12px"><span class="stchip ok"><svg class="ic"><use href="#i-check"/></svg>Confirmed</span></div>
+          <div class="fields">
+            <div class="fld"><span class="l">Category</span><span class="v">🍔 Food &amp; Dining</span></div>
+            <div class="fld"><span class="l">Payment method</span><span class="v">Credit card</span></div>
+            <div class="fld"><span class="l">Split with</span><span class="v">Arjun, Meera<em>₹2,200 owed to you</em></span></div>
+          </div>
+          <div class="raw"><div class="lbl">Original SMS</div><p>INR 3,300.00 spent on ICICI Bank Card XX9012 on 20-Nov-26 at TOIT BREWPUB. Avl Limit: INR 1,42,600.</p></div>
+          <div class="sh-acts"><span class="b undo"><svg class="ic s"><use href="#i-undo"/></svg>Undo confirm</span><span class="b pri"><svg class="ic s"><use href="#i-open"/></svg>Edit transaction</span></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <h2 class="sec">Swipe opens a button, it never decides</h2>
+  <p class="secp">Each row only ever opens toward the one action that makes sense for its status. The row stays open for about 5 seconds (the thin bar runs down), or until you tap the button, tap anywhere else, scroll, or open another row. Only one row is open at a time. Tapping Confirm on money out still opens Add Transaction first, as today; money in is confirmed straight away.</p>
+  <div class="strip">
+    <div class="tile"><div class="lab"><b>To review, swipe right</b>Green Confirm on the left.</div><div class="demo">
+      <div class="sw open-l"><div class="act l ok"><svg class="ic"><use href="#i-check"/></svg>Confirm<span class="timer"><i></i></span></div><div class="item"><span class="av">🍔</span><div class="it-main"><div class="it-t">Swiggy</div><div class="it-s">UPI · 1:42 pm</div></div><div class="amt">−₹486</div></div></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>To review, swipe left</b>Red Reject on the right. A snackbar then offers Undo, as today.</div><div class="demo">
+      <div class="sw open-r"><div class="act r bad"><svg class="ic"><use href="#i-close"/></svg>Reject<span class="timer"><i></i></span></div><div class="item"><span class="av">🍔</span><div class="it-main"><div class="it-t">Swiggy</div><div class="it-s">UPI · 1:42 pm</div></div><div class="amt">−₹486</div></div></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>Confirmed, swipe left</b>Grey Undo on the right puts it back in To review. Swiping right does nothing.</div><div class="demo">
+      <div class="sw open-r"><div class="act r undo"><svg class="ic"><use href="#i-undo"/></svg>Undo<span class="timer"><i></i></span></div><div class="item"><span class="av">🚗<span class="st ok"><svg class="ic"><use href="#i-check"/></svg></span></span><div class="it-main"><div class="it-t">Uber</div><div class="it-s">Credit card · 9:15 am</div></div><div class="amt">−₹238</div></div></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>Rejected, swipe right</b>Grey Undo on the left puts it back in To review. Swiping left does nothing.</div><div class="demo">
+      <div class="sw open-l"><div class="act l undo"><svg class="ic"><use href="#i-undo"/></svg>Undo<span class="timer"><i></i></span></div><div class="item"><span class="av">?<span class="st bad"><svg class="ic"><use href="#i-close"/></svg></span></span><div class="it-main"><div class="it-t">OTP for txn of Rs 899</div><div class="it-s">Credit card · 4:02 pm</div></div><div class="amt muted">₹899</div></div></div>
+    </div></div>
+  </div>
+
+  <h2 class="sec">Possible duplicates, every combination</h2>
+  <p class="secp">The detail sheet always shows both messages side by side with each one's status. The heading and the buttons change with what has already been decided. The row in the list says the same thing in one line, for example “Possible duplicate of Paytm, 12:06 pm, Confirmed”.</p>
+  <div class="strip">
+    <div class="tile"><div class="lab"><b>Both still to review</b>Nothing counted yet. Pick one to keep.</div><div class="demo pad">
+      <div class="cmp"><div class="h"><svg class="ic s"><use href="#i-warn"/></svg>These two look like the same payment</div><div class="p">Confirm one and reject the other.</div>
+        <div class="grid"><div class="pv me"><b>This message</b><span>HDFC · 12:08 pm · ₹1,212</span><span class="stchip todo"><svg class="ic"><use href="#i-clock"/></svg>To review</span></div><div class="pv"><b>Paytm</b><span>12:06 pm · ₹1,212</span><span class="stchip todo"><svg class="ic"><use href="#i-clock"/></svg>To review</span></div></div></div>
+      <div class="mini-acts"><span class="b bad-o"><svg class="ic s"><use href="#i-close"/></svg>Reject</span><span class="b ok"><svg class="ic s"><use href="#i-check"/></svg>Confirm</span></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>The other is confirmed</b>Rejecting this one is the likely answer, so it is the filled button.</div><div class="demo pad">
+      <div class="cmp"><div class="h"><svg class="ic s"><use href="#i-warn"/></svg>Already confirmed as the Paytm message</div><div class="p">Confirming this one too would count ₹1,212 twice.</div>
+        <div class="grid"><div class="pv me"><b>This message</b><span>HDFC · 12:08 pm · ₹1,212</span><span class="stchip todo"><svg class="ic"><use href="#i-clock"/></svg>To review</span></div><div class="pv"><b>Paytm</b><span>12:06 pm · ₹1,212</span><span class="stchip ok"><svg class="ic"><use href="#i-check"/></svg>Confirmed</span></div></div></div>
+      <div class="mini-acts"><span class="b ok-o"><svg class="ic s"><use href="#i-check"/></svg>Confirm anyway</span><span class="b bad"><svg class="ic s"><use href="#i-close"/></svg>Reject as duplicate</span></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>The other is rejected</b>No risk left, so the warning turns into a quiet note.</div><div class="demo pad">
+      <div class="cmp calm"><div class="h"><svg class="ic s"><use href="#i-check"/></svg>The matching Paytm message was rejected</div><div class="p">Safe to confirm this one.</div>
+        <div class="grid"><div class="pv me"><b>This message</b><span>HDFC · 12:08 pm · ₹1,212</span><span class="stchip todo"><svg class="ic"><use href="#i-clock"/></svg>To review</span></div><div class="pv"><b>Paytm</b><span>12:06 pm · ₹1,212</span><span class="stchip bad"><svg class="ic"><use href="#i-close"/></svg>Rejected</span></div></div></div>
+      <div class="mini-acts"><span class="b bad-o"><svg class="ic s"><use href="#i-close"/></svg>Reject</span><span class="b ok"><svg class="ic s"><use href="#i-check"/></svg>Confirm</span></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>Both confirmed</b>The payment is probably counted twice. Undo one of them.</div><div class="demo pad">
+      <div class="cmp"><div class="h"><svg class="ic s"><use href="#i-warn"/></svg>Both are confirmed, so ₹1,212 may be counted twice</div><div class="p">Undo this one if it is the same payment.</div>
+        <div class="grid"><div class="pv me"><b>This message</b><span>HDFC · 12:08 pm · ₹1,212</span><span class="stchip ok"><svg class="ic"><use href="#i-check"/></svg>Confirmed</span></div><div class="pv"><b>Paytm</b><span>12:06 pm · ₹1,212</span><span class="stchip ok"><svg class="ic"><use href="#i-check"/></svg>Confirmed</span></div></div></div>
+      <div class="mini-acts"><span class="b pri"><svg class="ic s"><use href="#i-open"/></svg>Edit transaction</span><span class="b undo"><svg class="ic s"><use href="#i-undo"/></svg>Undo confirm</span></div>
+    </div></div>
+  </div>
+
+  <h2 class="sec">Empty states</h2>
+  <p class="secp">Three different reasons for an empty list, each with its own wording.</p>
+  <div class="strip">
+    <div class="tile"><div class="lab"><b>To review is cleared</b>Shown at the top of To review, then the tab switches to Confirmed on the next visit.</div><div class="demo pad">
+      <div class="caught"><span class="tick"><svg class="ic"><use href="#i-check"/></svg></span><div><b>All caught up for November</b><span>16 confirmed, 2 rejected. New bank SMS will show up here.</span></div></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>No messages in the month</b>Points at the one action that could help.</div><div class="demo pad">
+      <div class="empty"><svg class="ic"><use href="#i-mailread"/></svg><b>No bank SMS for October</b><span>Pull down to scan the inbox for this month.</span></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>Filters hide everything</b>Says so, and offers the way out.</div><div class="demo pad">
+      <div class="empty"><svg class="ic"><use href="#i-filter"/></svg><b>No messages match these filters</b><span>Money out · Credit card · Health</span><span class="b">Clear filters</span></div>
+    </div></div>
+  </div>
+
+  <h2 class="sec">Third pass: gaps found in the code</h2>
+  <p class="secp">Checked against <code>MessagesViewModel</code>. The first one matters most, because the new Undo button would make an existing risk easy to trigger.</p>
+  <div class="strip">
+    <div class="tile"><div class="lab"><b>Undo on a confirmed spend deletes its transaction</b>Today, undoing a confirmed debit deletes the linked transaction: its title, category, split with friends and Avoidable mark. Nothing brings it back. Proposal: Undo on confirmed money out asks first, naming exactly what goes. Money in and rejected messages have nothing to lose, so they undo straight away.</div><div class="demo pad">
+      <div class="dlg"><h5>Undo confirm?</h5><p>Deletes the transaction “Dinner at Toit” and its split with 2 friends. The message goes back to To review.</p><div class="row"><span>Cancel</span><span class="d">Undo confirm</span></div></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>Swipe-Confirm on a risky duplicate opens the sheet</b>If the matching message is already confirmed, tapping the green Confirm opens the duplicate sheet instead of Add Transaction, so the payment can't be counted twice by accident.</div><div class="demo">
+      <div class="sw open-l"><div class="act l ok"><svg class="ic"><use href="#i-check"/></svg>Confirm<span class="timer"><i></i></span></div><div class="item"><span class="av">🛒</span><div class="it-main"><div class="it-t">Blinkit</div><div class="it-s">UPI · 12:08 pm</div></div><div class="amt">−₹1,212</div><div class="dup"><svg class="ic s"><use href="#i-warn"/></svg><span><b>Possible duplicate</b> of Paytm, Confirmed</span></div></div></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>Sheet is view-only; Confirm opens Add Transaction</b>Category and payment method in the sheet are shown, not edited. Confirm in the sheet does what the swipe button does: money out opens Add Transaction with the SMS filled in, money in is confirmed straight away.</div><div class="demo pad">
+      <div class="fields" style="margin-top:0"><div class="fld"><span class="l">Category</span><span class="v">🛒 Groceries<em>suggested</em></span></div><div class="fld"><span class="l">Payment method</span><span class="v">UPI<em>suggested</em></span></div></div>
+      <div class="mini-acts"><span class="b bad-o"><svg class="ic s"><use href="#i-close"/></svg>Reject</span><span class="b ok"><svg class="ic s"><use href="#i-check"/></svg>Confirm</span></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>Avoidable shows on confirmed rows</b>Home now counts avoidable spend, but Messages never shows the mark. A small amber label in the row meta, as on Decathlon in the Confirmed phone.</div><div class="demo">
+      <div class="sw"><div class="item"><span class="av">🛍️</span><div class="it-main"><div class="it-t">Decathlon</div><div class="it-s">Credit card · 7:20 pm</div><div class="it-meta">Shopping · <span class="avd">Avoidable</span></div></div><div class="amt">−₹2,640</div></div></div>
+    </div></div>
+    <div class="tile"><div class="lab"><b>Every swipe action has a tap path</b>Swiping is hidden, and TalkBack users can't do it. Each row gets accessibility actions matching its swipe, and the detail sheet always has the same buttons.</div><div class="demo pad">
+      <ul class="a11y"><li><b>To review:</b> Confirm, Reject, Open details</li><li><b>Confirmed:</b> Undo, Open details</li><li><b>Rejected:</b> Undo, Open details</li></ul>
+    </div></div>
+  </div>
+
+  <h2 class="sec">What changed in this pass</h2>
+  <div class="notes">
+    <div class="group">
+      <h3 class="gh">Your decisions, applied</h3>
+      <p>From your answers to the first mockup.</p>
+      <div class="chg"><h4>Opens on To review</h4><p>“Not assigned” is renamed “To review” everywhere, chip first, default when its count is above zero.</p></div>
+      <div class="chg"><h4>Swipe reveals a button</h4><p>No more inline buttons on the row and no auto-decide on swipe. The row slides open, the button waits about 5 seconds. Needs a reveal-and-hold <code>SwipeRow</code> instead of today's <code>SwipeToDismissBox</code> threshold.</p></div>
+      <div class="chg"><h4>Confirm, Reject, Undo</h4><p>“Accepted” becomes “Confirmed”. Green for Confirm, red for Reject, grey for Undo, on swipe buttons, sheet buttons and status chips.</p></div>
+      <div class="chg"><h4>+ and − for direction</h4><p>“−₹486” for money out, “+₹12,000” in green for money in. Arrows removed.</p></div>
+      <div class="chg"><h4>Removed</h4><p>Progress bar under the month and “Accept all with a suggestion”.</p></div>
+      <div class="chg"><h4>Kept</h4><p>Overflow menu for re-scan, re-apply rules and delete month; status badge on the avatar in All; active filter chips; All caught up.</p></div>
+    </div>
+
+    <div class="group">
+      <h3 class="gh">Missed in the first pass</h3>
+      <p>Things the app already does that the first mockup dropped or got wrong.</p>
+      <div class="chg"><h4>Split amounts</h4><p>Your share is the main amount with the full amount struck through under it, plus “Split with 2 friends” on the row and “your share” plus who owes what in the sheet. Matches <code>amountText</code> and <code>splitTotalText</code> today.</p></div>
+      <div class="chg"><h4>Messages with no amount</h4><p>The row shows “No amount” instead of a figure; confirming opens Add Transaction to fill it in.</p></div>
+      <div class="chg"><h4>Money in skips the form</h4><p>Confirming a credit marks it Confirmed straight away, as the view model does today, so the row says “Money in, no form needed”.</p></div>
+      <div class="chg"><h4>Renamed titles</h4><p>A confirmed message shows the transaction's own title (“Dinner at Toit”), not the merchant from the SMS.</p></div>
+      <div class="chg"><h4>Undo snackbar after reject</h4><p>Still there, bottom of the list: “Rejected Zomato · Undo”.</p></div>
+      <div class="chg"><h4>Empty states</h4><p>Empty month and filters-hide-everything now have their own wording and actions.</p></div>
+      <div class="chg"><h4>Detail sheet for decided messages</h4><p>Confirmed and Rejected messages get Undo in the sheet, plus Edit transaction for confirmed ones.</p></div>
+    </div>
+
+    <div class="group">
+      <h3 class="gh">Day groups</h3>
+      <p>Your question on what comes after Today and Yesterday.</p>
+      <div class="chg"><h4>Today, Yesterday, then the date</h4><p>Every earlier day reads as weekday and date: “Thu 19 Nov”, “Mon 16 Nov”. The month selector already limits the list to one month, so no group spans months and no year is needed.</p></div>
+      <div class="chg"><h4>Only days with messages</h4><p>Days without messages are skipped, so there are no empty headers.</p></div>
+      <div class="chg"><h4>Past months</h4><p>When you look at October, there is no Today or Yesterday; every header is a date.</p></div>
+      <div class="chg"><h4>Header right side</h4><p>To review shows how many are left that day. Confirmed and All show that day's money out, counting only your share of splits.</p></div>
+      <div class="chg"><h4>Still open<span class="open">decide</span></h4><p>Should “This week” and “Earlier” buckets replace single days once the month is long? I'd keep single days: a month has at most 31 headers and you remember spends by day.</p></div>
+    </div>
+  </div>
+</div>

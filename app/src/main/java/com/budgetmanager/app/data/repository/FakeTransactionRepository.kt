@@ -48,6 +48,14 @@ class FakeTransactionRepository(
                 .mapValues { (_, transactions) -> Money(transactions.sumOf { it.amount.paise - it.owedTotal.paise }) }
         }
 
+    override fun observeAvoidableForMonth(monthKey: MonthKey) =
+        state.map { list ->
+            Money(
+                list.filter { it.monthKey == monthKey && it.avoidable }
+                    .sumOf { it.amount.paise - it.owedTotal.paise }
+            )
+        }
+
     override fun observeCategoryIdsBySourceMessage() =
         state.map { list ->
             list.mapNotNull { transaction ->
@@ -90,6 +98,9 @@ class FakeTransactionRepository(
             }.toMap()
         }
 
+    override fun observeAvoidableSourceMessageIds() =
+        state.map { list -> list.filter { it.avoidable }.mapNotNull { it.sourceMessageId }.toSet() }
+
     override suspend fun getById(id: Long) = state.value.firstOrNull { it.id == id }
 
     override suspend fun insert(
@@ -100,11 +111,15 @@ class FakeTransactionRepository(
         note: String?,
         taxonomy: TaxonomyType?,
         owedTotal: Money,
-        title: String?
+        title: String?,
+        avoidable: Boolean
     ): Long {
         val id = nextId++
         state.value = state.value +
-            Transaction(id, amount, occurredAt, monthKey, categoryId, note, null, taxonomy, owedTotal, title)
+            Transaction(
+                id, amount, occurredAt, monthKey, categoryId, note, null, taxonomy, owedTotal, title,
+                avoidable = avoidable
+            )
         return id
     }
 
@@ -125,14 +140,18 @@ class FakeTransactionRepository(
         note: String?,
         taxonomy: TaxonomyType?,
         owedTotal: Money,
-        title: String?
+        title: String?,
+        avoidable: Boolean
     ): Long {
         // Mirrors RoomTransactionRepository: update in place if a transaction is already linked
         // to this message, rather than adding a second one for the same sourceMessageId.
         val existing = state.value.firstOrNull { it.sourceMessageId == message.id }
         val id = existing?.id ?: nextId++
         val transaction =
-            Transaction(id, amount, occurredAt, monthKey, categoryId, note, message.id, taxonomy, owedTotal, title)
+            Transaction(
+                id, amount, occurredAt, monthKey, categoryId, note, message.id, taxonomy, owedTotal, title,
+                avoidable = avoidable
+            )
         state.value = if (existing != null) {
             state.value.map { if (it.id == id) transaction else it }
         } else {

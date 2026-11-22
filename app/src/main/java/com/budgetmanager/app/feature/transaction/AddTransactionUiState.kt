@@ -47,6 +47,9 @@ data class AddTransactionUiState(
     val categoryKeyword: String = "",
     val categoryKeywordError: String? = null,
     val note: String = "",
+    /** Marks the spend as avoidable - feeds Home's Avoidable figure. Reviewed later, so it
+     *  always starts unchecked on a new transaction. */
+    val avoidable: Boolean = false,
     val date: LocalDate = LocalDate.now(),
     val categories: List<Category> = emptyList(),
     val selectedCategoryId: Long? = null,

@@ -64,6 +64,14 @@ interface TransactionDao {
     )
     fun observeSpentForCategoryAndMonth(monthKey: String, categoryId: Long): Flow<Long>
 
+    /** Your share (amount minus friends' shares) of every transaction marked avoidable this
+     *  month - Home's Avoidable figure. */
+    @Query(
+        "SELECT COALESCE(SUM(amount_paise - owed_total_paise), 0) FROM transactions " +
+            "WHERE month_key = :monthKey AND avoidable = 1"
+    )
+    fun observeAvoidableForMonth(monthKey: String): Flow<Long>
+
     /** Every category's total for the month in one query, for Home - avoids one query per
      *  category card. A category with no transactions that month has no row here at all. */
     @Query(
@@ -119,6 +127,11 @@ interface TransactionDao {
             "WHERE source_message_id IS NOT NULL"
     )
     fun observeAmountBySourceMessage(): Flow<List<MessageAmount>>
+
+    /** Ids of the messages whose linked transaction is marked Avoidable - lets the Messages list
+     *  show the mark without a per-row lookup. */
+    @Query("SELECT source_message_id FROM transactions WHERE source_message_id IS NOT NULL AND avoidable = 1")
+    fun observeAvoidableSourceMessageIds(): Flow<List<Long>>
 
     /** Every transaction, for backup export. */
     @Query("SELECT * FROM transactions")

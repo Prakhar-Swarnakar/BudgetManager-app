@@ -60,11 +60,27 @@ class DetectPossibleDuplicatesTest {
     }
 
     @Test
-    fun `an already-accepted or rejected message is never flagged`() {
-        val accepted = message(1, "AX-SBICRD-S", amount = 100000, receivedAt = t0, status = MessageStatus.ACCEPTED)
-        val notAssigned = message(2, "VM-GOOGLEPAY", amount = 100000, receivedAt = t0)
+    fun `a message is matched with its pair whatever either one's status`() {
+        for (first in MessageStatus.entries) {
+            for (second in MessageStatus.entries) {
+                val a = message(1, "AX-SBICRD-S", amount = 100000, receivedAt = t0, status = first)
+                val b = message(2, "VM-GOOGLEPAY", amount = 100000, receivedAt = t0, status = second)
 
-        assertTrue(DetectPossibleDuplicates(listOf(accepted, notAssigned)).isEmpty())
+                val result = DetectPossibleDuplicates(listOf(a, b))
+
+                assertEquals("$first/$second", 2L, result[1L])
+                assertEquals("$first/$second", 1L, result[2L])
+            }
+        }
+    }
+
+    @Test
+    fun `statuses do not relax the other rules - a decided pair outside the window or from one sender is not matched`() {
+        val confirmed = message(1, "AX-SBICRD-S", amount = 100000, receivedAt = t0, status = MessageStatus.ACCEPTED)
+        val late = message(2, "VM-GOOGLEPAY", amount = 100000, receivedAt = t0.plusSeconds(11 * 60), status = MessageStatus.REJECTED)
+        val sameSender = message(3, "AX-SBICRD-S", amount = 100000, receivedAt = t0.plusSeconds(30), status = MessageStatus.ACCEPTED)
+
+        assertTrue(DetectPossibleDuplicates(listOf(confirmed, late, sameSender)).isEmpty())
     }
 
     @Test

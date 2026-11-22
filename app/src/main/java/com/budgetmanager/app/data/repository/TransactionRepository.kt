@@ -17,6 +17,9 @@ interface TransactionRepository {
      *  MonthlyBudgetRepository.observeForMonth. */
     fun observeSpentByCategoryForMonth(monthKey: MonthKey): Flow<Map<Long, Money>>
 
+    /** Your share of every transaction marked avoidable in the month (Home's Avoidable figure). */
+    fun observeAvoidableForMonth(monthKey: MonthKey): Flow<Money>
+
     /** Which category an Accepted message's transaction is filed under, keyed by message id -
      *  lets the Messages list show a row's category without a per-row lookup. */
     fun observeCategoryIdsBySourceMessage(): Flow<Map<Long, Long>>
@@ -39,6 +42,9 @@ interface TransactionRepository {
      *  of its own (06-backlog.md, "Richer inclusion gate") gets accepted with a real amount. */
     fun observeAmountBySourceMessage(): Flow<Map<Long, Money>>
 
+    /** Ids of the messages whose linked transaction is marked Avoidable. */
+    fun observeAvoidableSourceMessageIds(): Flow<Set<Long>>
+
     suspend fun getById(id: Long): Transaction?
 
     /** A manual transaction - no linked message. [owedTotal] is the sum of any friends' shares -
@@ -52,7 +58,8 @@ interface TransactionRepository {
         note: String?,
         taxonomy: TaxonomyType? = null,
         owedTotal: Money = Money(0),
-        title: String? = null
+        title: String? = null,
+        avoidable: Boolean = false
     ): Long
 
     suspend fun update(transaction: Transaction)
@@ -75,7 +82,8 @@ interface TransactionRepository {
         note: String?,
         taxonomy: TaxonomyType? = null,
         owedTotal: Money = Money(0),
-        title: String? = null
+        title: String? = null,
+        avoidable: Boolean = false
     ): Long
 
     /**

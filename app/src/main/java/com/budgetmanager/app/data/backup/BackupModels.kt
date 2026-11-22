@@ -56,7 +56,9 @@ data class TransactionBackup(
     val monthKey: String,
     val categoryId: Long,
     val note: String?,
-    val sourceMessageId: Long?
+    val sourceMessageId: Long?,
+    /** Defaulted so backup files made before the flag existed still import (as not avoidable). */
+    val avoidable: Boolean = false
 )
 
 @Serializable

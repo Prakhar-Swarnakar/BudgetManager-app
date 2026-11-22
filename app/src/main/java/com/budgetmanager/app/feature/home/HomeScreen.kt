@@ -10,6 +10,7 @@ import com.budgetmanager.app.core.model.MonthKey
 @Composable
 fun HomeScreen(
     onNavigateToAddTransaction: () -> Unit,
+    onNavigateToMessages: () -> Unit,
     onNavigateToCategoryDetail: (categoryId: Long, categoryName: String, monthKey: MonthKey) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
@@ -26,6 +27,7 @@ fun HomeScreen(
             }
         },
         onAddClick = onNavigateToAddTransaction,
+        onReviewClick = onNavigateToMessages,
         modifier = modifier
     )
 }

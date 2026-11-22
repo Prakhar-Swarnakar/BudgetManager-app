@@ -14,6 +14,19 @@ data class HomeUiState(
     val totalRemainingText: String = "₹0",
     val totalPercentUsed: Double? = null,
     val totalStatus: BudgetStatus = BudgetStatus.UNDER_BUDGET,
+    /** "₹6,580 left" or "₹920 over" - the readable form of [totalRemainingText]. */
+    val totalLeftLabel: String = "₹0 left",
+    /** How far through the viewed month today is (0..1) - where the "today" mark sits on every
+     *  bar. Null for a past month, which shows no mark. See HomePace.kt. */
+    val paceFraction: Double? = null,
+    /** "₹8,420 over pace for 20 Nov" / "... under pace ..."; null with no mark or no budget. */
+    val paceText: String? = null,
+    /** Your share of this month's transactions marked Avoidable at Add Transaction. */
+    val avoidableText: String = "₹0",
+    /** "16% of spent", or null while nothing has been spent. */
+    val avoidableShareText: String? = null,
+    /** Cash top-ups minus Cash-taxonomy spends, all time (the Wallet page's balance). */
+    val cashOnHandText: String = "₹0",
     /** Sum of every Accepted credit message's amount this month - every accepted credit counts
      *  for now, since there's no typed Refund/Settlement/Income distinction yet (06-backlog.md,
      *  "Credit handling"); revisit if/when that's built. No budget concept applies here, purely
@@ -41,6 +54,8 @@ data class HomeCategoryCardUi(
     val remainingText: String,
     val percentUsed: Double?,
     val status: BudgetStatus,
+    /** "₹1,520 left", "₹920 over", or "Not budgeted" - shown under the spent amount. */
+    val leftLabel: String,
     /** True for a ₹0-budget category that has spending - shown as "Not budgeted" instead of a
      *  percentage, per 05-budget-rules.md. */
     val isNotBudgeted: Boolean

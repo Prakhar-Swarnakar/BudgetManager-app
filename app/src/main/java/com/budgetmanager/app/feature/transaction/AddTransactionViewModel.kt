@@ -107,6 +107,7 @@ class AddTransactionViewModel @Inject constructor(
                                 taxonomyKeyword = smsMerchant.orEmpty(),
                                 smsBannerText = linkedMessage?.body,
                                 note = transaction.note.orEmpty(),
+                                avoidable = transaction.avoidable,
                                 date = transaction.occurredAt.atZone(ZoneId.systemDefault()).toLocalDate(),
                                 selectedCategoryId = transaction.categoryId,
                                 selectedTaxonomy = transaction.taxonomy,
@@ -180,6 +181,10 @@ class AddTransactionViewModel @Inject constructor(
 
     fun onTaxonomyKeywordChanged(value: String) {
         internalState.update { it.copy(taxonomyKeyword = value, taxonomyKeywordError = null) }
+    }
+
+    fun onAvoidableChanged(value: Boolean) {
+        internalState.update { it.copy(avoidable = value) }
     }
 
     fun onNoteChanged(value: String) {
@@ -327,7 +332,8 @@ class AddTransactionViewModel @Inject constructor(
                             note = note,
                             taxonomy = current.selectedTaxonomy,
                             owedTotal = owedTotal,
-                            title = title
+                            title = title,
+                            avoidable = current.avoidable
                         )
                     )
                     existing.id
@@ -343,7 +349,8 @@ class AddTransactionViewModel @Inject constructor(
                         note = note,
                         taxonomy = current.selectedTaxonomy,
                         owedTotal = owedTotal,
-                        title = title
+                        title = title,
+                        avoidable = current.avoidable
                     )
                     evaluateBudgetAlerts(monthKey, categoryId)
                     id
@@ -357,7 +364,8 @@ class AddTransactionViewModel @Inject constructor(
                         note = note,
                         taxonomy = current.selectedTaxonomy,
                         owedTotal = owedTotal,
-                        title = title
+                        title = title,
+                        avoidable = current.avoidable
                     )
                     evaluateBudgetAlerts(monthKey, categoryId)
                     id

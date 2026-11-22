@@ -10,6 +10,7 @@ import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.Money
 import com.budgetmanager.app.core.model.MonthKey
 import com.budgetmanager.app.core.model.SmsMessage
+import com.budgetmanager.app.data.repository.FakeCashRepository
 import com.budgetmanager.app.data.repository.FakeCategoryRepository
 import com.budgetmanager.app.data.repository.FakeMessageRepository
 import com.budgetmanager.app.data.repository.FakeMonthlyBudgetRepository
@@ -30,6 +31,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.Instant
+import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
@@ -51,8 +53,10 @@ class HomeViewModelTest {
         budgets: FakeMonthlyBudgetRepository = FakeMonthlyBudgetRepository(),
         transactions: FakeTransactionRepository = FakeTransactionRepository(),
         messages: FakeMessageRepository = FakeMessageRepository(),
-        splits: FakeTransactionSplitRepository = FakeTransactionSplitRepository()
-    ) = HomeViewModel(categories, budgets, transactions, messages, splits)
+        splits: FakeTransactionSplitRepository = FakeTransactionSplitRepository(),
+        cash: FakeCashRepository = FakeCashRepository(),
+        today: LocalDate = LocalDate.now().withDayOfMonth(15)
+    ) = HomeViewModel(categories, budgets, transactions, messages, splits, cash).also { it.today = { today } }
 
     @Test
     fun `a category under budget shows its percent used and remaining`() = runTest {
@@ -266,4 +270,126 @@ class HomeViewModelTest {
         merchant = "Test Store", suggestedCategoryId = null, status = MessageStatus.NOT_ASSIGNED,
         isNew = true
     )
+
+    @Test
+    fun `bar colour follows the today mark - blue below it, amber past it, red over budget`() = runTest {
+        val categories = FakeCategoryRepository().apply {
+            seed(listOf(
+                Category(1, "Food", "🍔", 0, archived = false),
+                Category(2, "Rent", "🏠", 1, archived = false),
+                Category(3, "Fun", "🎬", 2, archived = false)
+            ))
+        }
+        val budgets = FakeMonthlyBudgetRepository()
+        val transactions = FakeTransactionRepository()
+        val day = LocalDate.now().withDayOfMonth(15)
+        val viewModel = viewModel(categories, budgets, transactions, today = day)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val month = viewModel.uiState.value.monthKey
+        // Day 15 puts the mark at 15/length of the month, about 0.5.
+        listOf(1L to 200L, 2L to 800L, 3L to 1200L).forEach { (id, spent) ->
+            budgets.setAmount(month, categoryId = id, amount = Money.ofRupees(1000))
+            transactions.insert(Money.ofRupees(spent), Instant.now(), month, categoryId = id, note = null)
+        }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val byName = viewModel.uiState.value.cards.associateBy { it.name }
+        assertEquals(BudgetStatus.UNDER_BUDGET, byName.getValue("Food").status)
+        assertEquals(BudgetStatus.WARNING, byName.getValue("Rent").status)
+        assertEquals("₹200 left", byName.getValue("Rent").leftLabel)
+        assertEquals(BudgetStatus.OVER_BUDGET, byName.getValue("Fun").status)
+        assertEquals("₹200 over", byName.getValue("Fun").leftLabel)
+        collector.cancel()
+    }
+
+    @Test
+    fun `avoidable is your share of this month's avoidable transactions only`() = runTest {
+        val categories = FakeCategoryRepository().apply {
+            seed(listOf(Category(1, "Food", "🍔", 0, archived = false)))
+        }
+        val transactions = FakeTransactionRepository()
+        val viewModel = viewModel(categories, transactions = transactions)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val month = viewModel.uiState.value.monthKey
+        // 1,000 avoidable but 400 owed back by friends -> only your 600 counts.
+        transactions.insert(
+            Money.ofRupees(1000), Instant.now(), month, categoryId = 1, note = null,
+            owedTotal = Money.ofRupees(400), avoidable = true
+        )
+        transactions.insert(Money.ofRupees(500), Instant.now(), month, categoryId = 1, note = null)
+        // Avoidable but in another month - must not count.
+        transactions.insert(
+            Money.ofRupees(900), Instant.now(), month.previous(), categoryId = 1, note = null, avoidable = true
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("₹600", viewModel.uiState.value.avoidableText)
+        // 600 of your 1,100 spent = 54%
+        assertEquals("54% of spent", viewModel.uiState.value.avoidableShareText)
+        collector.cancel()
+    }
+
+    @Test
+    fun `a past month has no today mark or pace sentence`() = runTest {
+        val viewModel = viewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.onPreviousMonth()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(null, viewModel.uiState.value.paceFraction)
+        assertEquals(null, viewModel.uiState.value.paceText)
+        collector.cancel()
+    }
+
+    @Test
+    fun `cash on hand is top-ups minus cash spends`() = runTest {
+        val cash = FakeCashRepository()
+        val viewModel = viewModel(cash = cash)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+        cash.addTopUp(Money.ofRupees(2000), Instant.now(), null)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("₹2,000", viewModel.uiState.value.cashOnHandText)
+        collector.cancel()
+    }
+}
+
+class HomePaceTest {
+    private fun progress(budget: Long, spent: Long) =
+        com.budgetmanager.app.core.model.BudgetMaths.evaluate(Money.ofRupees(budget), Money.ofRupees(spent))
+
+    @Test
+    fun `day 20 of a 30-day month is two thirds`() {
+        val fraction = paceFraction(MonthKey.of(2026, 11), LocalDate.of(2026, 11, 20))
+        assertEquals(20.0 / 30.0, fraction!!, 1e-9)
+    }
+
+    @Test
+    fun `a month other than today's has no pace`() {
+        assertEquals(null, paceFraction(MonthKey.of(2026, 10), LocalDate.of(2026, 11, 20)))
+    }
+
+    @Test
+    fun `spent exactly at the mark is still blue`() {
+        assertEquals(BudgetStatus.UNDER_BUDGET, paceStatus(progress(1000, 500), 0.5))
+    }
+
+    @Test
+    fun `past a past month's end mark anything within budget is blue`() {
+        assertEquals(BudgetStatus.UNDER_BUDGET, paceStatus(progress(1000, 1000), null))
+        assertEquals(BudgetStatus.OVER_BUDGET, paceStatus(progress(1000, 1001), null))
+    }
+
+    @Test
+    fun `pace difference is spent minus the share expected by now`() {
+        // 45,000 budget, day 20 of 30 -> 30,000 expected; 38,420 spent -> 8,420 ahead.
+        val diff = paceDifference(progress(45000, 38420), 20.0 / 30.0)
+        assertEquals(Money.ofRupees(8420), diff)
+    }
 }

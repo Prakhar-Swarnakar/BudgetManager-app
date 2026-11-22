@@ -897,4 +897,46 @@ class AddTransactionViewModelTest {
         assertEquals("Swiggy", viewModel.uiState.value.smsMerchant)
         collector.cancel()
     }
+
+    @Test
+    fun `a new manual transaction can be saved as avoidable, and reopening it shows the flag`() = runTest {
+        val (viewModel, _, transactions, _, _, _, _, _, _) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        viewModel.load(messageId = null, transactionId = null)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.avoidable)
+
+        viewModel.onAmountChanged("250")
+        viewModel.onCategorySelected(1)
+        viewModel.onAvoidableChanged(true)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val saved = transactions.current.single()
+        assertTrue(saved.avoidable)
+
+        viewModel.load(messageId = null, transactionId = saved.id)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.avoidable)
+        collector.cancel()
+    }
+
+    @Test
+    fun `unchecking avoidable on an edit clears the flag`() = runTest {
+        val (viewModel, _, transactions, _, _, _, _, _, _) = setUpViewModel()
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val id = transactions.insert(
+            amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = null, avoidable = true
+        )
+        viewModel.load(messageId = null, transactionId = id)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onAvoidableChanged(false)
+        viewModel.onSave()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(transactions.getById(id)!!.avoidable)
+        collector.cancel()
+    }
 }

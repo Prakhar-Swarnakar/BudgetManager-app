@@ -2,6 +2,7 @@ package com.budgetmanager.app.feature.messages
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.budgetmanager.app.core.common.toTimeText
 import com.budgetmanager.app.core.model.Category
 import com.budgetmanager.app.core.model.MessageDirection
 import com.budgetmanager.app.core.model.Money
@@ -71,7 +72,8 @@ private data class MessageLookups(
     val taxonomyByMessage: Map<Long, TaxonomyType>,
     val owedTotalByMessage: Map<Long, Money>,
     val titleByMessage: Map<Long, String>,
-    val amountByMessage: Map<Long, Money>
+    val amountByMessage: Map<Long, Money>,
+    val avoidableMessageIds: Set<Long> = emptySet()
 )
 
 @HiltViewModel
@@ -84,7 +86,7 @@ class MessagesViewModel @Inject constructor(
     private val taxonomySuggester: TaxonomySuggester
 ) : ViewModel() {
 
-    private val filter = MutableStateFlow(MessageFilter.ALL)
+    private val filter = MutableStateFlow(MessageFilter.NOT_ASSIGNED)
     private val selectedMessageId = MutableStateFlow<Long?>(null)
     private val undoRejectedMessageId = MutableStateFlow<Long?>(null)
     private val navigateToAddTransactionForMessageId = MutableStateFlow<Long?>(null)
@@ -94,6 +96,7 @@ class MessagesViewModel @Inject constructor(
     private val categoryFilter = MutableStateFlow<CategoryFilter>(CategoryFilter.Any)
     private val taxonomyFilter = MutableStateFlow<TaxonomyFilter>(TaxonomyFilter.Any)
     private val showFiltersSheet = MutableStateFlow(false)
+    private val undoConfirmMessageId = MutableStateFlow<Long?>(null)
 
     private val selectionState = combine(
         filter, selectedMessageId, undoRejectedMessageId, navigateToAddTransactionForMessageId, monthKey
@@ -116,6 +119,8 @@ class MessagesViewModel @Inject constructor(
             base.categories, base.categoryIdsByMessage, base.taxonomyByMessage,
             base.owedTotalByMessage, base.titleByMessage, amountByMessage
         )
+    }.combine(transactionRepository.observeAvoidableSourceMessageIds()) { lookups, avoidable ->
+        lookups.copy(avoidableMessageIds = avoidable)
     }
 
     val uiState: StateFlow<MessagesUiState> = combine(
@@ -140,7 +145,7 @@ class MessagesViewModel @Inject constructor(
             it.toRowUi(
                 lookups.categoryIdsByMessage, categoryById, lookups.taxonomyByMessage,
                 lookups.owedTotalByMessage, lookups.titleByMessage, lookups.amountByMessage,
-                duplicateOfId.containsKey(it.id)
+                lookups.avoidableMessageIds, duplicateOfId[it.id]?.let { otherId -> messageById[otherId] }
             )
         }
         MessagesUiState(
@@ -184,6 +189,11 @@ class MessagesViewModel @Inject constructor(
         state.copy(showClearMonthConfirm = showConfirm)
     }.combine(showFiltersSheet) { state, showFilters ->
         state.copy(showFiltersSheet = showFilters)
+    }.combine(undoConfirmMessageId) { state, undoId ->
+        state.copy(
+            undoConfirm = state.rows.firstOrNull { it.id == undoId }
+                ?.let { UndoConfirmPrompt(it.merchantOrBody, it.owedTotalText) }
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MessagesUiState())
 
     fun onFilterSelected(newFilter: MessageFilter) {
@@ -234,9 +244,13 @@ class MessagesViewModel @Inject constructor(
         viewModelScope.launch {
             val message = messageRepository.getById(id) ?: return@launch
             when (message.status) {
-                MessageStatus.NOT_ASSIGNED -> when (message.direction) {
-                    MessageDirection.DEBIT -> navigateToAddTransactionForMessageId.value = id
-                    MessageDirection.CREDIT -> messageRepository.setStatus(id, MessageStatus.ACCEPTED)
+                MessageStatus.NOT_ASSIGNED -> when {
+                    // Its match is already Confirmed: confirming this one as well would count the
+                    // payment twice, so show both messages first instead of going straight on.
+                    uiState.value.rows.firstOrNull { it.id == id }?.duplicateOfStatus == MessageStatus.ACCEPTED ->
+                        selectedMessageId.value = id
+                    message.direction == MessageDirection.DEBIT -> navigateToAddTransactionForMessageId.value = id
+                    else -> messageRepository.setStatus(id, MessageStatus.ACCEPTED)
                 }
                 MessageStatus.REJECTED -> messageRepository.setStatus(id, MessageStatus.NOT_ASSIGNED)
                 else -> Unit
@@ -245,13 +259,14 @@ class MessagesViewModel @Inject constructor(
     }
 
     /**
-     * Swipe left (EndToStart). Only Not assigned can move into Rejected, with undo. An Accepted
-     * debit message reverts to Not assigned by deleting its linked transaction (not just
-     * flipping the status - that would leave the transaction orphaned and re-crash the accept
-     * path). An Accepted credit message has no transaction at all, so it reverts with a direct
-     * status flip instead - deleteBySourceMessage would silently delete nothing and leave it
-     * permanently stranded as Accepted. Rejected is a no-op - only Not assigned can become
-     * Accepted or Rejected.
+     * Swipe left (EndToStart), run when its revealed button is tapped. Only To review can move
+     * into Rejected, with undo. Undoing a Confirmed debit message deletes its linked transaction
+     * (not just flipping the status - that would leave the transaction orphaned and re-crash the
+     * accept path), and the database takes the friend split with it with no way back, so this
+     * only asks first: the deletion happens in [onUndoConfirmConfirmed]. A Confirmed credit
+     * message has no transaction at all, so it reverts with a direct status flip instead -
+     * deleteBySourceMessage would silently delete nothing and leave it permanently stranded as
+     * Confirmed. Rejected is a no-op - only To review can become Confirmed or Rejected.
      */
     fun onSwipeEnd(id: Long) {
         viewModelScope.launch {
@@ -262,12 +277,29 @@ class MessagesViewModel @Inject constructor(
                     undoRejectedMessageId.value = id
                 }
                 MessageStatus.ACCEPTED -> when (message.direction) {
-                    MessageDirection.DEBIT -> transactionRepository.deleteBySourceMessage(id)
+                    MessageDirection.DEBIT -> undoConfirmMessageId.value = id
                     MessageDirection.CREDIT -> messageRepository.setStatus(id, MessageStatus.NOT_ASSIGNED)
                 }
                 else -> Unit
             }
         }
+    }
+
+    /** "Undo confirm" was tapped in the dialog. Re-checks the message first, in case it changed
+     *  while the dialog was open. */
+    fun onUndoConfirmConfirmed() {
+        val id = undoConfirmMessageId.value ?: return
+        undoConfirmMessageId.value = null
+        viewModelScope.launch {
+            val message = messageRepository.getById(id) ?: return@launch
+            if (message.status == MessageStatus.ACCEPTED && message.direction == MessageDirection.DEBIT) {
+                transactionRepository.deleteBySourceMessage(id)
+            }
+        }
+    }
+
+    fun onUndoConfirmDismissed() {
+        undoConfirmMessageId.value = null
     }
 
     fun onNavigationHandled() {
@@ -305,6 +337,19 @@ class MessagesViewModel @Inject constructor(
             }
         }
         selectedMessageId.value = null
+    }
+
+    /** Undo from the sheet: a Confirmed message asks first (same dialog as the swipe), a Rejected
+     *  one goes straight back to To review. */
+    fun onUndoFromDetail(id: Long) {
+        selectedMessageId.value = null
+        viewModelScope.launch {
+            when (messageRepository.getById(id)?.status) {
+                MessageStatus.ACCEPTED -> onSwipeEnd(id)
+                MessageStatus.REJECTED -> onSwipeStart(id)
+                else -> Unit
+            }
+        }
     }
 
     fun onRejectFromDetail(id: Long) {
@@ -417,7 +462,8 @@ class MessagesViewModel @Inject constructor(
         owedTotalByMessage: Map<Long, Money>,
         titleByMessage: Map<Long, String>,
         amountByMessage: Map<Long, Money>,
-        isPossibleDuplicate: Boolean
+        avoidableMessageIds: Set<Long>,
+        duplicateOf: SmsMessage?
     ): MessageRowUi {
         // Accepted shows its transaction's real category; Not assigned shows the keyword
         // suggestion (if any) in the same spot, so you can see what it'll be filed under before
@@ -472,9 +518,20 @@ class MessagesViewModel @Inject constructor(
             categoryEmoji = category?.emoji,
             categoryName = category?.name,
             taxonomyLabel = displayTaxonomy?.label,
-            isPossibleDuplicate = isPossibleDuplicate,
+            isPossibleDuplicate = duplicateOf != null,
+            duplicateOfLabel = duplicateOf?.let {
+                "${it.sender}, ${it.receivedAt.toTimeText()} · ${it.status.displayName()}"
+            },
+            duplicateOfStatus = duplicateOf?.status,
             categoryId = displayCategoryId,
-            taxonomy = displayTaxonomy
+            taxonomy = displayTaxonomy,
+            owedTotalText = owedTotal?.formatted(),
+            isAvoidable = status == MessageStatus.ACCEPTED && id in avoidableMessageIds,
+            spendPaise = if (status == MessageStatus.ACCEPTED && direction == MessageDirection.DEBIT && effectiveAmount != null) {
+                effectiveAmount.paise - (owedTotal?.paise ?: 0)
+            } else {
+                0
+            }
         )
     }
 }

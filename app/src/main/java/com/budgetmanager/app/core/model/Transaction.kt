@@ -26,5 +26,7 @@ data class Transaction(
     val owedTotal: Money = Money(0),
     val title: String? = null,
     /** Owed to You's "I've nudged about this" marker - see [TransactionEntity]'s doc comment. */
-    val reminded: Boolean = false
+    val reminded: Boolean = false,
+    /** Spend marked as avoidable at Add Transaction - see [TransactionEntity]'s doc comment. */
+    val avoidable: Boolean = false
 )

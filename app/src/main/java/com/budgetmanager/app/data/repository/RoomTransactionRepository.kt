@@ -33,6 +33,9 @@ class RoomTransactionRepository @Inject constructor(
         transactionDao.observeSpentByCategoryForMonth(monthKey.value)
             .map { rows -> rows.associate { it.categoryId to Money(it.total) } }
 
+    override fun observeAvoidableForMonth(monthKey: MonthKey): Flow<Money> =
+        transactionDao.observeAvoidableForMonth(monthKey.value).map { Money(it) }
+
     override fun observeCategoryIdsBySourceMessage(): Flow<Map<Long, Long>> =
         transactionDao.observeCategoryBySourceMessage()
             .map { rows -> rows.associate { it.messageId to it.categoryId } }
@@ -53,6 +56,9 @@ class RoomTransactionRepository @Inject constructor(
         transactionDao.observeAmountBySourceMessage()
             .map { rows -> rows.associate { it.messageId to Money(it.amountPaise) } }
 
+    override fun observeAvoidableSourceMessageIds(): Flow<Set<Long>> =
+        transactionDao.observeAvoidableSourceMessageIds().map { it.toSet() }
+
     override suspend fun getById(id: Long): Transaction? = transactionDao.getById(id)?.toDomain()
 
     override suspend fun insert(
@@ -63,7 +69,8 @@ class RoomTransactionRepository @Inject constructor(
         note: String?,
         taxonomy: TaxonomyType?,
         owedTotal: Money,
-        title: String?
+        title: String?,
+        avoidable: Boolean
     ): Long = transactionDao.insert(
         TransactionEntity(
             amountPaise = amount.paise,
@@ -74,7 +81,8 @@ class RoomTransactionRepository @Inject constructor(
             sourceMessageId = null,
             taxonomy = taxonomy,
             owedTotalPaise = owedTotal.paise,
-            title = title
+            title = title,
+            avoidable = avoidable
         )
     )
 
@@ -95,7 +103,8 @@ class RoomTransactionRepository @Inject constructor(
         note: String?,
         taxonomy: TaxonomyType?,
         owedTotal: Money,
-        title: String?
+        title: String?,
+        avoidable: Boolean
     ): Long = database.withTransaction {
         // source_message_id is unique - if a transaction is already linked to this message
         // (e.g. accepted once, then its status got out of sync some other way), update that one
@@ -111,7 +120,8 @@ class RoomTransactionRepository @Inject constructor(
                     note = note,
                     taxonomy = taxonomy,
                     owedTotalPaise = owedTotal.paise,
-                    title = title
+                    title = title,
+                    avoidable = avoidable
                 )
             )
             existing.id
@@ -126,7 +136,8 @@ class RoomTransactionRepository @Inject constructor(
                     sourceMessageId = message.id,
                     taxonomy = taxonomy,
                     owedTotalPaise = owedTotal.paise,
-                    title = title
+                    title = title,
+                    avoidable = avoidable
                 )
             )
         }
@@ -164,7 +175,8 @@ private fun TransactionEntity.toDomain() = Transaction(
     taxonomy = taxonomy,
     owedTotal = Money(owedTotalPaise),
     title = title,
-    reminded = reminded
+    reminded = reminded,
+    avoidable = avoidable
 )
 
 private fun Transaction.toEntity() = TransactionEntity(
@@ -178,5 +190,6 @@ private fun Transaction.toEntity() = TransactionEntity(
     taxonomy = taxonomy,
     owedTotalPaise = owedTotal.paise,
     title = title,
-    reminded = reminded
+    reminded = reminded,
+    avoidable = avoidable
 )

@@ -24,8 +24,8 @@ import com.budgetmanager.app.ui.theme.StatusColors
 fun StatusBadge(status: MessageStatus, modifier: Modifier = Modifier) {
     val (icon, label, color) = when (status) {
         MessageStatus.NOT_ASSIGNED ->
-            Triple(Icons.Default.Schedule, "Not assigned", MaterialTheme.colorScheme.onSurfaceVariant)
-        MessageStatus.ACCEPTED -> Triple(Icons.Default.Check, "Accepted", StatusColors.accepted)
+            Triple(Icons.Default.Schedule, "To review", MaterialTheme.colorScheme.onSurfaceVariant)
+        MessageStatus.ACCEPTED -> Triple(Icons.Default.Check, "Confirmed", StatusColors.accepted)
         MessageStatus.REJECTED -> Triple(Icons.Default.Close, "Rejected", StatusColors.overBudget)
     }
     StatusBadge(icon, label, color, modifier)

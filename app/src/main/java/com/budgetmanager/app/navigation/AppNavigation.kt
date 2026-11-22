@@ -212,6 +212,7 @@ fun AppNavigation() {
                         Destination.Home -> NavEntry(destination) {
                             HomeScreen(
                                 onNavigateToAddTransaction = { backStack.add(Destination.AddTransaction()) },
+                                onNavigateToMessages = { navigateToTopLevel(Destination.Messages) },
                                 onNavigateToCategoryDetail = { categoryId, categoryName, monthKey ->
                                     backStack.add(Destination.CategoryDetail(categoryId, categoryName, monthKey))
                                 },

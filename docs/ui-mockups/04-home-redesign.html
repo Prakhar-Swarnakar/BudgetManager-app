@@ -1,0 +1,147 @@
+<meta charset="UTF-8">
+<title>Budget Manager — proposed: Home redesign</title>
+<style>
+  :root {
+    --bg:#F0F3F7; --canvas-ink:#1C1B1F; --canvas-ink-muted:#5B6472; --canvas-grid:rgba(28,27,31,.05);
+    --proposed:#7A4FBF; --frame-shadow:rgba(28,27,31,.14); --card:#FFFFFF; --card-line:#E7E4EA;
+    --pbg:#FFFBFE; --surface:#FFFFFF; --s1:#F6F2F7; --s3:#E8E3EA;
+    --ink:#1C1B1F; --ink2:#49454F; --ink3:#79747E; --line:#E3DEE6;
+    --primary-c:#D6E6FA; --on-primary-c:#0B2F57;
+    --under:#2A78D6; --warn-bar:#EDA100; --over-bar:#E34948;
+    --under-t:#1F5FB0; --warn-t:#8A5A00; --over-t:#C53632;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#101013; --canvas-ink:#E6E1E5; --canvas-ink-muted:#9B96A3; --canvas-grid:rgba(255,255,255,.04);
+      --proposed:#B79AE0; --frame-shadow:rgba(0,0,0,.5); --card:#242329; --card-line:#38353E;
+      --pbg:#1C1B1F; --surface:#242329; --s1:#2B292F; --s3:#3A3740;
+      --ink:#E6E1E5; --ink2:#C9C4CF; --ink3:#938F99; --line:#38353E;
+      --primary-c:#254A75; --on-primary-c:#D6E6FA;
+      --under:#6FA3E8; --warn-bar:#E3A63D; --over-bar:#E8706C;
+      --under-t:#8DB7F0; --warn-t:#E3A63D; --over-t:#F08C88; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#101013; --canvas-ink:#E6E1E5; --canvas-ink-muted:#9B96A3; --canvas-grid:rgba(255,255,255,.04);
+    --proposed:#B79AE0; --frame-shadow:rgba(0,0,0,.5); --card:#242329; --card-line:#38353E;
+    --pbg:#1C1B1F; --surface:#242329; --s1:#2B292F; --s3:#3A3740;
+    --ink:#E6E1E5; --ink2:#C9C4CF; --ink3:#938F99; --line:#38353E;
+    --primary-c:#254A75; --on-primary-c:#D6E6FA;
+    --under:#6FA3E8; --warn-bar:#E3A63D; --over-bar:#E8706C;
+    --under-t:#8DB7F0; --warn-t:#E3A63D; --over-t:#F08C88; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); background-image:linear-gradient(var(--canvas-grid) 1px,transparent 1px),linear-gradient(90deg,var(--canvas-grid) 1px,transparent 1px); background-size:28px 28px; color:var(--canvas-ink); font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; font-variant-numeric:tabular-nums; padding:44px 28px 90px; }
+  .page-head { max-width:860px; margin:0 auto 32px; }
+  .eyebrow { font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--proposed); margin:0 0 10px; }
+  h1.title { font-size:28px; font-weight:700; letter-spacing:-.01em; margin:0 0 10px; text-wrap:balance; }
+  .page-head p { font-size:14.5px; line-height:1.6; color:var(--canvas-ink-muted); max-width:72ch; margin:0; }
+  .stage { max-width:860px; margin:0 auto; display:flex; gap:40px; flex-wrap:wrap; align-items:flex-start; justify-content:center; }
+  .side { flex:1 1 300px; max-width:380px; }
+  .side h3 { font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--canvas-ink-muted); margin:0 0 10px; }
+  .side ol { margin:0 0 24px; padding-left:20px; font-size:13.5px; line-height:1.65; color:var(--canvas-ink-muted); }
+  .side li b { color:var(--canvas-ink); }
+  .legend { background:var(--card); border:1px solid var(--card-line); border-radius:14px; padding:6px 14px; margin-bottom:24px; }
+  .lg { display:flex; gap:12px; align-items:center; padding:9px 0; font-size:13px; color:var(--canvas-ink-muted); }
+  .lg+.lg { border-top:1px solid var(--card-line); }
+  .lg b { display:block; color:var(--canvas-ink); font-size:13.5px; }
+  .sw { width:36px; height:8px; border-radius:4px; flex:none; }
+  .sw.under { background:var(--under); } .sw.warn { background:var(--warn-bar); } .sw.over { background:var(--over-bar); }
+  .flag { font-size:13px; line-height:1.55; color:var(--canvas-ink-muted); border-left:3px solid var(--proposed); padding:2px 0 2px 12px; margin:0; }
+
+  .phone { width:414px; border-radius:42px; padding:12px; background:linear-gradient(165deg,#3a3a40,#19181c); box-shadow:0 16px 34px var(--frame-shadow); flex:none; }
+  .screen { width:390px; height:844px; background:var(--pbg); border-radius:32px; overflow:hidden; position:relative; font:14px/1.43 Roboto,"Segoe UI",system-ui,sans-serif; color:var(--ink); }
+  .screen .ic { fill:currentColor; flex:none; }
+  .status { height:28px; display:flex; justify-content:space-between; align-items:center; padding:0 22px; font-size:13px; font-weight:500; }
+  .appbar { height:56px; display:flex; align-items:center; gap:8px; padding:0 4px; }
+  .iconbtn { width:48px; height:48px; display:grid; place-items:center; border-radius:24px; color:var(--ink2); }
+  .appbar h1 { font-size:22px; font-weight:400; margin:0; flex:1; }
+  .month { display:flex; align-items:center; justify-content:space-between; padding:0 4px; height:48px; }
+  .month b { font-size:16px; font-weight:500; }
+  .faint { color:var(--ink3); }
+  .content { padding:0 16px; height:calc(844px - 28px - 56px - 48px); overflow-y:auto; scrollbar-width:none; }
+  .content::-webkit-scrollbar { display:none; }
+  .total { padding:4px 0 14px; }
+  .total .lbl { font-size:12px; font-weight:500; letter-spacing:.4px; color:var(--ink2); }
+  .total .big { font-size:48px; line-height:56px; font-weight:400; letter-spacing:-.5px; margin-top:2px; }
+  .total .of { font-size:14px; color:var(--ink2); letter-spacing:0; margin-left:8px; }
+  .pbar { position:relative; margin-top:12px; }
+  .bar { height:6px; border-radius:3px; background:var(--s3); position:relative; overflow:hidden; }
+  .bar>i { position:absolute; inset:0 auto 0 0; border-radius:3px; background:var(--under); }
+  .bar.warn>i { background:var(--warn-bar); } .bar.over>i { background:var(--over-bar); }
+  .pbar.big .bar { height:12px; border-radius:6px; } .pbar.big .bar>i { border-radius:6px; }
+  .mark { position:absolute; top:-3px; bottom:-3px; width:2px; margin-left:-1px; background:var(--ink); border-radius:1px; }
+  .pbar.big .mark { top:-4px; bottom:-4px; }
+  .marklbl { position:absolute; top:20px; transform:translateX(-50%); font-size:11px; font-weight:500; color:var(--ink); }
+  .sub { display:flex; justify-content:space-between; margin-top:30px; font-size:13px; color:var(--ink2); }
+  .sub b { font-weight:500; }
+  .under-t { color:var(--under-t); } .warn-t { color:var(--warn-t); } .over-t { color:var(--over-t); }
+  .trio { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+  .trio>div { padding:10px 0 10px 12px; } .trio>div:first-child { padding-left:0; }
+  .trio>div+div { border-left:1px solid var(--line); }
+  .trio .k { font-size:12px; color:var(--ink2); } .trio .v { font-size:17px; font-weight:500; margin-top:2px; }
+  .trio .s { font-size:11px; color:var(--ink3); }
+  .review { display:flex; justify-content:space-between; align-items:center; margin-top:12px; height:44px; padding:0 14px; border-radius:12px; background:var(--primary-c); color:var(--on-primary-c); font-size:14px; font-weight:500; }
+  .content h2 { font-size:14px; font-weight:500; margin:18px 0 2px; color:var(--ink2); }
+  .row { display:grid; grid-template-columns:28px 1fr auto; column-gap:12px; align-items:center; padding:11px 0; border-bottom:1px solid var(--line); }
+  .row .e { font-size:20px; line-height:1; } .row .n { font-size:15px; }
+  .row .amt { text-align:right; font-size:16px; font-weight:500; line-height:20px; }
+  .row .amt small { display:block; font-size:12px; font-weight:400; color:var(--ink2); line-height:16px; }
+  .row .amt small.over-t { color:var(--over-t); }
+  .row .pbar { grid-column:1/4; margin-top:8px; }
+  .endpad { height:110px; }
+  .fab { position:absolute; right:16px; bottom:96px; width:56px; height:56px; border-radius:16px; background:var(--primary-c); color:var(--on-primary-c); display:grid; place-items:center; box-shadow:0 3px 6px rgba(0,0,0,.16),0 1px 2px rgba(0,0,0,.12); }
+  .nav { position:absolute; left:0; right:0; bottom:0; height:80px; background:var(--s1); display:flex; justify-content:space-around; align-items:flex-start; padding-top:12px; }
+  .nav>div { display:flex; flex-direction:column; align-items:center; gap:4px; font-size:12px; font-weight:500; color:var(--ink2); width:80px; }
+  .nav .pill { width:64px; height:32px; border-radius:16px; display:grid; place-items:center; }
+  .nav .on .pill { background:var(--primary-c); color:var(--on-primary-c); } .nav .on { color:var(--ink); }
+  .badge { position:relative; } .badge::after { content:""; position:absolute; top:10px; right:20px; width:6px; height:6px; border-radius:3px; background:var(--over-bar); }
+</style>
+<body>
+<div class="page-head">
+  <p class="eyebrow">Proposed</p>
+  <h1 class="title">Home redesign</h1>
+  <p>Built from the three Home sketches: the pace mark from "On pace", the big spent figure and three-part strip from "Ranked statement", and money left moved under the spent amount. All amounts are synthetic. The phone content scrolls so you can see every category.</p>
+</div>
+<div class="stage">
+  <div class="phone"><div class="screen">
+<div class="status"><span>9:41</span><span>5G ▮</span></div>
+<header class="appbar"><span class="iconbtn"><svg class="ic " width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></span><h1>Home</h1></header>
+<div class="month"><span class="iconbtn"><svg class="ic " width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></span><b>November 2026</b><span class="iconbtn faint"><svg class="ic " width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span></div>
+<main class="content">
+<section class="total"><div class="lbl">Spent this month</div>
+<div class="big">₹38,420<span class="of">of ₹45,000</span></div>
+<div class="pbar big"><div class="bar warn"><i style="width:85.4%"></i></div><span class="mark" style="left:66.7%"></span><span class="marklbl" style="left:66.7%">Today</span></div>
+<div class="sub"><span class="warn-t"><b>₹8,420 over pace for 20 Nov</b></span><span>₹6,580 left</span></div></section>
+<section class="trio">
+<div><div class="k">Avoidable</div><div class="v">₹6,150</div><div class="s">16% of spent</div></div>
+<div><div class="k">Cash on hand</div><div class="v">₹1,240</div><div class="s">Wallet</div></div>
+<div><div class="k">Owed to you</div><div class="v">₹2,300</div><div class="s">this month</div></div></section>
+<a class="review">3 messages to review <span>›</span></a>
+<h2>Categories</h2>
+<div class="row"><span class="e">🏠</span><span class="n">Rent</span><span class="amt">₹18,000<small class="">₹0 left</small></span><div class="pbar"><div class="bar warn"><i style="width:100.0%"></i></div><span class="mark" style="left:66.7%"></span></div></div><div class="row"><span class="e">🛒</span><span class="n">Groceries</span><span class="amt">₹6,480<small class="">₹1,520 left</small></span><div class="pbar"><div class="bar warn"><i style="width:81.0%"></i></div><span class="mark" style="left:66.7%"></span></div></div><div class="row"><span class="e">🍔</span><span class="n">Food & Dining</span><span class="amt">₹5,920<small class="over-t">₹920 over</small></span><div class="pbar"><div class="bar over"><i style="width:100.0%"></i></div><span class="mark" style="left:66.7%"></span></div></div><div class="row"><span class="e">💡</span><span class="n">Bills & Utilities</span><span class="amt">₹3,050<small class="">₹950 left</small></span><div class="pbar"><div class="bar warn"><i style="width:76.2%"></i></div><span class="mark" style="left:66.7%"></span></div></div><div class="row"><span class="e">🚗</span><span class="n">Transport</span><span class="amt">₹2,140<small class="">₹860 left</small></span><div class="pbar"><div class="bar warn"><i style="width:71.3%"></i></div><span class="mark" style="left:66.7%"></span></div></div><div class="row"><span class="e">🛍️</span><span class="n">Shopping</span><span class="amt">₹1,630<small class="">₹870 left</small></span><div class="pbar"><div class="bar under"><i style="width:65.2%"></i></div><span class="mark" style="left:66.7%"></span></div></div><div class="row"><span class="e">🎬</span><span class="n">Entertainment</span><span class="amt">₹1,200<small class="">₹800 left</small></span><div class="pbar"><div class="bar under"><i style="width:60.0%"></i></div><span class="mark" style="left:66.7%"></span></div></div><div class="row"><span class="e">💊</span><span class="n">Health</span><span class="amt">₹0<small class="">₹1,500 left</small></span><div class="pbar"><div class="bar under"><i style="width:0.0%"></i></div><span class="mark" style="left:66.7%"></span></div></div><div class="row"><span class="e">📦</span><span class="n">Other</span><span class="amt">₹0<small class="">₹1,000 left</small></span><div class="pbar"><div class="bar under"><i style="width:0.0%"></i></div><span class="mark" style="left:66.7%"></span></div></div>
+<div class="endpad"></div>
+</main>
+<div class="fab" aria-label="Add transaction"><svg class="ic " width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></div>
+<nav class="nav"><div class="on"><span class="pill"><svg class="ic " width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span>Home</div><div class="badge"><span class="pill"><svg class="ic " width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg></span>Messages</div><div><span class="pill"><svg class="ic " width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg></span>Trends</div><div><span class="pill"><svg class="ic " width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>Owed to you</div></nav>
+</div></div>
+  <div class="side">
+    <h3>What changed</h3>
+    <ol>
+      <li><b>Bigger spent figure.</b> The month's spend is the largest thing on screen, with its bar and a "Today" mark.</li>
+      <li><b>Pace sentence.</b> One plain line says how far ahead of or behind pace the month is, next to what is left.</li>
+      <li><b>Three sub-sections.</b> Avoidable, Cash on hand and Owed to you sit directly under the total.</li>
+      <li><b>Category rows.</b> The name stands alone; spent and "left" are stacked on the right. Each bar has the same unlabelled today mark.</li>
+      <li><b>Unchanged.</b> Month selector, every category shown, review line, bottom-right + button.</li>
+    </ol>
+    <h3>Bar colours (total and every category)</h3>
+    <div class="legend">
+<div class="lg"><i class="sw under"></i><div><b>Blue</b><span>Spent is at or below the today mark (under pace)</span></div></div>
+<div class="lg"><i class="sw warn"></i><div><b>Yellow</b><span>Past the today mark, still within budget</span></div></div>
+<div class="lg"><i class="sw over"></i><div><b>Red</b><span>Over budget</span></div></div>
+</div>
+    <p class="flag"><b>Needs new data:</b> Avoidable does not exist yet. It needs a flag per transaction or per category before this figure can show real numbers. Fixed costs get no special marking, so Rent paid early simply reads as ahead of pace.</p>
+  </div>
+</div>
+</body>

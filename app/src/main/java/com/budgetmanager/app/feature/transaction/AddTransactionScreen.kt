@@ -49,6 +49,7 @@ fun AddTransactionScreen(
         onAddTaxonomyToRuleToggled = viewModel::onAddTaxonomyToRuleToggled,
         onTaxonomyKeywordChanged = viewModel::onTaxonomyKeywordChanged,
         onNoteChanged = viewModel::onNoteChanged,
+        onAvoidableChanged = viewModel::onAvoidableChanged,
         onDateChanged = viewModel::onDateChanged,
         onCategorySelected = viewModel::onCategorySelected,
         onSplitToggled = viewModel::onSplitToggled,

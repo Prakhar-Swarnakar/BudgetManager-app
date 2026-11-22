@@ -49,5 +49,8 @@ data class TransactionEntity(
     /** Owed to You's "I've nudged about this" marker - transaction-level, not per friend, since
      *  a single GPay/Splitwise request commonly covers the whole group expense at once. Never
      *  touches settled state or the budget-counted amount. */
-    @ColumnInfo(defaultValue = "0") val reminded: Boolean = false
+    @ColumnInfo(defaultValue = "0") val reminded: Boolean = false,
+    /** Marked at Add Transaction as spend that could have been avoided - feeds Home's Avoidable
+     *  figure (your share only, like every budget amount). Never affects budgets or alerts. */
+    @ColumnInfo(defaultValue = "0") val avoidable: Boolean = false
 )

@@ -83,9 +83,11 @@ private fun MonthlyBudgetEntity.toBackup() = MonthlyBudgetBackup(id, monthKey, c
 private fun MonthlyBudgetBackup.toEntity() = MonthlyBudgetEntity(id, monthKey, categoryId, amountPaise)
 
 private fun TransactionEntity.toBackup() =
-    TransactionBackup(id, amountPaise, occurredAt, monthKey, categoryId, note, sourceMessageId)
+    TransactionBackup(id, amountPaise, occurredAt, monthKey, categoryId, note, sourceMessageId, avoidable)
 private fun TransactionBackup.toEntity() =
-    TransactionEntity(id, amountPaise, occurredAt, monthKey, categoryId, note, sourceMessageId)
+    TransactionEntity(
+        id, amountPaise, occurredAt, monthKey, categoryId, note, sourceMessageId, avoidable = avoidable
+    )
 
 private fun SmsMessageEntity.toBackup() = SmsMessageBackup(
     id, sender, body, receivedAt, smsProviderId, dedupeKey, parsedAmountPaise, merchant,

@@ -40,7 +40,7 @@ import com.budgetmanager.app.data.database.entity.TransactionSplitEntity
         TransactionSplitEntity::class,
         CashTopUpEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -162,6 +162,14 @@ abstract class AppDatabase : RoomDatabase() {
                         "occurred_at INTEGER NOT NULL, " +
                         "note TEXT)"
                 )
+            }
+        }
+
+        /** Adds the per-transaction "Avoidable" flag. Existing transactions read as not avoidable
+         *  (DEFAULT 0), which is right - nothing has been reviewed yet. */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN avoidable INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

@@ -61,6 +61,8 @@ class MessagesViewModelTest {
         categorySuggester: CategorySuggester = CategorySuggester(FakeKeywordRuleRepository()),
         taxonomySuggester: TaxonomySuggester = TaxonomySuggester(FakeTaxonomyKeywordRuleRepository())
     ) = MessagesViewModel(repo, transactions, scanner, categoryRepository(), categorySuggester, taxonomySuggester)
+        // The screen opens on To review, but nearly every test below looks at all of a month's rows.
+        .also { it.onFilterSelected(MessageFilter.ALL) }
 
     private fun testMessage(dedupeKey: String) = SmsMessage(
         id = 0, sender = "TESTBANK", body = "Rs 100 debited", receivedAt = Instant.now(),
@@ -73,6 +75,29 @@ class MessagesViewModelTest {
      *  messages placed in a specific month relative to [MonthKey.current]'s real one. */
     private fun instantIn(month: MonthKey, dayOfMonth: Int = 15): Instant =
         YearMonth.of(month.year, month.month).atDay(dayOfMonth).atStartOfDay(ZoneId.systemDefault()).toInstant()
+
+    @Test
+    fun `a fresh view model opens on To review and hides decided messages`() = runTest {
+        val repo = FakeMessageRepository()
+        val fresh = MessagesViewModel(
+            repo, FakeTransactionRepository(repo), FakeInboxScanner(), categoryRepository(),
+            CategorySuggester(FakeKeywordRuleRepository()), TaxonomySuggester(FakeTaxonomyKeywordRuleRepository())
+        )
+        val collector = fresh.uiState.onEach { }.launchIn(this)
+
+        val pendingId = repo.ingest(testMessage("k1"))!!
+        val confirmedId = repo.ingest(testMessage("k2"))!!
+        repo.updateStatus(confirmedId, MessageStatus.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(MessageFilter.NOT_ASSIGNED, fresh.uiState.value.filter)
+        assertEquals(listOf(pendingId), fresh.uiState.value.rows.map { it.id })
+
+        repo.updateStatus(pendingId, MessageStatus.REJECTED)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(fresh.uiState.value.rows.isEmpty())
+        collector.cancel()
+    }
 
     @Test
     fun `filter counts reflect message statuses`() = runTest {
@@ -227,9 +252,138 @@ class MessagesViewModelTest {
         viewModel.onSwipeEnd(id)
         dispatcher.scheduler.advanceUntilIdle()
 
+        // Asks first: nothing is deleted until the dialog is confirmed.
+        assertEquals(MessageStatus.ACCEPTED, repo.getById(id)!!.status)
+        assertEquals("Test Store", viewModel.uiState.value.undoConfirm?.title)
+
+        viewModel.onUndoConfirmConfirmed()
+        dispatcher.scheduler.advanceUntilIdle()
+
         assertEquals(MessageStatus.NOT_ASSIGNED, repo.getById(id)!!.status)
         assertNull(transactions.getById(transactionId))
+        assertNull(viewModel.uiState.value.undoConfirm)
         collector.cancel()
+    }
+
+    @Test
+    fun `undo from the sheet closes it and asks first for a Confirmed spend`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+        val id = repo.ingest(testMessage("k1"))!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        transactions.saveFromMessage(
+            message = repo.getById(id)!!, amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test"
+        )
+        viewModel.onRowClick(id)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onUndoFromDetail(id)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.selectedMessage)
+        assertEquals("Test Store", viewModel.uiState.value.undoConfirm?.title)
+        assertEquals(MessageStatus.ACCEPTED, repo.getById(id)!!.status)
+        collector.cancel()
+    }
+
+    @Test
+    fun `undo from the sheet puts a Rejected message straight back to To review`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val id = repo.ingest(testMessage("k1"))!!
+        repo.updateStatus(id, MessageStatus.REJECTED)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onUndoFromDetail(id)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(MessageStatus.NOT_ASSIGNED, repo.getById(id)!!.status)
+        collector.cancel()
+    }
+
+    @Test
+    fun `cancelling the undo dialog keeps the transaction and the Confirmed status`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+        val id = repo.ingest(testMessage("k1"))!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val transactionId = transactions.saveFromMessage(
+            message = repo.getById(id)!!, amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test"
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSwipeEnd(id)
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.onUndoConfirmDismissed()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.undoConfirm)
+        assertEquals(MessageStatus.ACCEPTED, repo.getById(id)!!.status)
+        assertEquals(transactionId, transactions.getById(transactionId)?.id)
+        collector.cancel()
+    }
+
+    @Test
+    fun `the undo dialog names the friend amount for a split spend`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+        val id = repo.ingest(testMessage("k1").copy(parsedAmount = Money.ofRupees(3300)))!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        transactions.saveFromMessage(
+            message = repo.getById(id)!!, amount = Money.ofRupees(3300), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test", owedTotal = Money.ofRupees(2200)
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSwipeEnd(id)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val prompt = viewModel.uiState.value.undoConfirm!!
+        assertEquals(Money.ofRupees(2200).formatted(), prompt.owedText)
+        assertTrue(prompt.message().contains("friends owe you"))
+        collector.cancel()
+    }
+
+    @Test
+    fun `confirming the undo dialog does nothing if the message is no longer Confirmed`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+        val id = repo.ingest(testMessage("k1"))!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val transactionId = transactions.saveFromMessage(
+            message = repo.getById(id)!!, amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test"
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+        viewModel.onSwipeEnd(id)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        repo.updateStatus(id, MessageStatus.REJECTED)
+        viewModel.onUndoConfirmConfirmed()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(transactionId, transactions.getById(transactionId)?.id)
+        collector.cancel()
+    }
+
+    @Test
+    fun `the undo dialog wording names the transaction and, when split, what friends owe`() {
+        assertEquals(
+            "This deletes the transaction “Dinner at Toit”. The message goes back to To review.",
+            UndoConfirmPrompt("Dinner at Toit", null).message()
+        )
+        assertEquals(
+            "This deletes the transaction “Dinner at Toit” and the ₹2,200 friends owe you for it. " +
+                "The message goes back to To review.",
+            UndoConfirmPrompt("Dinner at Toit", "₹2,200").message()
+        )
     }
 
     @Test
@@ -335,6 +489,39 @@ class MessagesViewModelTest {
         val row = viewModel.uiState.value.rows.first { it.id == id }
         assertEquals(Money.ofRupees(350).formatted(), row.amountText)
         assertEquals(Money.ofRupees(900).formatted(), row.splitTotalText)
+        collector.cancel()
+    }
+
+    @Test
+    fun `a Confirmed row counts only your share as spend, and shows the Avoidable mark`() = runTest {
+        val repo = FakeMessageRepository()
+        val transactions = FakeTransactionRepository(repo)
+        val viewModel = viewModel(repo, transactions)
+
+        val splitId = repo.ingest(testMessage("k1").copy(parsedAmount = Money.ofRupees(900)))!!
+        val plainId = repo.ingest(testMessage("k2"))!!
+        val pendingId = repo.ingest(testMessage("k3"))!!
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+
+        transactions.saveFromMessage(
+            message = repo.getById(splitId)!!, amount = Money.ofRupees(900), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test", owedTotal = Money.ofRupees(550),
+            avoidable = true
+        )
+        transactions.saveFromMessage(
+            message = repo.getById(plainId)!!, amount = Money.ofRupees(100), occurredAt = Instant.now(),
+            monthKey = MonthKey.of(2026, 9), categoryId = 1, note = "Test"
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val rows = viewModel.uiState.value.rows.associateBy { it.id }
+        assertEquals(Money.ofRupees(350).paise, rows.getValue(splitId).spendPaise)
+        assertTrue(rows.getValue(splitId).isAvoidable)
+        assertEquals(Money.ofRupees(100).paise, rows.getValue(plainId).spendPaise)
+        assertTrue(!rows.getValue(plainId).isAvoidable)
+        // A message still To review is not a spend yet, and cannot be Avoidable.
+        assertEquals(0L, rows.getValue(pendingId).spendPaise)
+        assertTrue(!rows.getValue(pendingId).isAvoidable)
         collector.cancel()
     }
 
@@ -491,6 +678,114 @@ class MessagesViewModelTest {
         val rows = viewModel.uiState.value.rows.associateBy { it.id }
         assertTrue(rows[bankId]!!.isPossibleDuplicate)
         assertTrue(rows[upiAppId]!!.isPossibleDuplicate)
+        collector.cancel()
+    }
+
+    /** Two messages for the same payment from different senders a minute apart. */
+    private suspend fun ingestPair(repo: FakeMessageRepository): Pair<Long, Long> {
+        val now = Instant.now()
+        val bankId = repo.ingest(testMessage("k1").copy(sender = "AX-SBICRD-S", receivedAt = now))!!
+        val upiAppId = repo.ingest(testMessage("k2").copy(sender = "VM-GOOGLEPAY", receivedAt = now.plusSeconds(60)))!!
+        return bankId to upiAppId
+    }
+
+    @Test
+    fun `a To review message whose match is Confirmed is flagged, saying what the match is`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val (bankId, upiAppId) = ingestPair(repo)
+        repo.updateStatus(upiAppId, MessageStatus.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == bankId }
+        assertTrue(row.isPossibleDuplicate)
+        assertEquals(MessageStatus.ACCEPTED, row.duplicateOfStatus)
+        assertTrue(row.duplicateOfLabel!!.startsWith("VM-GOOGLEPAY, "))
+        assertTrue(row.duplicateOfLabel!!.endsWith("Confirmed"))
+        // The Confirmed half shows the line too, naming the message that is still to review.
+        val other = viewModel.uiState.value.rows.first { it.id == upiAppId }
+        assertTrue(other.isPossibleDuplicate)
+        assertTrue(other.duplicateOfLabel!!.endsWith("To review"))
+        collector.cancel()
+    }
+
+    @Test
+    fun `rows still show the duplicate line when the match was rejected, naming its status`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val (bankId, upiAppId) = ingestPair(repo)
+        repo.updateStatus(upiAppId, MessageStatus.REJECTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val rows = viewModel.uiState.value.rows.associateBy { it.id }
+        assertTrue(rows.getValue(bankId).isPossibleDuplicate)
+        assertTrue(rows.getValue(bankId).duplicateOfLabel!!.endsWith("Rejected"))
+        assertTrue(rows.getValue(upiAppId).isPossibleDuplicate)
+        assertTrue(rows.getValue(upiAppId).duplicateOfLabel!!.endsWith("To review"))
+        collector.cancel()
+    }
+
+    @Test
+    fun `a message that matches nothing has no duplicate line`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val id = repo.ingest(testMessage("k1"))!!
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val row = viewModel.uiState.value.rows.first { it.id == id }
+        assertTrue(!row.isPossibleDuplicate)
+        assertNull(row.duplicateOfLabel)
+        collector.cancel()
+    }
+
+    @Test
+    fun `two Confirmed matching messages are both flagged`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val (bankId, upiAppId) = ingestPair(repo)
+        repo.updateStatus(bankId, MessageStatus.ACCEPTED)
+        repo.updateStatus(upiAppId, MessageStatus.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.rows.all { it.isPossibleDuplicate })
+        collector.cancel()
+    }
+
+    @Test
+    fun `swipe start on a message whose match is Confirmed opens its details instead of Add Transaction`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val (bankId, upiAppId) = ingestPair(repo)
+        repo.updateStatus(upiAppId, MessageStatus.ACCEPTED)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSwipeStart(bankId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.navigateToAddTransactionForMessageId)
+        assertEquals(bankId, viewModel.uiState.value.selectedMessage?.id)
+        assertEquals(MessageStatus.NOT_ASSIGNED, repo.getById(bankId)!!.status)
+        collector.cancel()
+    }
+
+    @Test
+    fun `swipe start on a message whose match is still To review goes to Add Transaction as usual`() = runTest {
+        val repo = FakeMessageRepository()
+        val viewModel = viewModel(repo)
+        val collector = viewModel.uiState.onEach { }.launchIn(this)
+        val (bankId, _) = ingestPair(repo)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSwipeStart(bankId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(bankId, viewModel.uiState.value.navigateToAddTransactionForMessageId)
+        assertNull(viewModel.uiState.value.selectedMessage)
         collector.cancel()
     }
 
@@ -723,7 +1018,9 @@ class MessagesViewModelTest {
         viewModel.onSwipeEnd(id)
         dispatcher.scheduler.advanceUntilIdle()
 
+        // Money in has no transaction to lose, so it undoes straight away with no dialog.
         assertEquals(MessageStatus.NOT_ASSIGNED, repo.getById(id)!!.status)
+        assertNull(viewModel.uiState.value.undoConfirm)
         collector.cancel()
     }
 

@@ -1,6 +1,5 @@
 package com.budgetmanager.app.domain
 
-import com.budgetmanager.app.core.model.MessageStatus
 import com.budgetmanager.app.core.model.SmsMessage
 import java.time.Duration
 
@@ -11,8 +10,9 @@ import java.time.Duration
  * this looks for two *different* messages, from different senders, that still look like the same
  * spend (06-backlog.md, "Duplicate detection").
  *
- * Only Not assigned messages are considered - once a message has been Accepted or Rejected the
- * user has already decided, and flagging it again is just noise.
+ * Messages of every status are compared, because a pair is only risky once you know what was
+ * decided about each half: a still-open message that matches an already Confirmed one is the
+ * "counted twice" case. What to show for each pairing is the screen's call (see DuplicateNote).
  */
 object DetectPossibleDuplicates {
     private val timeWindow: Duration = Duration.ofMinutes(10)
@@ -22,10 +22,10 @@ object DetectPossibleDuplicates {
     operator fun invoke(messages: List<SmsMessage>): Map<Long, Long> {
         // Bucketed by amount first: a match requires the two amounts to be exactly equal, so
         // messages of different amounts can never pair up and comparing across buckets is wasted
-        // work. Messages runs this over every message it has on each emission, which was
-        // quadratic in the whole Not assigned backlog rather than in one amount's worth of it.
+        // work. Messages runs this over every message it has on each emission, which would be
+        // quadratic in the whole history rather than in one amount's worth of it.
         val byAmount = messages
-            .filter { it.status == MessageStatus.NOT_ASSIGNED && it.parsedAmount != null }
+            .filter { it.parsedAmount != null }
             .groupBy { it.parsedAmount }
         val bestMatch = mutableMapOf<Long, Pair<Long, Duration>>()
 

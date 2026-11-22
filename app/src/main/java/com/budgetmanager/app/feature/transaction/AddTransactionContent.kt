@@ -1,6 +1,9 @@
 package com.budgetmanager.app.feature.transaction
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,6 +56,7 @@ fun AddTransactionContent(
     onAddTaxonomyToRuleToggled: (Boolean) -> Unit,
     onTaxonomyKeywordChanged: (String) -> Unit,
     onNoteChanged: (String) -> Unit,
+    onAvoidableChanged: (Boolean) -> Unit,
     onDateChanged: (java.time.LocalDate) -> Unit,
     onCategorySelected: (Long) -> Unit,
     onSplitToggled: (Boolean) -> Unit,
@@ -182,7 +186,29 @@ fun AddTransactionContent(
             DateField(date = state.date, onDateChanged = onDateChanged)
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = state.avoidable,
+                    role = Role.Checkbox,
+                    onValueChange = onAvoidableChanged
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(checked = state.avoidable, onCheckedChange = null)
+            Column(modifier = Modifier.padding(start = 12.dp)) {
+                Text("Avoidable spend", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Counts toward Home's Avoidable figure",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = state.note,
             onValueChange = onNoteChanged,

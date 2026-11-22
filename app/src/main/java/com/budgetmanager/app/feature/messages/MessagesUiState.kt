@@ -8,8 +8,9 @@ import com.budgetmanager.app.core.model.SmsMessage
 import com.budgetmanager.app.core.model.TaxonomyType
 import java.time.Instant
 
-/** Order matches the filter chips in 04-messages-and-notifications.md: All, Not assigned, Accepted, Rejected. */
-enum class MessageFilter { ALL, NOT_ASSIGNED, ACCEPTED, REJECTED }
+/** Chip order on screen: To review, Confirmed, Rejected, All. The names are the stored statuses;
+ *  the on-screen words are in MessagesContent (NOT_ASSIGNED = "To review", ACCEPTED = "Confirmed"). */
+enum class MessageFilter { NOT_ASSIGNED, ACCEPTED, REJECTED, ALL }
 
 /** Category filter, independent of (stacks with) the status filter above - 06-backlog.md,
  *  "Richer Messages filters". A plain nullable id can't tell "any category is fine" apart from
@@ -57,18 +58,39 @@ data class MessageRowUi(
     /** True when another Not assigned message looks like it could be the same real payment -
      *  same amount, different sender, within a few minutes (DetectPossibleDuplicates). */
     val isPossibleDuplicate: Boolean = false,
+    /** What the row's amber line says it matches, e.g. "VM-PAYTMB, 12:06 · Confirmed". Null when
+     *  the message matches nothing. Set whatever has been decided about either message. */
+    val duplicateOfLabel: String? = null,
+    /** The status of the message this one matches. */
+    val duplicateOfStatus: MessageStatus? = null,
     /** The resolved value behind [categoryEmoji]/[categoryName] - an Accepted row's real
      *  transaction category id, or a Not assigned row's keyword suggestion, same status gating.
      *  Filtering needs this id directly rather than re-deriving it from the raw message a second
      *  time (06-backlog.md, "Richer Messages filters"). */
     val categoryId: Long? = null,
     /** Same idea as [categoryId], for [taxonomyLabel]. */
-    val taxonomy: TaxonomyType? = null
+    val taxonomy: TaxonomyType? = null,
+    /** How much friends owe you for this spend, once Confirmed and split - "₹2,200". */
+    val owedTotalText: String? = null,
+    /** True once Confirmed, when the linked transaction is marked Avoidable. */
+    val isAvoidable: Boolean = false,
+    /** Your share of this spend in paise - set only for a Confirmed debit, 0 otherwise. The day
+     *  header adds these up, so a split bill counts only what you actually paid. */
+    val spendPaise: Long = 0
 )
+
+/** The "Undo confirm?" question for a Confirmed money-out message. Undoing deletes its transaction
+ *  (and the friend split with it), so the dialog names exactly what goes. */
+data class UndoConfirmPrompt(val title: String, val owedText: String?) {
+    fun message(): String =
+        "This deletes the transaction “$title”" +
+            (if (owedText != null) " and the $owedText friends owe you for it" else "") +
+            ". The message goes back to To review."
+}
 
 data class MessagesUiState(
     val isLoading: Boolean = true,
-    val filter: MessageFilter = MessageFilter.ALL,
+    val filter: MessageFilter = MessageFilter.NOT_ASSIGNED,
     /** Null means both directions - stacks with [filter] (AND across dimensions), not a
      *  replacement for it (06-backlog.md, "Richer Messages filters"). */
     val directionFilter: MessageDirection? = null,
@@ -101,5 +123,7 @@ data class MessagesUiState(
     val undoRejectedMessageId: Long? = null,
     val navigateToAddTransactionForMessageId: Long? = null,
     /** True while the "Clear month" confirmation dialog is open. */
-    val showClearMonthConfirm: Boolean = false
+    val showClearMonthConfirm: Boolean = false,
+    /** Set while the "Undo confirm?" dialog is open. */
+    val undoConfirm: UndoConfirmPrompt? = null
 )
